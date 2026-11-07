@@ -1,0 +1,11 @@
+# Normalise text files to LF in the working tree on every platform.
+#
+# The migration applier checksums the file text and the SQL migrations are
+# compared against the live schema, so the line endings must not depend on the
+# contributor's operating system. Git's `core.autocrlf` would otherwise turn
+# every file into CRLF on Windows and into LF on Linux.
+* text=auto eol=lf
+
+# Windows batch files need CRLF to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf
