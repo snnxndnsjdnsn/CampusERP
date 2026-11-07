@@ -13,7 +13,7 @@
  "counts": {
   "tables": 222,
   "views": 10,
-  "functions": 420,
+  "functions": 421,
   "triggers": 140,
   "policies": 594,
   "rls_tables": 216,
@@ -22,12 +22,12 @@
   "domains": 6,
   "enums": 0,
   "composites": 233,
-  "grants": 6223
+  "grants": 6227
  },
  "public": {
   "tables": 213,
   "views": 10,
-  "functions": 274,
+  "functions": 275,
   "triggers": 140,
   "policies": 594,
   "rls_tables": 213,
@@ -25383,6 +25383,9 @@
    "public.result_term_sheet(p_offering_id bigint)": {
     "definition_sha256": "f572bb2353630246fabff4fe5dc9be23a876c8317efdc5ef61944f4c19e375b9"
    },
+   "public.schema_indexes(p_scope text)": {
+    "definition_sha256": "0506c92b75aacbd990cda6004624e1b4c83e5565c76215aae0eac1b86b8c459a"
+   },
    "public.section_delete(p_kind text, p_parent_id bigint, p_section text, p_id bigint)": {
     "definition_sha256": "127b2fa128b1b21aecc9aca741cdd97a2bdcc38ff557315b9694a10f17e6f23f"
    },
@@ -44560,6 +44563,18 @@
     "grantable": false
    },
    "public.room_room_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.schema_indexes(p_scope text).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "public.schema_indexes(p_scope text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.schema_indexes(p_scope text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.schema_indexes(p_scope text).service_role.EXECUTE": {
     "grantable": false
    },
    "public.scholarship_scheme.postgres.DELETE": {

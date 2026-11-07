@@ -1,8 +1,8 @@
 # Navigation
 
 `src/lib/nav.ts` is the **single source of truth** for the sidebar. It exports
-`NAV_GROUPS` (21 groups, 29 group routes and 15 staff sub-module children),
-`NAV_ITEMS` (the flat view, 44 routes), the visibility helpers and `NAV_PARENTS`.
+`NAV_GROUPS` (27 groups, 35 group routes and 15 staff sub-module children),
+`NAV_ITEMS` (the flat view, 50 routes), the visibility helpers and `NAV_PARENTS`.
 Nothing else in the application may declare a route order or a group label.
 
 The same file is the contract for page builders: a route may only appear in the
@@ -31,25 +31,31 @@ added if the schema's numbered module structure supports it.
 | 16 | `iam` | 15 · Access & audit | IAM, AUDIT | `/admin/users`, `/audit` | `/admin/users` = module `IAM`; `/audit` = module `AUDIT` | yes |
 | 17 | `hr` | 16 · Employee HR | — | `/my-hr` | `employeeOnly` | yes |
 | 18 | `finance` | 17 · Fees & finance | FEES | `/finance` | module `FEES` | yes |
-| 19 | `staff` | 19 · Staff profile & research | STAFF_PROFILE | `/staff-profile` + 15 sub-module children (modules 20–34) | module `STAFF_PROFILE` | yes |
-| 20 | `activities` | 40 · Student activities | STUDENT | `/activities` | module `STUDENT` **or** `alsoStudent` | yes |
-| 21 | `account` | Account | — | `/settings` | ungated | yes |
+| 19 | `schema` | 18 · Performance indexes & storage | IAM | `/schema/18` | module `IAM` | yes |
+| 20 | `staff` | 19 · Staff profile & research | STAFF_PROFILE | `/staff-profile` + 15 sub-module children (modules 20–34) | module `STAFF_PROFILE` | yes |
+| 21 | `seed` | 35 · Seed reference data | IAM, STAFF_PROFILE | `/schema/35` | module `IAM` **or** `STAFF_PROFILE` | yes |
+| 22 | `rbac` | 36 · Staff profile RBAC registration | IAM | `/schema/36` | module `IAM` | yes |
+| 23 | `reporting` | 37 · Reporting & search views | REPORTING | `/reporting` | module `REPORTING` | yes |
+| 24 | `staff-index` | 38 · Staff profile performance indexes | STAFF_PROFILE, IAM | `/schema/38` | module `STAFF_PROFILE` **or** `IAM` | yes |
+| 25 | `integrity` | 39 · Data-integrity notes | IAM, AUDIT | `/schema/39` | module `IAM` **or** `AUDIT` | yes |
+| 26 | `activities` | 40 · Student activities | STUDENT | `/activities` | module `STUDENT` **or** `alsoStudent` | yes |
+| 27 | `account` | Account | — | `/settings` | ungated | yes |
 
-The group order is the schema's numbered module order — `1..17`, then `19`, then
-`40` — with `Overview` and `Account` as bookends.
+The group order is the schema's numbered module order — `1..19`, then `35..39`,
+then `40` — with `Overview` and `Account` as bookends.
 
 The MySQL source has **42 numbered sections covering 40 module numbers** (`17A`
-is a sub-module of 17, and `18` appears twice). The other 21 sections are not
+is a sub-module of 17, and `18` appears twice). The other 16 sections are not
 groups of their own:
 
 | Bucket | Sections | Count | Where they are |
 |---|---|---|---|
-| Own a screen | 1–17, 19, 40 | 19 | the numbered groups above |
+| Own a screen | 1–17, 18, 18, 19, 35, 36, 37, 38, 39, 40 | 26 | the numbered groups above |
 | Staff-profile sub-modules | 20–34 | 15 | children of the `staff` group — see below |
-| Infrastructure | 17A, 18, 18, 35, 36, 38, 39 | 7 | triggers, indexes, seed rows, RBAC rows and notes; no screen |
-| Reporting | 37 | 1 | functions only, no screen — the documented gap G-1 |
+| Infrastructure | 17A | 1 | the cross-row enforcement triggers; no screen |
 
-19 + 15 + 7 + 1 = 42.
+26 + 15 + 1 = 42. Every module number from `1` to `40` is now reachable from
+the sidebar.
 
 ## The staff sub-modules (20–34)
 
@@ -108,11 +114,58 @@ mobile bar. Children are gated exactly like group items — all fifteen carry
 `module: 'STAFF_PROFILE'`, so they appear and disappear together with their
 parent screen.
 
-The active state is **deepest-match-wins** (`activeHref()` in
+The active state is **deepest-match-wins** (`activeItem()` in
 `src/components/app-shell.tsx`): the longest matching href is the current one.
 `/staff-profile/publication` therefore marks the sub-module, not
 `/staff-profile`. The same rule fixes `/admin/users/new` versus
 `/admin/users`.
+
+## The infrastructure modules (18, 35–39)
+
+Six modules of the MySQL source are infrastructure rather than business
+screens. They have no table of their own that a user would "work in", but each
+one has real objects in the database, so each one now has a screen of its own
+and its own number in the sidebar.
+
+| Module | Address | Screen | Gate |
+|---|---|---|---|
+| 18 · Performance indexes | `/schema/18` | the index catalogue of the public schema, and the file-storage metadata of `file_object` | `IAM` |
+| 35 · Seed reference data | `/schema/35` | the seeded lookup vocabulary — publication types, journal types, indexing agencies, metric types, funding types, activity types and the rest | `IAM` **or** `STAFF_PROFILE` |
+| 36 · Staff profile RBAC registration | `/schema/36` | the `STAFF_PROFILE` access module, its resources, its permissions and the roles that hold them | `IAM` |
+| 37 · Reporting & search views | `/reporting` | the ten reporting and search views, the live `global_search` and the two activity reports | `REPORTING` |
+| 38 · Staff profile performance indexes | `/schema/38` | the index catalogue restricted to the staff-profile tables | `STAFF_PROFILE` **or** `IAM` |
+| 39 · Data-integrity notes | `/schema/39` | the fourteen integrity rules the service layer enforces | `IAM` **or** `AUDIT` |
+
+Modules 18, 35, 36 and 39 are served by one dynamic route,
+`src/app/(app)/schema/[module]/page.tsx`; module 37 has a screen of its own at
+`/reporting`, because it is a working screen rather than a catalogue.
+
+**The gates are the point.** These six groups are the first ones whose
+visibility is not simply "the module that owns the screen". A faculty member
+sees 35, 37 and 38 but not 18, 36 or 39; a head of department sees 39 as well,
+because `AUDIT` is in their readable modules; a student sees none of them. The
+super administrator sees all six.
+
+Module 37 is the one that closes the old gap G-1: `REPORTING` was a seeded
+`access_module` code that no navigation entry used, so the reporting module had
+no screen at all. It has one now, and `REPORTING` is no longer on the unit
+test's allowlist of seeded-but-unused codes.
+
+### The index catalogue
+
+`pg_indexes` lives in `pg_catalog`, so PostgREST cannot expose it and the
+browser cannot read it. Migration `065_schema_indexes.sql` adds one read-only
+function that is the only door to it:
+
+```sql
+public.schema_indexes(p_scope text DEFAULT NULL)
+```
+
+`p_scope` is `'all'` (every index in the public schema, needs `IAM.ALL.READ`)
+or `'staff'` (only the tables that carry a `STAFF_PROFILE.*` row-level-security
+policy, needs `STAFF_PROFILE.ALL.READ`). The function is `SECURITY DEFINER`
+because `pg_indexes` is not readable by the `authenticated` role; the
+permission check inside it is the gate.
 
 ## Visibility rules
 
@@ -225,17 +278,19 @@ export const NAV_PARENTS: Record<string, string> = { '/admin/mfa-policy': '/admi
 
 ## How `tests/unit/nav-connectivity.test.ts` enforces the wiring
 
-The unit test is the guard that keeps the sidebar honest. It has seven assertions.
+The unit test is the guard that keeps the sidebar honest. It has nine assertions.
 
 | # | Assertion | What it proves | How |
 |---|---|---|---|
 | 1 | every nav href resolves to an existing app route | No dead links | For each `NAV_ITEMS` href, `routeExists()` walks the address under `src/app/(app)` and must land on a `page.tsx`. A literal folder that has no page of its own is followed, and a `[param]` folder is accepted when no literal one exists — so `/staff-profile/publication` resolves to `staff-profile/[section]/page.tsx`. The failure message lists every broken href. |
 | 2 | every nav module is seeded as an `access_module` row | The sidebar's gate exists in the database | Parses every `supabase/migrations/*.sql` for `INSERT INTO access_module (...) VALUES (...);`, reads the `module_code` column by position (the schema qualifier and the column list are optional, tuples are split on top-level commas only), and requires every code used by the nav to be present. |
-| 3 | every seeded `access_module` is used by navigation or explicitly allowlisted | No orphaned access codes | The reverse direction. The allowlist is exactly `TEACHING`, `REPORTING`, `COMMUNICATION`. `TEACHING` has no screen of its own (its screens live inside the registration and attendance flows), `REPORTING` has no screen yet, and `COMMUNICATION` is the intentionally ungated announcement feed. |
-| 4 | every nav href has a sidebar icon | No blank icons | `ICONS` in `src/components/app-shell.tsx` must have an entry for every href. `ICONS` has 45 entries, covering all 44 nav hrefs plus `/results/grades`. |
-| 5 | `NAV_GROUPS` stay in the canonical database module order | The sidebar keeps following the schema | The group id list is compared against a hard-coded array of the 21 ids in order. Adding, removing or reordering a group fails the test. |
+| 3 | every seeded `access_module` is used by navigation or explicitly allowlisted | No orphaned access codes | The reverse direction. The allowlist is exactly `TEACHING`, `COMMUNICATION`. `TEACHING` has no screen of its own (its screens live inside the registration and attendance flows), and `COMMUNICATION` is the intentionally ungated announcement feed. |
+| 4 | every nav href has a sidebar icon | No blank icons | `ICONS` in `src/components/app-shell.tsx` must have an entry for every href. `ICONS` has 51 entries, covering all 50 nav hrefs plus `/results/grades`. |
+| 5 | `NAV_GROUPS` stay in the canonical database module order | The sidebar keeps following the schema | The group id list is compared against a hard-coded array of the 27 ids in order. Adding, removing or reordering a group fails the test. |
 | 6 | the staff group carries every research sub-module, 20 to 34 | The module numbering is complete | The `staff` group's `children` must be exactly the 15 addresses in `STAFF_SECTIONS`, their labels must start with the module numbers `20`…`34` in order, and every child must be gated by `STAFF_PROFILE`. |
 | 7 | every staff sub-module address is a known section | No dead sub-module | Each child address must map to a section in `STAFF_SECTIONS`, so a typo cannot reach the sidebar. |
+| 8 | an address that no route serves is rejected | The route check is not vacuous | `routeExists()` must answer `false` for an address no page serves and `true` for a real one, so a broken matcher cannot make assertion 1 pass. |
+| 9 | the six new schema screens are wired into the sidebar | The modules that had no screen now have one | For each of modules 18, 35, 36, 37, 38 and 39 the group must exist, carry the module's number in its label, hold exactly one item, point at the right address and be gated on the right access_module code(s). |
 
 The test also carries the two SQL helpers `splitTopLevelTuples` and
 `splitTopLevel`, which split a `VALUES` body on commas that are not inside a
@@ -244,17 +299,19 @@ columns.
 
 ### Current result
 
-All seven assertions hold against the current tree.
+All nine assertions hold against the current tree.
 
 | Assertion | Result |
 |---|---|
-| 1 - every nav href resolves | **44 / 44.** Every href in `NAV_ITEMS` resolves to a `page.tsx`; the 15 sub-module addresses share `staff-profile/[section]/page.tsx`. |
+| 1 - every nav href resolves | **50 / 50.** Every href in `NAV_ITEMS` resolves to a `page.tsx`; the 15 sub-module addresses share `staff-profile/[section]/page.tsx`. |
 | 2 - every nav module is seeded | **Pass.** The migrations seed all 22 `access_module` codes, including `FEES` and `STAFF_PROFILE`, and every code the nav uses is among them. |
-| 3 - every seeded code is used or allowlisted | **Pass.** The only seeded-but-unused codes are `TEACHING`, `REPORTING` and `COMMUNICATION`, which are the test's allowlist. |
-| 4 - every nav href has an icon | **Pass.** `ICONS` has 45 entries covering all 44 nav hrefs plus `/results/grades`. |
-| 5 - the group order is locked | **Pass.** The 21 group ids are in the schema's module order. |
+| 3 - every seeded code is used or allowlisted | **Pass.** The only seeded-but-unused codes are `TEACHING` and `COMMUNICATION`, which are the test's allowlist. `REPORTING` left that list when module 37 got its own screen. |
+| 4 - every nav href has an icon | **Pass.** `ICONS` has 51 entries covering all 50 nav hrefs plus `/results/grades`. |
+| 5 - the group order is locked | **Pass.** The 27 group ids are in the schema's module order. |
 | 6 - the staff sub-modules are complete | **Pass.** 15 children, numbered 20 to 34 in order, all gated by `STAFF_PROFILE`. |
 | 7 - every sub-module address is known | **Pass.** No child address falls outside `STAFF_SECTIONS`. |
+| 8 - the route check is not vacuous | **Pass.** An address no page serves is rejected. |
+| 9 - the six new screens are wired in | **Pass.** Modules 18, 35, 36, 37, 38 and 39 each have a group, a module number, one item, the right address and the right gate. |
 
 `/staff-profile` and `/activities` were the last two routes to be written; both
 `page.tsx` files now exist, so the `staff` and `activities` groups no longer render
@@ -262,16 +319,17 @@ dead links.
 
 ## Route inventory
 
-### Nav items (44)
+### Nav items (50)
 
-29 group routes:
+35 group routes:
 
 `/dashboard`, `/admin/reference`, `/structure`, `/calendar`, `/curriculum`,
 `/courses`, `/students`, `/employees`, `/admissions`, `/registration`,
 `/timetable`, `/attendance`, `/assessment`, `/results`, `/my-results`,
 `/feedback`, `/mentoring`, `/grievances`, `/certificates`, `/requests`,
 `/my-documents`, `/announcements`, `/admin/users`, `/audit`, `/my-hr`,
-`/finance`, `/staff-profile`, `/activities`, `/settings`.
+`/finance`, `/schema/18`, `/staff-profile`, `/schema/35`, `/schema/36`,
+`/reporting`, `/schema/38`, `/schema/39`, `/activities`, `/settings`.
 
 plus the 15 staff sub-modules:
 
@@ -286,9 +344,10 @@ plus the 15 staff sub-modules:
 
 ### Detail routes that are not nav items (18)
 
-`src/app/(app)` holds 48 `page.tsx` files. 30 of them back a nav item — the 29
-group routes plus the one dynamic route that serves all 15 sub-modules; the
-other 18 are detail pages. Most resolve their breadcrumb by prefix match;
+`src/app/(app)` holds 50 `page.tsx` files. 32 of them back a nav item — the 35
+group routes (five of which share `schema/[module]/page.tsx`), the one dynamic
+route that serves all 15 sub-modules, and the rest one page each; the other 18
+are detail pages. Most resolve their breadcrumb by prefix match;
 `/admin/mfa-policy` uses `NAV_PARENTS`.
 
 `/admin/reference/[table]`, `/admin/users/[id]`, `/admin/users/new`,

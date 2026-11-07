@@ -12,7 +12,7 @@ Source of truth: the live Supabase project `khqqfgqvwdxlqkncwtmh` (PostgreSQL 17
 | Tables | 222 |
 | Tables with row level security | 216 |
 | Views | 10 |
-| Functions | 420 |
+| Functions | 421 |
 | Triggers | 140 |
 | Policies | 594 |
 | Indexes | 365 |
@@ -20,11 +20,11 @@ Source of truth: the live Supabase project `khqqfgqvwdxlqkncwtmh` (PostgreSQL 17
 | Domains | 6 |
 | Enums | 0 |
 | Composite types | 233 |
-| Grants | 6223 |
+| Grants | 6227 |
 
 ## Schema `public`
 
-213 tables, 10 views, 274 functions, 140 triggers, 594 policies, 359 indexes.
+213 tables, 10 views, 275 functions, 140 triggers, 594 policies, 359 indexes.
 
 ### Tables (213)
 
@@ -5425,7 +5425,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `v_student_activity_profile` | v | `SELECT sa.student_activity_id, sa.student_id, s.student_number, s.display_name AS student_name, sat.type_code AS activity_type_code, sat.type_name AS activity_type_name, sat.activity_group, sa.activity_title, sa.event_name, ay.year_code AS academic_year, i.institution_name, c.campus_name, d.department_name, p.programme_name, pl.level_name AS participation_level, em.mode_name AS event_mode, sa.start_date, sa.end_date, sa.achievement_type, sa.position_rank, sa.award_name, sa.cash_prize_amount, vs.status_name AS verification_status, aps.status_name AS approval_status, sa.created_at, sa.updated_at, sa.deleted_at FROM student_activity sa JOIN student s ON s.student_id = sa.student_id::bigint JOIN student_activity_type sat ON sat.student_activity_type_id = sa.student_activity_type_id::integer LEFT JOIN academic_year ay ON ay.academic_year_id = sa.academic_year_id::integer JOIN institution i ON i.institution_id = sa.institution_id::integer LEFT JOIN campus c ON c.campus_id = sa.campus_id::integer LEFT JOIN department d ON d.department_id = sa.department_id::integer LEFT JOIN programme p ON p.programme_id = sa.programme_id::integer LEFT JOIN participation_level pl ON pl.participation_level_id = sa.participation_level_id::smallint LEFT JOIN event_mode em ON em.event_mode_id = sa.event_mode_id::smallint JOIN verification_status vs ON vs.verification_status_id = sa.verification_status_id::smallint JOIN approval_status aps ON aps.approval_status_id = sa.approval_status_id::smallint;` |
 | `v_student_fee_balance` | v | `SELECT sfa.student_account_id, sfa.student_id, sfa.account_number, COALESCE(sum(sfa2.net_payable_amount), 0.00) AS total_assessed, COALESCE(sum(sfa2.amount_paid), 0.00) AS total_paid, COALESCE(sum(sfa2.balance_amount), 0.00) AS total_outstanding, sfa.credit_balance FROM student_financial_account sfa LEFT JOIN student_fee_assessment sfa2 ON sfa2.student_account_id::bigint = sfa.student_account_id AND (sfa2.assessment_status <> ALL (ARRAY['CANCELLED'::text, 'WAIVED'::text])) GROUP BY sfa.student_account_id, sfa.student_id, sfa.account_number, sfa.credit_balance;` |
 
-### Functions (274)
+### Functions (275)
 
 | Function | Arguments |
 |---|---|
@@ -5602,6 +5602,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `public.result_publish_term` | `p_term_registration_id bigint, p_publish boolean` |
 | `public.result_record_course` | `p_course_registration_id bigint, p_internal numeric, p_external numeric, p_attempt integer, p_status text, p_remarks text` |
 | `public.result_term_sheet` | `p_offering_id bigint` |
+| `public.schema_indexes` | `p_scope text` |
 | `public.section_delete` | `p_kind text, p_parent_id bigint, p_section text, p_id bigint` |
 | `public.section_lookup_options` | `p_table text` |
 | `public.section_rows` | `p_kind text, p_parent_id bigint, p_section text` |

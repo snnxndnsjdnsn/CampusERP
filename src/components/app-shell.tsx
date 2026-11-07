@@ -57,6 +57,13 @@ export const ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   '/staff-profile/contribution': PenLine,
   '/staff-profile/evidence': FolderOpen,
   '/staff-profile/evidence-requirements': ListChecks,
+  // Schema modules 18 and 35 to 39 - the screens that were missing until now.
+  '/schema/18': Database,
+  '/schema/35': ListChecks,
+  '/schema/36': ShieldCheck,
+  '/reporting': Microscope,
+  '/schema/38': FolderOpen,
+  '/schema/39': FileCheck2,
 };
 
 /**

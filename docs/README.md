@@ -53,7 +53,7 @@ publishable key is enough to run it. The service-role key is not needed.
 
 ### Signing in
 
-See [Signing in](#signing-in) further down for the test account.
+See [Signing in](#signing-in) further down for the three test accounts.
 
 ---
 
@@ -61,9 +61,9 @@ See [Signing in](#signing-in) further down for the test account.
 
 | Document | What it answers | Kind |
 |---|---|---|
-| [RTM.md](RTM.md) | Which database module maps to which tables, RPCs, route and access code, and what is still missing. One row per module. | Hand-written from live data |
-| [MODULE_DOCUMENTATION.md](MODULE_DOCUMENTATION.md) | What each screen actually does, which migration backs it, and how the screen groups relate to the schema's numbered modules. | Recovered, then extended |
-| [NAVIGATION.md](NAVIGATION.md) | The sidebar contract: 21 groups, 44 routes (29 group routes and the 15 staff sub-modules 20–34), the four visibility gates, breadcrumb resolution, and the unit test that keeps it honest. | Hand-written from `src/lib/nav.ts` |
+| [RTM.md](RTM.md) | Which database module maps to which tables, RPCs, route and access code, and what is still missing. One row per module, including the six schema screens. | Hand-written from live data |
+| [MODULE_DOCUMENTATION.md](MODULE_DOCUMENTATION.md) | What each screen actually does, which migration backs it, and how the screen groups relate to the schema's numbered modules - including the six schema screens. | Recovered, then extended |
+| [NAVIGATION.md](NAVIGATION.md) | The sidebar contract: 27 groups, 50 routes (35 group routes and the 15 staff sub-modules 20–34), the four visibility gates, breadcrumb resolution, and the unit test that keeps it honest. | Hand-written from `src/lib/nav.ts` |
 | [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md) | How authorisation really works: identity, the permission grammar, scope containment, DENY-wins, SELF scope, the sensitive-resource rule, and nine open holes plus two that were found and fixed. | Hand-written from live policies |
 | [AUTHENTICATION_AND_RBAC.md](AUTHENTICATION_AND_RBAC.md) | Identity mapping, effective permissions, the `sims_private` helpers, and what is not done yet. | Recovered verbatim |
 | [ROLE_PERMISSION_MATRIX.md](ROLE_PERMISSION_MATRIX.md) | The per-role grant matrix. | Recovered verbatim; the generator was restored at 23:48:38 and reproduces the file byte for byte |
@@ -81,6 +81,26 @@ See [Signing in](#signing-in) further down for the test account.
 4. [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md) - what is actually permitted.
 5. [RECOVERY.md](RECOVERY.md) - how much of this you can trust as original.
 
+### The six new screens
+
+Schema modules 18, 35, 36, 37, 38 and 39 describe the database itself rather
+than a business area, and each one now has a screen of its own and its own
+number in the sidebar:
+
+| Module | Route | Sidebar label | Gate |
+|---|---|---|---|
+| 18 | `/schema/18` | 18 · Performance indexes & storage | `IAM` |
+| 35 | `/schema/35` | 35 · Seed reference data | `IAM` **or** `STAFF_PROFILE` |
+| 36 | `/schema/36` | 36 · Staff profile RBAC registration | `IAM` |
+| 37 | `/reporting` | 37 · Reporting & search views | `REPORTING` |
+| 38 | `/schema/38` | 38 · Staff profile performance indexes | `STAFF_PROFILE` **or** `IAM` |
+| 39 | `/schema/39` | 39 · Data-integrity notes | `IAM` **or** `AUDIT` |
+
+They are described in [MODULE_DOCUMENTATION.md](MODULE_DOCUMENTATION.md) and
+traced in [RTM.md](RTM.md). The index catalogue behind modules 18 and 38 is read
+through `public.schema_indexes(p_scope text)`, added by
+`supabase/migrations/065_schema_indexes.sql`.
+
 ---
 
 ## npm scripts and the tooling
@@ -93,7 +113,7 @@ See [Signing in](#signing-in) further down for the test account.
 | `docs:roles` | `node tools/validate/role_matrix.mjs` | `tools/validate/role_matrix.mjs` | Yes - renders `docs/ROLE_PERMISSION_MATRIX.md` from the **live** project; `--check` compares without writing |
 | `docs:schema` | `node tools/validate/schema_doc.mjs` | `tools/validate/schema_doc.mjs` | Yes - renders `docs/SCHEMA.md` and `docs/SCHEMA_RECONCILIATION.md` from the **live** catalogue; `--check` compares without writing |
 | `migrate:catalogue` | `node tools/validate/catalogue.mjs && python tools/compare_catalogue.py` | both files present | Yes - dumps the **live** catalogue read-only and diffs it against the expected contract |
-| `migrate:build` | `python tools/translate.py && python tools/build_migrations.py` | both files present | Yes - rewrites `supabase/migrations/` (64 files) |
+| `migrate:build` | `python tools/translate.py && python tools/build_migrations.py` | both files present | Yes - rewrites `supabase/migrations/001`-`063` (63 files; `064` and `065` are hand-written and left alone) |
 | `migrate:apply` | `python tools/apply_migrations.py` | `tools/apply_migrations.py` | Yes - **dry run by default**; `--apply` is the only way to write |
 | `seed:apply` | `python tools/apply_demo_seed.py` | `tools/apply_demo_seed.py` | Yes - **dry run by default**; `--apply` is the only way to write |
 | `admin:create` | `node tools/create_admin.mjs` | `tools/create_admin.mjs` | Yes - **dry run by default**; `--apply` is the only way to write |
@@ -145,6 +165,7 @@ PostgreSQL (`--source rebuilt`).
 | `tools/apply_demo_seed.py` | Writes `tools/seed_demo.sql` to the project in **one** transaction. Dry run unless `--apply`. Refuses any statement that would change more than the demo rows: `DELETE`, `TRUNCATE`, `DROP`, `ALTER TABLE`, or an `UPDATE` without a `DEMO-` key. |
 | `tools/create_admin.mjs` | Creates the first administrator through the Supabase Admin API and links it to `public.user_account` with the `SUPER_ADMIN` role. Dry run unless `--apply`. |
 | `tools/create_test_admin.py` | Creates a test administrator with a **direct database connection**, so it works without `SUPABASE_SERVICE_ROLE_KEY`. Writes `auth.users`, `auth.identities`, `public.user_account`, `sims_private.auth_identity_map` and `public.user_role_assignment` in one transaction, then proves the account works. `--verify` checks an existing account instead. Dry run unless `--apply`. |
+| `tools/create_test_personas.py` | Creates the two test personas the sidebar's visibility rules need - a faculty member and a student - with a **direct database connection**, so it works without `SUPABASE_SERVICE_ROLE_KEY`. The sign-up endpoint is tried first; when the project rate-limits it the identity is written straight into `auth.users` and `auth.identities`. The SIMS side is created with the database's own `iam_provision_user()` and `iam_assign_role()` RPCs, so the audit trail and the role assignment come from the same code path the application uses. Dry run unless `--apply`. |
 | `tools/reset_admin_password.py` | Replaces the bcrypt hash of an existing Auth account and proves the new password through the Auth REST API. Dry run unless `--apply`. |
 | `tools/compare_catalogue.py` | Compares the live catalogue with the expected contract. Reached through `migrate:catalogue`. |
 | `tools/validate/pg_catalogue.mjs` | Shared helper: applies the migrations to PGlite and dumps the catalogue. Imported by `catalogue.mjs` and `role_matrix.mjs`. |
@@ -155,7 +176,7 @@ PostgreSQL (`--source rebuilt`).
 | `tools/build_rls.py` | Regenerates the RLS policy migration from the catalogue. |
 | `tools/seed_demo.sql` | The demo reference seed. |
 | `tools/verify.mjs` | Runs the whole suite in one command: typecheck, lint, unit tests, database tests, production build, the live nav/RBAC matrix, the seed column validation, the role matrix check, the schema document check, the catalogue check, the migration apply dry run, the demo seed dry run and - when `SIMS_TEST_EMAIL` / `SIMS_TEST_PASSWORD` are set - the signed-in end-to-end suite. Exits 0 only when every step passes. `--fast` skips the production build (and with it the end-to-end suite), `--no-e2e` skips the end-to-end suite alone. Reached through `verify`. |
-| `tests/e2e/smoke.spec.ts` | The signed-in smoke test: every application route is opened with a real SUPER_ADMIN session and must leave the `Loading…` state, render content and log no console error. Credentials come from `SIMS_TEST_EMAIL` / `SIMS_TEST_PASSWORD`; without them the suite is skipped, not failed. Reached through `test:e2e:smoke`. |
+| `tests/e2e/smoke.spec.ts` | The signed-in smoke test: every application route is opened with a real SUPER_ADMIN session and must leave the `Loading…` state, render content and log no console error. Credentials come from `SIMS_TEST_EMAIL` / `SIMS_TEST_PASSWORD`; without them the suite is skipped, not failed. Reached through `test:e2e:smoke`. The suite opens four browsers at a time: Playwright's default of half the logical processors puts eight pages on a sixteen-core machine, and the shared Supabase pooler then queues them long enough for the database's two-minute statement timeout to cancel `my_context()`, so the page answers 500 and the suite fails on a healthy application. `PLAYWRIGHT_WORKERS` overrides the cap; CI runs one worker. |
 | `tests/e2e/global-setup.ts` | Signs in **once** for the whole Playwright run and writes the session to `playwright/.auth/sims.json`. Supabase throttles the password grant endpoint, so a suite that signs in per test runs into `Request rate limit reached`. |
 | `tests/e2e/signin.spec.ts` | The sign-in form itself: a valid password lands on the dashboard, a wrong one is refused. Runs anonymously. |
 | `tools/work/run_seed.mjs`, `tools/work/run_seed_step.mjs` | Scratch runners for the seed. `tools/work/` is a scratch area, not a tool surface. |
@@ -168,7 +189,8 @@ PostgreSQL (`--source rebuilt`).
   current against the live project.
 - `tools/translate.py` is back (23:54:54) and `npm run migrate:build` runs the
   whole chain: the MySQL reference is translated, the builder cross-checks it
-  against the live catalogue and regenerates the 64 migration files. The build
+  against the live catalogue and regenerates the 63 generated migration files
+  (`001`-`063`; `064` and `065` are hand-written and left alone). The build
   is deterministic - two consecutive runs produce byte-identical files.
 - `docs/RLS_POLICY_MAP.md` **was** generated from the live catalogue after the
   rebuild and is current.
@@ -255,16 +277,16 @@ Current results:
   *new* problem still fails the run; `--strict` fails on the known gap too.
 - `migrate:catalogue` reports **0 differences**: the live project agrees with
   the contract on the counts, the per-schema counts, the seeded row counts and
-  every object of all seven kinds (222 tables, 2140 columns, 420 functions,
-  594 policies, 140 triggers, 6223 grants, 199 sequences). The tool exits 0
+  every object of all seven kinds (222 tables, 2140 columns, 421 functions,
+  594 policies, 140 triggers, 6227 grants, 199 sequences). The tool exits 0
   with `OK - the live catalogue matches the expected catalogue`.
 - `docs:schema -- --check` and `docs:roles -- --check` both exit 0: the
   committed `docs/SCHEMA.md`, `docs/SCHEMA_RECONCILIATION.md` and
   `docs/ROLE_PERMISSION_MATRIX.md` are byte-identical to what the generators
   produce from the live project.
-- `migrate:build` regenerates all 64 migration files and is deterministic: two
-  consecutive runs produce byte-identical files.
-- `migrate:apply` prints the plan for all 64 files and writes nothing.
+- `migrate:build` regenerates the 63 generated migration files and is
+  deterministic: two consecutive runs produce byte-identical files.
+- `migrate:apply` prints the plan for all 65 files and writes nothing.
 - `seed:apply` prints the plan for the 58 statements of `tools/seed_demo.sql`
   and the row count of every one of the 51 tables it writes to, and writes
   nothing. The tool refuses to run a statement that would change more than the
@@ -299,8 +321,8 @@ schema:
 python tools/apply_migrations.py --apply --baseline-before 064_required_reference_seeds.sql
 ```
 
-All 64 files are now tracked. `python tools/apply_migrations.py` reports
-`64 migration file(s), 0 pending, 0 changed`.
+All 65 files are now tracked. `python tools/apply_migrations.py` reports
+`65 migration file(s), 0 pending, 0 changed`.
 
 ### The demo tenant
 
@@ -326,13 +348,26 @@ identity, which cannot be created from SQL.
 
 ### Signing in
 
-| Email | Password | Role |
-|---|---|---|
-| `sims.test.admin@gmail.com` | `SimsTest@2026` | `SUPER_ADMIN` (GLOBAL) - 22 modules, 349 permissions |
+| Email | Password | Role | Scope | Reads |
+|---|---|---|---|---|
+| `sims.test.admin@gmail.com` | `SimsTest@2026` | `SUPER_ADMIN` | GLOBAL | 22 modules, 349 permissions |
+| `sims.test.employee@gmail.com` | `SimsTest@2026` | `FACULTY` | DEPARTMENT | 14 modules - linked to employee `DEMO-E001` |
+| `sims.test.student@gmail.com` | `SimsTest@2026` | `STUDENT` | SELF | 10 modules - linked to student `DEMO-S001` |
 
-The password is **not** stored in the repository. It was set when the account
-was created with `tools/create_test_admin.py --apply`, and it can be replaced
-at any time with `npm run admin:password -- --apply --email sims.test.admin@gmail.com --generate`.
+The employee and the student are created by `tools/create_test_personas.py --apply`,
+which needs `SUPABASE_DB_PASSWORD` in the environment. The tool is a dry run
+unless `--apply` is passed. It tries the Supabase sign-up endpoint first and
+falls back to writing `auth.users` and `auth.identities` directly, because the
+project rate-limits the confirmation mail that the endpoint sends.
+
+The three accounts are what make the sidebar's visibility rules observable: the
+administrator sees every group, the employee sees 16, 35, 37 and 38 but not 18,
+36 or 39, and the student sees none of the six new groups.
+
+The password is **not** stored in the repository. It was set when the accounts
+were created with `tools/create_test_admin.py --apply` and
+`tools/create_test_personas.py --apply`, and it can be replaced at any time with
+`npm run admin:password -- --apply --email sims.test.admin@gmail.com --generate`.
 
 ### The signed-in smoke test
 
@@ -343,13 +378,15 @@ $env:SIMS_TEST_PASSWORD='...'
 npm run test:e2e:smoke
 ```
 
-`tests/e2e/smoke.spec.ts` opens all 62 application routes and asserts three
+`tests/e2e/smoke.spec.ts` opens all 68 application routes and asserts three
 things per route: the page leaves the `Loading…` state, `<main>` has real
 content, and nothing was written to the browser console as an error. The
 `/no-access` page gets its own assertion, because it lives outside the
 application shell and has no `<main>`. A further test checks that the sidebar
 draws the fifteen staff sub-modules (schema modules 20–34) and that the
-deepest one is the active item.
+deepest one is the active item, and another checks that the six new schema
+groups (18, 35, 36, 37, 38 and 39) are drawn with their module numbers and
+that the open one is marked current.
 
 **One sign-in for the whole run.** Supabase throttles the password grant
 endpoint, so a suite that signs in once per test runs into `Request rate
@@ -392,6 +429,7 @@ than about the browser.
 |---|---|
 | Module numbers and names | The section headers of `SIMS-DatabaseWithoutLessonPlan.sql` (42 headers, 213 tables). |
 | Table, view, function, trigger and policy counts | The live database, read with `SELECT` only. |
+| The index catalogue (572 public indexes; 146 on the 55 `STAFF_PROFILE.*` tables) | `public.schema_indexes('all')` and `public.schema_indexes('staff')` on the live project. |
 | Permission codes and role grants | `public.permission`, `public.role_permission` on the live database. |
 | Navigation | `src/lib/nav.ts` - the single source of truth. |
 | Route existence | `src/app/**/page.tsx` on disk. |

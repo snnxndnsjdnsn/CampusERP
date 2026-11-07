@@ -19,6 +19,23 @@ const signedIn = Boolean(EMAIL && PASSWORD);
 const STORAGE_STATE = path.join('playwright', '.auth', 'sims.json');
 
 /**
+ * How many browsers may open a page at the same time.
+ *
+ * Every page load reads the caller's context from the database before it
+ * renders anything, and the shared Supabase project answers those reads through
+ * a pooler with a limited number of backends. Playwright's default - half the
+ * logical processors - puts eight pages on a sixteen-core machine, and the
+ * pooler then queues them long enough for the database's two-minute statement
+ * timeout to cancel the read. The page answers 500 and the suite fails on a
+ * healthy application.
+ *
+ * Four workers keep the suite inside the pooler's capacity and still finish in
+ * about half a minute. `PLAYWRIGHT_WORKERS` overrides it; CI runs one worker
+ * because it is shared with everything else.
+ */
+const WORKERS = Number(process.env.PLAYWRIGHT_WORKERS ?? 4);
+
+/**
  * End-to-end tests.
  *
  * The suite covers route protection: an anonymous visitor must be sent to the
@@ -36,7 +53,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : WORKERS,
   reporter: process.env.CI ? 'github' : 'list',
   globalSetup: signedIn ? './tests/e2e/global-setup.ts' : undefined,
   use: {

@@ -13,9 +13,9 @@ A role is assigned at one scope type.  The scope of the assignment decides how f
 | `GLOBAL` | the whole installation | 4 | 3 |
 | `INSTITUTION` | one institution | 17 | 0 |
 | `CAMPUS` | one campus | 4 | 0 |
-| `DEPARTMENT` | one department | 6 | 0 |
+| `DEPARTMENT` | one department | 6 | 1 |
 | `PROGRAMME` | one programme | 4 | 0 |
-| `SELF` | the user itself | 4 | 0 |
+| `SELF` | the user itself | 4 | 1 |
 
 ## Roles
 

@@ -81,21 +81,24 @@ log contains.
 ### 3.2 The live Supabase database
 
 The database was never touched by the deletion. It is the authoritative source for
-everything schema-shaped. Verified read-only on 2026-11-07:
+everything schema-shaped. Verified read-only on 2026-11-07 and re-verified on
+2026-11-08:
 
 | Object | Count |
 |---|---|
 | `public` tables | 213 |
 | `public` tables with RLS enabled | 213 (0 disabled) |
 | `public` views | 10 |
-| `public` functions | 274 (231 `SECURITY DEFINER`) |
-| `sims_private` tables | 9 |
+| `public` functions | 275 (232 `SECURITY DEFINER`) |
+| `sims_private` tables | 10 (9 application tables plus the applier's `schema_migration`) |
 | `sims_private` functions | 146 |
 | `public` triggers | 140 |
 | `public` policies | 594 |
+| `public` indexes | 572 |
 | `access_module` / `access_action` / `access_resource` | 22 / 12 / 40 |
+| `role` rows | 39 |
 | `role_permission` rows | 2,301 |
-| Migrations applied | 63 (`001`–`063`, no gaps) |
+| Migrations applied | 65 (`001`–`065`, no gaps) |
 
 The catalogue was regenerated from it into `tools/catalogue/live_catalogue.json`
 (3,438,534 bytes) and `tools/catalogue/live_seed_data.json` (324,594 bytes).
@@ -254,7 +257,7 @@ They were also not **semantically** identical in one respect, and this was found
 by diffing the rebuilt catalogue against the live one (see section 8): the
 23:49:34 set contained **no `REVOKE` statement at all**, so it did not reproduce
 the live database's revocation of `PUBLIC EXECUTE` from 418 of the 420 functions
-in `public` + `sims_private`. A database rebuilt from it would have been **more
+in `public` + `sims_private` (the counts at the time). A database rebuilt from it would have been **more
 permissive** than the live project.
 
 At **23:56:38** `npm run migrate:build` was re-run from the MySQL source
@@ -267,8 +270,11 @@ category**. The migrations on disk are now a faithful translation of the MySQL
 source, not a catalogue dump.
 
 `supabase/migrations/064_required_reference_seeds.sql` is the exception: it was
-recovered byte-exact and was **not** overwritten. It is also **not applied** to the
-live database - the live project has migrations 001–063 applied and 064 pending.
+recovered byte-exact and was **not** overwritten. It was applied to the live
+database on 2026-11-08.
+`supabase/migrations/065_schema_indexes.sql` is the second exception: it is
+hand-written rather than generated, and `tools/build_migrations.py` refuses to
+run if it is missing.
 
 Also regenerated rather than recovered: `tools/catalogue/*`, `tools/rls/table_module.json`,
 `tools/validate/pg_catalogue.mjs`, `tools/validate/apply.mjs`,
@@ -281,7 +287,7 @@ Also regenerated rather than recovered: `tools/catalogue/*`, `tools/rls/table_mo
 
 ### 5.5 Written from scratch after the incident
 
-Everything else. In particular the whole Next.js application layer: the 48 route
+Everything else. In particular the whole Next.js application layer: the 50 route
 pages under `src/app/(app)/`, the `src/features/**` clients, the `src/components/ui/**`
 primitives, `src/lib/context.ts`, `src/lib/server-context.ts`, `src/lib/api.ts`,
 `src/lib/env.ts`, `src/lib/format.ts`, `src/lib/utils.ts`, `src/lib/validation.ts`,
@@ -364,6 +370,20 @@ primitives, `src/lib/context.ts`, `src/lib/server-context.ts`, `src/lib/api.ts`,
 | 00:37:14 | `tools/apply_migrations.py` reworked. |
 | 00:37:22 | `tools/validate/catalogue.mjs` reworked again. |
 | 00:38:24 | `tools/create_admin.mjs` reworked. |
+| 03:30:10 | `supabase/migrations/065_schema_indexes.sql` written - the `public.schema_indexes(p_scope text)` RPC, the only door to `pg_indexes`. |
+| 03:30:10 | `src/lib/nav.ts` extended: six new groups (`schema`, `seed`, `rbac`, `reporting`, `staff-index`, `integrity`) and 27 groups in all. |
+| 03:30:16 | `src/components/app-shell.tsx` extended with the icons for the six new routes. |
+| 03:31:04 | `tests/unit/nav-connectivity.test.ts` extended: the group order lock now carries the six new ids, and a new assertion checks the six screens' numbers, addresses and gates. |
+| 03:31:28 | `tests/e2e/smoke.spec.ts` extended: the six new routes join the route sweep, and a new test checks that the six groups are drawn with their module numbers. |
+| 03:32:24 | `docs/NAVIGATION.md` rewritten for the 27 groups. |
+| 03:34:28–03:35:14 | `src/features/schema/` written: the seed table list, the `file_object` columns, the index catalogue, the seed catalogue, the RBAC catalogue and the fourteen integrity notes. |
+| 03:35:51 | `src/app/(app)/schema/[module]/page.tsx` written - the dynamic route behind modules 18, 35, 36, 38 and 39. |
+| 03:36:00–03:37:30 | `src/features/reporting/` written: the ten reporting views and the live search and activity reports. |
+| 03:37:20 | `tools/create_test_personas.py` written - the faculty and student personas the visibility rules need. |
+| 03:54:02–03:54:14 | `src/features/schema/module-catalog.ts` and `schema-screen.tsx` written - the module catalogue and the shared screen. |
+| 03:54:44 | `src/app/(app)/reporting/page.tsx` written - the screen behind module 37. |
+| 03:56:40 | `src/features/schema/module-catalog.ts`, `schema-screen.tsx` and `src/app/(app)/reporting/page.tsx` given the page-level gate: a caller who may not read the module behind a screen is told so instead of being served the screen. |
+| 04:09:04 | `playwright.config.ts` capped at four workers. Playwright's default of half the logical processors had the shared Supabase pooler queueing `my_context()` long enough for the database's two-minute statement timeout to cancel it, so the page answered 500 and the suite failed on a healthy application. |
 
 The 00:30:12 row is the point at which the tooling stopped comparing the
 migration set against a **rebuild** and started comparing it against a
@@ -372,10 +392,12 @@ re-blessed as the reference, so `tools/compare_catalogue.py` is now a pure
 offline diff of two JSON files and no longer needs a database or an embedded
 PostgreSQL to run.
 
-This record was last reconciled against the tree at 00:43. The last write by
-the rebuild tooling was at 00:38:24; the only later change to the tree was
-`.env.example` at 00:41:26. Everything after 23:56:38 is re-verified in
-section 8.
+This record was last reconciled against the tree at 04:09:04, when the
+end-to-end suite's worker count was capped. The last write by the rebuild
+tooling was at 00:38:24; the only later change to the tree before that round
+was `.env.example` at 00:41:26. Everything after 23:56:38 is re-verified in
+section 8, and the round that added the six schema screens is recorded in
+section 9.
 
 ---
 
@@ -388,8 +410,9 @@ section 8.
   demo seed `tools/seed_demo.sql` was applied (58 statements, 151 rows into 51
   tables), and a test administrator was created. The project now carries
   `sims_private.schema_migration`, so the applier can tell what is applied:
-  `python tools/apply_migrations.py` reports **64 migration file(s), 0 pending,
-  0 changed**.
+  `python tools/apply_migrations.py` reported **64 migration file(s), 0 pending,
+  0 changed** at that point. It reports 65 now that
+  `065_schema_indexes.sql` exists; see section 9.
 
   The tracker did not exist when the applier was first run, so the files `001`
   to `063` were **baselined** - recorded as applied *without being executed*,
@@ -408,7 +431,7 @@ section 8.
   wiring; see [NAVIGATION.md](NAVIGATION.md).
 - **The application was exercised signed in against the live project.** The test
   administrator signs in through the real form, `public.my_context()` resolves
-  22 readable modules and 349 permissions, and all 62 application routes render
+  22 readable modules and 349 permissions, and all 68 application routes render
   with zero console errors. `tests/e2e/smoke.spec.ts` repeats that as a test;
   the session is created once in `tests/e2e/global-setup.ts` because Supabase
   throttles the password grant endpoint.
@@ -428,7 +451,7 @@ section 8.
   satisfy). It exits 0 with `OK - the live catalogue matches the expected
   catalogue`: **0 differences** in the headline counts, the per-schema counts,
   the 42 seeded row counts, and in tables (222), columns (2140), functions
-  (420), policies (594), triggers (140), grants (6223) and sequences (199).
+  (421), policies (594), triggers (140), grants (6227) and sequences (199).
 
   It did not pass the first time. The 23:49:34 migration set was a regeneration
   from a catalogue dump, and a catalogue dump records the grants that exist, not
@@ -466,10 +489,86 @@ section 8.
   unit tests, database tests, production build, the live nav/RBAC matrix, the
   seed column validation, the role matrix check, the schema document check, the
   catalogue check and the migration apply dry run. It exits 0.
+- **The six new schema screens were checked against the live project.** The
+  round that added them, and what it did and did not prove, is recorded in
+  section 9.
 
 ---
 
-## 9. Rules that came out of this
+## 9. The round that added the six schema screens
+
+On 2026-11-08 the tree gained six screens for schema modules that had no route
+of their own: modules 18, 35, 36, 37, 38 and 39. The round ran from 03:30:10
+to 03:54:44; section 7 lists the steps in order.
+
+| Group | Module | Route | Access code | What the screen shows |
+|---|---|---|---|---|
+| `schema` | 18 | `/schema/18` | `IAM` | The 572 public indexes and the 20 columns of `file_object`. |
+| `seed` | 35 | `/schema/35` | `IAM` or `STAFF_PROFILE` | The 27 seeded lookup tables. |
+| `rbac` | 36 | `/schema/36` | `IAM` | 1 access module, 5 resources, 44 permissions, 144 role grants. |
+| `reporting` | 37 | `/reporting` | `REPORTING` | The 10 public reporting and search views. |
+| `staff-index` | 38 | `/schema/38` | `STAFF_PROFILE` or `IAM` | The 146 staff-scope indexes over 55 tables. |
+| `integrity` | 39 | `/schema/39` | `IAM` or `AUDIT` | The 14 integrity rules the service layer enforces. |
+
+The round also added `supabase/migrations/065_schema_indexes.sql`, which
+creates `public.schema_indexes(p_scope text DEFAULT NULL)` - the only door to
+`pg_indexes` - and `tools/create_test_personas.py`, which creates the faculty
+and student personas the visibility rules need.
+
+### 9.1 What is verified
+
+- The counts in the table above were read from the live project on 2026-11-08
+  with `SELECT`-only queries. `public.schema_indexes('all')` returns 572 rows
+  and `public.schema_indexes('staff')` returns 146 rows over 55 tables; an
+  unknown scope raises SQLSTATE `22023` and an unauthorised caller raises
+  `42501`.
+- The three personas exist and were checked against the live project: the
+  administrator holds 22 modules and 349 permissions, the employee
+  (`FACULTY` / `DEPARTMENT`) holds 14 modules, and the student (`STUDENT` /
+  `SELF`) holds 10 modules.
+- The visibility rules were checked in a browser with a real session for each
+  persona. The administrator sees every group except `16 · Employee HR` (that
+  item is `employeeOnly`). The employee sees 16, 35, 37 and 38 and not 18, 36
+  or 39. The student sees none of 16, 18, 35, 36, 37, 38 or 39.
+- The six screens refuse a caller who may not read the module behind them.
+  The student is told `This screen is not open to your account` on all six
+  addresses, and the employee is refused on 18, 36 and 39 and served on 35, 37
+  and 38. The database refuses the data itself in every case - `schema_indexes`
+  answers `42501` to both the employee and the student - so the page gate is
+  the door and the row-level security is the lock.
+- All 27 seed tables are readable and all 10 reporting views are readable.
+- The sidebar carries 27 groups and 50 routes.
+  `tests/unit/nav-connectivity.test.ts` locks the group order and the six new
+  ids, and `tests/e2e/smoke.spec.ts` sweeps 68 route assertions.
+- The end-to-end suite opens all 68 addresses with a real session and asserts
+  that each one answers 200, leaves the `Loading…` state and logs nothing to
+  the console. It runs four browsers at a time: Playwright's default of half
+  the logical processors puts eight pages on a sixteen-core machine, and the
+  shared Supabase pooler then queues them long enough for the database's
+  two-minute statement timeout to cancel `my_context()`. The page answers 500
+  and the suite fails on a healthy application, so `playwright.config.ts` caps
+  the workers at four.
+- `python tools/apply_migrations.py` reports `65 migration file(s), 0 pending,
+  0 changed`. `tools/build_migrations.py` writes `001`-`063` only and refuses to
+  run if `064_required_reference_seeds.sql` or `065_schema_indexes.sql` is
+  missing.
+- `tools/compare_catalogue.py` exits 0 with 421 functions and 6227 grants.
+
+### 9.2 What is not verified
+
+- `REPORTING` still has 0 RLS policies and 0 RPCs that check its permissions.
+  The ten reporting views are `security_invoker` views, so they inherit the RLS
+  of their base tables, but `global_search` is `LANGUAGE sql, STABLE` and
+  checks no permission code. That hole is G-1 in [RTM.md](RTM.md) and it is
+  still open.
+- The employee and the student personas were exercised through the browser and
+  the live database, not through the automated end-to-end suite. The suite
+  signs in with one account - the administrator - because the password grant
+  endpoint is throttled and one session has to serve the whole run.
+
+---
+
+## 10. Rules that came out of this
 
 1. **Never run `Remove-Item -Recurse -Force` on a path under `F:\sims`.** The
    original command used `-ErrorAction SilentlyContinue`, which suppressed the errors
@@ -485,7 +584,7 @@ section 8.
 
 ---
 
-## 10. Related documents
+## 11. Related documents
 
 - [README.md](README.md) - index of the documentation set.
 - [RTM.md](RTM.md) - module-by-module traceability, including the gaps.

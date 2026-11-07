@@ -5,7 +5,8 @@ The project's migration directory was lost.  The live database is the
 authoritative source of truth, so this script turns the catalogue dump
 (`tools/catalogue/live_catalogue.json`, produced by `tools/dump_catalogue.py`)
 back into the 64 migration files that the remote project has applied
-(001..063) plus the already existing `064_required_reference_seeds.sql`.
+(001..063) plus the already existing `064_required_reference_seeds.sql`
+and `065_schema_indexes.sql`.
 
 What is reconstructed and what is not
 --------------------------------------
@@ -61,7 +62,8 @@ REFERENCE = ROOT / "tools" / "catalogue" / "mysql_reference.json"
 
 # ---------------------------------------------------------------------------
 # the migration file names the remote project has applied (001..063).
-# 064_required_reference_seeds.sql is hand written and is never touched.
+# 064_required_reference_seeds.sql and 065_schema_indexes.sql are hand
+# written and are never touched.
 # ---------------------------------------------------------------------------
 SEED_FILES = {
     "002": "academic_calendar_and_curriculum",
@@ -1204,10 +1206,10 @@ def main() -> int:
     written.append(build_021(cat, groups))
     written.extend(build_consolidated(cat, ref))
 
-    # 064 is hand written and must stay untouched
-    keep = MIGRATIONS / "064_required_reference_seeds.sql"
-    if not keep.exists():
-        raise SystemExit("064_required_reference_seeds.sql is missing - refusing to continue")
+    # 064 and 065 are hand written and must stay untouched
+    for hand_written in ("064_required_reference_seeds.sql", "065_schema_indexes.sql"):
+        if not (MIGRATIONS / hand_written).exists():
+            raise SystemExit(f"{hand_written} is missing - refusing to continue")
 
     print(f"wrote {len(written)} migration files to {MIGRATIONS}")
     counts = cat["counts"]

@@ -3,7 +3,7 @@
 One section per application area: what it does, where it lives, the database objects behind it and what is not covered. Exact permissions and parameters would be in `API_DOCUMENTATION.md` and rules the source did not state in `KNOWN_ISSUES.md` — **neither file is present in this tree**. The per-role grants are in [ROLE_PERMISSION_MATRIX.md](ROLE_PERMISSION_MATRIX.md), the security model in [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md), and status per requirement in [RTM.md](RTM.md).
 
 > **Two module numberings.** The tables further down this document use a *screen
-> grouping* numbered 1–23 that predates the rebuild. The database's own numbering
+> grouping* numbered 1–29 that predates the rebuild. The database's own numbering
 > is the numbered section headers of `SIMS-DatabaseWithoutLessonPlan.sql` (1–17,
 > 17A, 18–40) and is authoritative. The two are reconciled in
 > [Schema modules vs. screen groups](#schema-modules-vs-screen-groups) below, and
@@ -65,6 +65,35 @@ Every default grant is listed in [ROLE_PERMISSION_MATRIX.md](ROLE_PERMISSION_MAT
 ## Student services
 `/requests` (migration 063): hall ticket per term, hostel check-out and graduation requests, approved by `DOCUMENT.ALL.APPROVE`, blocked by the matching fee hold. `/certificates` (migration 060): certificate requests.
 
+## The six schema screens (modules 18, 35, 36, 37, 38 and 39)
+
+Six modules of the MySQL source describe the database itself rather than a business area. They have no table a user would "work in", but each one has real objects in the database, so each one now has a screen of its own and its own number in the sidebar.
+
+| Module | Address | What it shows | Gate | Live numbers |
+|---|---|---|---|---|
+| 18 · Performance indexes & storage | `/schema/18` | The index catalogue of the public schema, and the file-storage metadata of `file_object` | `IAM` | 572 public indexes; 20 columns of `file_object` |
+| 35 · Seed reference data | `/schema/35` | The seeded lookup vocabulary - publication types, journal types, indexing agencies, metric types, funding types, activity types and the rest | `IAM` **or** `STAFF_PROFILE` | 27 seeded lookup tables, all 27 readable by the administrator |
+| 36 · Staff profile RBAC registration | `/schema/36` | The `STAFF_PROFILE` access module, its resources, its permissions and the roles that hold them | `IAM` | 1 access module, 5 access resources, 44 permissions, 144 role grants |
+| 37 · Reporting & search views | `/reporting` | The ten reporting and search views, the live `global_search` and the two activity reports | `REPORTING` | 10 views, all 10 readable |
+| 38 · Staff profile performance indexes | `/schema/38` | The index catalogue restricted to the staff-profile tables | `STAFF_PROFILE` **or** `IAM` | 146 indexes on the 55 tables that carry a `STAFF_PROFILE.*` policy; 146 of 146 readable |
+| 39 · Data-integrity notes | `/schema/39` | The fourteen integrity rules the service layer enforces | `IAM` **or** `AUDIT` | 14 notes, transcribed from section 39 of `SIMS-DatabaseWithoutLessonPlan.sql` |
+
+Modules 18, 35, 36, 38 and 39 are served by one dynamic route, `src/app/(app)/schema/[module]/page.tsx`; module 37 has a screen of its own at `src/app/(app)/reporting/page.tsx`, because it is a working screen rather than a catalogue.
+
+**The gates are the point.** These six groups are the first ones whose visibility is not simply "the module that owns the screen". A faculty member sees 35, 37 and 38 but not 18, 36 or 39; a student sees none of them. The super administrator sees all six.
+
+Each screen also carries a **page-level gate**. If the caller cannot read the module the sidebar gates on, the page renders "This screen is not open to your account" instead of the data. The database remains the security boundary - the RPCs return HTTP 403 / SQLSTATE 42501 - so the page gate is the door, not the lock.
+
+### The index catalogue
+
+`pg_indexes` lives in `pg_catalog`, so PostgREST cannot expose it and the browser cannot read it. Migration `065_schema_indexes.sql` adds one read-only function that is the only door to it:
+
+```sql
+public.schema_indexes(p_scope text DEFAULT NULL)
+```
+
+`p_scope` is `'all'` (every index in the public schema, needs `IAM.ALL.READ`) or `'staff'` (only the tables that carry a `STAFF_PROFILE.*` row-level-security policy, needs `STAFF_PROFILE.ALL.READ`). The function is `SECURITY DEFINER` because `pg_indexes` is not readable by the `authenticated` role; the permission check inside it is the gate. An unknown scope raises SQLSTATE 22023; an unauthorised caller gets SQLSTATE 42501.
+
 ---
 
 # Schema modules vs. screen groups
@@ -92,11 +121,19 @@ meant to:
 | Communication (10) | 14 | `communication` |
 | Student finance (21) | 17 | `finance` |
 | Audit and compliance (9) | 15 | `iam` |
-| Notifications and search | 37 | — (no screen) |
+| Notifications and search (24) | 37 | `reporting` |
+| Performance indexes and file storage (25) | 18 | `schema` |
+| Seed reference data (26) | 35 | `seed` |
+| Staff profile RBAC registration (27) | 36 | `rbac` |
+| Staff profile performance indexes (28) | 38 | `staff-index` |
+| Data-integrity notes (29) | 39 | `integrity` |
 
-Schema modules **17A**, **18**, **35**, **36**, **38** and **39** own no tables and
-no screen: they are triggers, indexes, seed data, RBAC registration and integrity
-notes. They are listed in [RTM.md](RTM.md) as Infrastructure rows.
+Schema module **17A** owns no tables and no screen: it is the cross-row
+enforcement triggers. Modules **18**, **35**, **36**, **38** and **39** own no
+tables either, but they have a screen of their own now - the index catalogue,
+the seed vocabulary, the RBAC registration, the staff-scope index catalogue and
+the integrity notes. Module **37** has a screen at `/reporting`. They are listed
+in [RTM.md](RTM.md).
 
 # Module-by-module reference
 
@@ -123,8 +160,8 @@ lists are the key ones; [RTM.md](RTM.md) has the full table count per module.
 | 16 | Employee HR, qualification, experience and secure evidence | The employee's own HR record: qualifications, previous employment, and the three high-sensitivity identifiers (PAN, Aadhaar, bank account) with their verification workflow, plus evidence documents with per-document access rules. | `qualification_level`, `study_mode`, `education_institution_type`, `awarding_body_type`, `education_institution`, `awarding_body`, `previous_organization_type`, `previous_organization`, `employee_qualification`, `employee_previous_employment`, `employee_bank_account`, `employee_pan`, `employee_aadhaar`, `employee_document_category`, `employee_document`, `employee_document_access_rule`, `employee_sensitive_access_audit` | `emp_pan_save`, `emp_aadhaar_save`, `emp_bank_save`, `emp_sensitive_list`, `emp_sensitive_reveal`, `emp_sensitive_review`, `emp_sensitive_delete`, `employee_document_register`, `employee_document_list`, `employee_document_review`, `employee_document_delete`, `employee_document_download_info`, `emp_doc_rule_set`, `emp_doc_rule_list`, `emp_doc_rule_end` | EMPLOYEE | `/my-hr`, `/employees/[id]/hr` |
 | 17 | Student fees and financial management | The whole money path: fee structures and versions, assessments, payments and allocations, receipts, concessions, scholarships, sponsorships, instalments, late fees, penalties, refunds, adjustments, and the holds that block registration, results and certificates. | `fee_category`, `financial_ledger_account`, `fee_type`, `fee_structure`, `late_fee_rule`, `late_fee_slab`, `fee_structure_item`, `student_financial_account`, `student_fee_assessment`, `student_fee_assessment_item`, `fee_charge_source`, `concession_type`, `student_fee_concession`, `scholarship_scheme`, `student_scholarship`, `student_sponsorship`, `fee_assessment_benefit`, `installment_plan`, `student_installment_schedule`, `payment_mode`, `payment_transaction`, `admission_payment`, `payment_allocation`, `fee_receipt`, `fee_adjustment`, `refund_request`, `fee_refund`, `student_fee_penalty`, `service_fee_request`, `student_financial_hold`, `fee_activity_audit` | `fin_open_account`, `fin_accounts`, `fin_account_info`, `fin_record_payment`, `fin_allocate_payment`, `fin_issue_receipt`, `fin_receipt_get`, `fin_create_fee_assessment`, `fin_structure_save`, `fin_structure_submit`, `fin_structure_decide`, `fin_hold_place`, `fin_hold_release`, `fin_holds`, `fin_request_refund`, `fin_decide_refund`, `fin_process_refund`, `fin_benefit_create`, `fin_benefit_apply`, `fin_instalment_apply`, `fin_penalty_assess`, `fin_late_fee_suggest` | FEES | `/finance` |
 | 17A | Enforcement triggers | Cross-row and cross-table rules that no single policy can express. 140 public triggers. | — | — | — | — |
-| 18 | Performance indexes | Index-only section. | — | — | — | — |
-| 18 | Extend existing file storage metadata | `ALTER` on `file_object` adding `encryption_key_reference`, `virus_scan_status`, `virus_scanned_at`. | — | — | — | — |
+| 18 | Performance indexes | The index catalogue of the live database: 572 indexes in the public schema, read through `public.schema_indexes('all')`. | — | `schema_indexes` | IAM | `/schema/18` |
+| 18 | Extend existing file storage metadata | `ALTER` on `file_object` adding `encryption_key_reference`, `virus_scan_status`, `virus_scanned_at` - 20 columns in all, shown beside the index catalogue. | — | — | IAM | `/schema/18` |
 | 19 | Staff profile reference / master data | The lookup vocabulary for the whole staff-profile area: publication and journal types, indexing agencies, metric types, funding, roles, statuses, evidence types, activity categories. | `publication_type`, `journal_type`, `indexing_agency`, `metric_type`, `organization_type`, `external_organization`, `organizer`, `publisher`, `funding_type`, `funding_agency`, `activity_type`, `participation_level`, `role_type`, `research_status`, `event_mode`, `evidence_type`, `verification_status`, `approval_status`, `training_program_type`, `conference_contribution_type`, `industry_sector`, `cocurricular_category`, `extracurricular_category`, `award_category`, `membership_type`, `professional_contribution_type`, `confidentiality_level` | `staff_lookup_options`, `staff_lookup_add`, `staff_lookup_schema`, `staff_detail_schema` | STAFF_PROFILE | `/staff-profile` |
 | 20 | Staff activity supertype | The one record every staff activity hangs off, with its contributors. | `staff_activity`, `staff_activity_contributor` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_list`, `staff_activity_get`, `staff_activity_review`, `staff_activity_delete`, `staff_activity_report`, `staff_contributor_add`, `staff_contributor_remove` | STAFF_PROFILE | `/staff-profile/activity` |
 | 21 | Journals and journal publications | Journal entries, the publications in them, their indexing entries and the journal metrics. | `journal`, `journal_publication`, `journal_publication_indexing`, `journal_metric` | `staff_indexing_list`, `staff_indexing_save`, `staff_indexing_delete` | STAFF_PROFILE | `/staff-profile/publication` |
@@ -141,30 +178,30 @@ lists are the key ones; [RTM.md](RTM.md) has the full table count per module.
 | 32 | Academic and professional contributions | Contributions, and the supervision of student research. | `staff_professional_contribution`, `research_supervision` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/contribution` |
 | 33 | Centralized evidence / document management | Evidence documents with versions, tags and their own audit trail — shared by every staff activity kind. | `evidence_document`, `evidence_document_version`, `evidence_tag`, `evidence_document_tag`, `evidence_document_audit` | `staff_evidence_add`, `staff_evidence_replace`, `staff_evidence_delete`, `staff_evidence_download_info` | STAFF_PROFILE | `/staff-profile/evidence` |
 | 34 | Document/evidence requirement configuration | Which evidence each activity kind requires. | `activity_evidence_requirement` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/evidence-requirements` |
-| 35 | Seed reference data | Seed rows for the lookup tables. | — | — | — | — |
-| 36 | RBAC registration for staff profile and evidence | The `access_module`, `access_resource`, `permission` and `role_permission` rows that make the staff-profile area authorisable. | — | — | STAFF_PROFILE | — |
-| 37 | Reporting / search views | Cross-module search and dashboard aggregates. | — | `global_search`, `dash_applications`, `dash_employees`, `dash_enrolments`, `dash_fee_collection`, `dash_fee_outstanding`, `dash_registrations`, `dash_sessions`, `dash_term_results`, `my_dashboard` | REPORTING | — (no screen) |
-| 38 | Performance indexes | A second index-only section. | — | — | — | — |
-| 39 | Data-integrity notes | Rules the source asks the application or service layer to enforce. | — | — | — | — |
+| 35 | Seed reference data | Seed rows for the lookup tables: 27 seeded lookup tables, all 27 readable by the administrator. | — | — | IAM, STAFF_PROFILE | `/schema/35` |
+| 36 | RBAC registration for staff profile and evidence | The `access_module`, `access_resource`, `permission` and `role_permission` rows that make the staff-profile area authorisable: 1 access module, 5 resources, 44 permissions and 144 role grants. | — | — | IAM | `/schema/36` |
+| 37 | Reporting / search views | Cross-module search and dashboard aggregates: 10 reporting views, all 10 readable, plus the live `global_search` and the two activity reports. | — | `global_search`, `dash_applications`, `dash_employees`, `dash_enrolments`, `dash_fee_collection`, `dash_fee_outstanding`, `dash_registrations`, `dash_sessions`, `dash_term_results`, `my_dashboard` | REPORTING | `/reporting` |
+| 38 | Performance indexes | A second index-only section: the 146 indexes carried by the 55 tables that have a `STAFF_PROFILE.*` row-level security policy. | — | `schema_indexes` | STAFF_PROFILE, IAM | `/schema/38` |
+| 39 | Data-integrity notes | Rules the source asks the application or service layer to enforce: the 14 notes transcribed from section 39 of the source. | — | — | IAM, AUDIT | `/schema/39` |
 | 40 | Student activity and evidence | The student-side mirror of the staff activity area: activities, teams, evidence with versions and an audit trail, and the evidence requirements per activity type. | `student_activity_type`, `student_activity`, `student_activity_team_member`, `student_activity_evidence`, `student_activity_evidence_version`, `student_activity_evidence_audit`, `student_activity_evidence_requirement` | `student_activity_save`, `student_activity_submit`, `student_activity_list`, `student_activity_get`, `student_activity_review`, `student_activity_delete`, `student_activity_report`, `student_activity_team_add`, `student_activity_team_remove`, `student_activity_evidence_add`, `student_activity_evidence_replace`, `student_activity_evidence_delete`, `student_activity_evidence_download_info` | STUDENT | `/activities` |
 
 # Navigation is owned by `src/lib/nav.ts`
 
 `src/lib/nav.ts` is the **single source of truth** for the sidebar. It holds
-`NAV_GROUPS` (21 groups, 29 group routes and 15 staff sub-module children),
+`NAV_GROUPS` (27 groups, 35 group routes and 15 staff sub-module children),
 the `NavItem` / `NavGroup` types, the visibility helpers `visibleNavGroups()` /
 `visibleNav()` and the breadcrumb fallback `NAV_PARENTS`.
 
 Consequences for module work:
 
 - **Group order is not a style choice.** The groups follow the schema's numbered
-  module order — `1..17`, then `19`, then `40` — with `Overview` and `Account` as
-  bookends. `tests/unit/nav-connectivity.test.ts` asserts the exact id sequence,
-  so inserting or reordering a group fails the test.
-- **A module gets a nav entry only if it has a screen.** Schema modules 17A, 18,
-  35, 36, 38 and 39 (triggers, indexes, seed data, RBAC registration, integrity
-  notes) have no group of their own, and module 37 (reporting) has no screen at
-  all — it is the documented gap G-1.
+  module order — `1..19`, then `35..39`, then `40` — with `Overview` and
+  `Account` as bookends. `tests/unit/nav-connectivity.test.ts` asserts the exact
+  id sequence, so inserting or reordering a group fails the test.
+- **A module gets a nav entry only if it has a screen.** Schema module 17A (the
+  cross-row enforcement triggers) still has no group of its own. Modules 18, 35,
+  36, 37, 38 and 39 have one each now — the six schema screens described
+  above.
 - **A module with no screen of its own can still be a child.** The research
   sub-modules 20–34 are reached through `/staff-profile`, and each one has its
   own address under it: `/staff-profile/publication`, `/staff-profile/research`,
@@ -177,7 +214,8 @@ Consequences for module work:
   drawn; RLS and the RPC's own check decide what may be read. See
   [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md).
 - **An `access_module` code that no nav item uses must be allowlisted** in the
-  test. The allowlist is `TEACHING`, `REPORTING`, `COMMUNICATION`.
+  test. The allowlist is `TEACHING`, `COMMUNICATION`. `REPORTING` was on that
+  allowlist until module 37 got a screen; it is not any more.
 
 Full rules: [NAVIGATION.md](NAVIGATION.md).
 
@@ -196,9 +234,9 @@ Full rules: [NAVIGATION.md](NAVIGATION.md).
 The current feature folders are `academic`, `account`, `activities`, `admissions`,
 `announcements`, `assessment`, `attendance`, `audit`, `calendar`, `certificates`,
 `detail`, `finance`, `feedback`, `grievances`, `hr`, `iam`, `mentoring`,
-`my-documents`, `reference`, `registration`, `requests`, `results`, `shared`,
-`staff-profile`, `structure`, `timetable`, plus the loose `dashboard-stats.ts` and
-`students-lookups.ts`.
+`my-documents`, `reference`, `registration`, `reporting`, `requests`, `results`,
+`schema`, `shared`, `staff-profile`, `structure`, `timetable`, plus the loose
+`dashboard-stats.ts` and `students-lookups.ts`.
 
 # Module gaps
 
@@ -207,13 +245,14 @@ The honest list. Each of these is a live fact, not a plan.
 | Gap | Detail |
 |---|---|
 | `/staff-profile` and `/activities` had no page | **Closed.** `src/app/(app)/staff-profile/page.tsx` and `src/app/(app)/activities/page.tsx` now exist, backed by `src/features/staff-profile/` and `src/features/activities/`. The staff-profile screen was later split into `src/features/staff-profile/staff-profile-screen.tsx` so that the fifteen sub-module addresses under `/staff-profile/<section>` can serve it. Schema modules 19–34 and 40 are reachable from the UI and the `staff` and `activities` nav groups no longer render dead links. |
-| `REPORTING` is unenforced | 11 permissions, 0 RLS policies, 0 functions that check them. `global_search` is `LANGUAGE sql, STABLE` — not `SECURITY DEFINER` — and checks no permission code. Schema module 37 has no screen either. |
+| Schema modules 18, 35, 36, 37, 38 and 39 had no screen | **Closed.** Modules 18, 35, 36, 38 and 39 are served by `src/app/(app)/schema/[module]/page.tsx` and module 37 by `src/app/(app)/reporting/page.tsx`. The sidebar carries six groups for them: `schema`, `seed`, `rbac`, `reporting`, `staff-index` and `integrity`. `supabase/migrations/065_schema_indexes.sql` adds `public.schema_indexes(p_scope text DEFAULT NULL)`, the only door to `pg_indexes`. |
+| `REPORTING` is unenforced | 11 permissions, 0 RLS policies, 0 functions that check them. `global_search` is `LANGUAGE sql, STABLE` — not `SECURITY DEFINER` — and checks no permission code. Schema module 37 now has a screen at `/reporting`, and the ten reporting views are `security_invoker` views, so they inherit the RLS of their base tables — but `global_search` is still the hole. |
 | `TEACHING` has no screen of its own | Its screens live inside the registration and attendance flows. The code is seeded and allowlisted in the nav test. |
 | `COMMUNICATION` is ungated in the sidebar | Intentional: the announcement feed is visible to every signed-in user. The rows are still filtered by `announcement_visible`. |
 | `docs:roles` cannot run | **Closed.** `tools/validate/role_matrix.mjs` is back in the tree (restored 23:48:38, reworked 00:11:14 to read the live project with `--source auto|live|rebuilt`). `node tools/validate/role_matrix.mjs --check` exits 0 with `OK - docs\ROLE_PERMISSION_MATRIX.md is up to date (source: live)` - the recovered matrix is byte-identical to what the generator produces from the live database. |
 | `docs:schema` cannot run | **Closed.** `tools/validate/schema_doc.mjs` is in the tree (29,642 bytes, written 00:22:20) and renders `docs/SCHEMA.md` and `docs/SCHEMA_RECONCILIATION.md` from the live catalogue. `node tools/validate/schema_doc.mjs --check` exits 0 with both documents up to date. |
-| `migrate:catalogue` cannot run as written | **Closed.** `tools/validate/catalogue.mjs` (27,874 bytes, 00:37:22) and `tools/compare_catalogue.py` (19,149 bytes, 00:30:12) are both present. `python tools/compare_catalogue.py` exits 0 with `OK - the live catalogue matches the expected catalogue`: 0 differences across counts, per-schema counts, seeded row counts, tables (222), columns (2140), functions (420), policies (594), triggers (140), grants (6223) and sequences (199). |
+| `migrate:catalogue` cannot run as written | **Closed.** `tools/validate/catalogue.mjs` (27,874 bytes, 00:37:22) and `tools/compare_catalogue.py` (19,149 bytes, 00:30:12) are both present. `python tools/compare_catalogue.py` exits 0 with `OK - the live catalogue matches the expected catalogue`: 0 differences across counts, per-schema counts, seeded row counts, tables (222), columns (2140), functions (421), policies (594), triggers (140), grants (6227) and sequences (199). |
 | `migrate:build` cannot run as written | **Closed.** `tools/translate.py` was restored at 23:54:54 and `npm run migrate:build` was run at 23:56:38, regenerating `supabase/migrations/001`–`063` from the MySQL source. |
-| The regenerated migrations did not reproduce the live function ACLs | **Closed.** The 23:49:34 set was a catalogue regeneration and carried no `REVOKE` statement, so a rebuild left `PUBLIC` able to execute all 420 functions in `public` + `sims_private`. The 23:56:38 translation carries the 418 `REVOKE` statements and `tools/compare_catalogue.py` now reports 0 differences. Gaps G-9 and G-10 in [RTM.md](RTM.md), hole S-8 in [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md). |
+| The regenerated migrations did not reproduce the live function ACLs | **Closed.** The 23:49:34 set was a catalogue regeneration and carried no `REVOKE` statement, so a rebuild left `PUBLIC` able to execute all 420 functions in `public` + `sims_private` (the count at the time). The 23:56:38 translation carries the 418 `REVOKE` statements and `tools/compare_catalogue.py` now reports 0 differences. Gaps G-9 and G-10 in [RTM.md](RTM.md), hole S-8 in [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md). |
 | The auth flows have never been exercised signed in | No Auth user existed at the time of writing; there is no bootstrap administrator. See [AUTHENTICATION_AND_RBAC.md](AUTHENTICATION_AND_RBAC.md). |
 

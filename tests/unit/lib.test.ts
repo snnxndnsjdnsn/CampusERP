@@ -116,7 +116,7 @@ describe('navigation visibility', () => {
   });
   it('shows every nav item to a fully-provisioned student employee, in group order', () => {
     const c = {
-      ...ctx(['STUDENT', 'ADMISSION', 'REGISTRATION', 'ATTENDANCE', 'TIMETABLE', 'ASSESSMENT', 'RESULT', 'GRIEVANCE', 'MENTORING', 'FEEDBACK', 'FEES', 'EMPLOYEE', 'INSTITUTION', 'ACADEMIC_CALENDAR', 'CURRICULUM', 'IAM', 'AUDIT', 'STAFF_PROFILE', 'DOCUMENT']),
+      ...ctx(['STUDENT', 'ADMISSION', 'REGISTRATION', 'ATTENDANCE', 'TIMETABLE', 'ASSESSMENT', 'RESULT', 'GRIEVANCE', 'MENTORING', 'FEEDBACK', 'FEES', 'EMPLOYEE', 'INSTITUTION', 'ACADEMIC_CALENDAR', 'CURRICULUM', 'IAM', 'AUDIT', 'STAFF_PROFILE', 'DOCUMENT', 'REPORTING']),
       student_id: 5,
       employee_id: 7,
     };

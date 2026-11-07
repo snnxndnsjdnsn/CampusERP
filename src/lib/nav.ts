@@ -34,7 +34,7 @@ export type NavGroup = {
 
 /**
  * Canonical grouped navigation, ordered exactly like the database's numbered modules
- * (1..17, 19, 40) with unnumbered Overview/Account bookends. Only pages that actually
+ * (1..19, 35..40) with unnumbered Overview/Account bookends. Only pages that actually
  * exist belong here. Visibility is a convenience; RLS is the enforcement.
  *
  * Schema modules 20 to 34 are the staff-profile research sub-modules. They have
@@ -155,6 +155,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [{ href: '/finance', label: 'Fees', module: 'FEES' }],
   },
   {
+    id: 'schema',
+    label: '18 · Performance indexes & storage',
+    items: [{ href: '/schema/18', label: 'Performance indexes and file storage', module: 'IAM' }],
+  },
+  {
     id: 'staff',
     label: '19 · Staff profile & research',
     items: [{ href: '/staff-profile', label: 'Staff profile', module: 'STAFF_PROFILE' }],
@@ -165,6 +170,31 @@ export const NAV_GROUPS: NavGroup[] = [
       label: `${s.module} · ${s.title}`,
       module: 'STAFF_PROFILE',
     })),
+  },
+  {
+    id: 'seed',
+    label: '35 · Seed reference data',
+    items: [{ href: '/schema/35', label: 'Seed reference data', module: ['IAM', 'STAFF_PROFILE'] }],
+  },
+  {
+    id: 'rbac',
+    label: '36 · Staff profile RBAC registration',
+    items: [{ href: '/schema/36', label: 'RBAC registration', module: 'IAM' }],
+  },
+  {
+    id: 'reporting',
+    label: '37 · Reporting & search views',
+    items: [{ href: '/reporting', label: 'Reporting and search views', module: 'REPORTING' }],
+  },
+  {
+    id: 'staff-index',
+    label: '38 · Staff profile performance indexes',
+    items: [{ href: '/schema/38', label: 'Staff profile indexes', module: ['STAFF_PROFILE', 'IAM'] }],
+  },
+  {
+    id: 'integrity',
+    label: '39 · Data-integrity notes',
+    items: [{ href: '/schema/39', label: 'Data-integrity notes', module: ['IAM', 'AUDIT'] }],
   },
   {
     id: 'activities',

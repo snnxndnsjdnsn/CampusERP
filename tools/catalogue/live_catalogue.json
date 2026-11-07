@@ -65530,6 +65530,12 @@
   },
   {
    "schema": "public",
+   "name": "schema_indexes",
+   "args": "p_scope text",
+   "definition": "CREATE OR REPLACE FUNCTION public.schema_indexes(p_scope text DEFAULT NULL::text)\n RETURNS TABLE(index_name text, table_name text, index_columns text[], is_unique boolean, is_primary boolean, definition text)\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_scope text := lower(btrim(COALESCE(p_scope, 'all')));\nBEGIN\n    IF v_scope NOT IN ('all', 'staff') THEN\n        RAISE EXCEPTION 'Unknown scope' USING ERRCODE = '22023';\n    END IF;\n\n    IF v_scope = 'staff' THEN\n        IF NOT sims_private.can_global(ARRAY['STAFF_PROFILE.ALL.READ']::text[]) THEN\n            RAISE EXCEPTION 'Not authorised (STAFF_PROFILE.ALL.READ)' USING ERRCODE = '42501';\n        END IF;\n    ELSE\n        IF NOT sims_private.can_global(ARRAY['IAM.ALL.READ']::text[]) THEN\n            RAISE EXCEPTION 'Not authorised (IAM.ALL.READ)' USING ERRCODE = '42501';\n        END IF;\n    END IF;\n\n    RETURN QUERY\n    SELECT ic.relname::text,\n           tc.relname::text,\n           COALESCE(\n             (SELECT array_agg(a.attname::text ORDER BY k.ord)\n                FROM unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord)\n                JOIN pg_attribute a ON a.attrelid = ix.indrelid AND a.attnum = k.attnum),\n             ARRAY[]::text[]\n           ),\n           ix.indisunique,\n           ix.indisprimary,\n           pg_get_indexdef(ix.indexrelid)::text\n      FROM pg_index ix\n      JOIN pg_class ic ON ic.oid = ix.indexrelid\n      JOIN pg_class tc ON tc.oid = ix.indrelid\n      JOIN pg_namespace n ON n.oid = tc.relnamespace\n     WHERE n.nspname = 'public'\n       AND (v_scope = 'all'\n            OR tc.relname IN (\n                 SELECT DISTINCT tablename FROM pg_policies\n                  WHERE schemaname = 'public'\n                    AND (qual LIKE '%STAFF_PROFILE.%' OR with_check LIKE '%STAFF_PROFILE.%')\n            ))\n     ORDER BY tc.relname, ic.relname;\nEND $function$\n"
+  },
+  {
+   "schema": "public",
    "name": "section_delete",
    "args": "p_kind text, p_parent_id bigint, p_section text, p_id bigint",
    "definition": "CREATE OR REPLACE FUNCTION public.section_delete(p_kind text, p_parent_id bigint, p_section text, p_id bigint)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE d record; v_before jsonb;\nBEGIN\n    SELECT * INTO d FROM sims_private.section_def(p_kind, p_section);\n    IF d.tbl IS NULL THEN RAISE EXCEPTION 'Unknown section' USING ERRCODE = '22023'; END IF;\n    IF NOT sims_private.section_can(p_kind, d.perm_prefix, 'DELETE', p_parent_id) THEN RAISE EXCEPTION 'Not authorised (%.DELETE)', d.perm_prefix USING ERRCODE = '42501'; END IF;\n    EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE t.%I = $1 AND t.%I = $2', d.tbl, d.pk_col, d.parent_col) INTO v_before USING p_id, p_parent_id;\n    IF v_before IS NULL THEN RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023'; END IF;\n    BEGIN\n        EXECUTE format('DELETE FROM public.%I WHERE %I = $1', d.tbl, d.pk_col) USING p_id;\n    EXCEPTION WHEN foreign_key_violation THEN\n        RAISE EXCEPTION 'This row is still in use and cannot be deleted' USING ERRCODE = '45000';\n    END;\n    PERFORM sims_private.audit_manual(d.module_code, 'DELETE', d.tbl, p_id, v_before, NULL);\nEND $function$\n"
@@ -104540,6 +104546,34 @@
   },
   {
    "schema": "public",
+   "object": "schema_indexes(p_scope text)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "schema_indexes(p_scope text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "schema_indexes(p_scope text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "schema_indexes(p_scope text)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
    "object": "scholarship_scheme",
    "grantee": "postgres",
    "privilege": "DELETE",
@@ -118552,7 +118586,7 @@
   "public.access_action": 12,
   "public.access_module": 22,
   "public.access_resource": 40,
-  "public.activity_audit": 120,
+  "public.activity_audit": 124,
   "public.activity_evidence_requirement": 0,
   "public.activity_type": 17,
   "public.admission_applicant": 2,
@@ -118616,7 +118650,7 @@
   "public.employee_previous_employment": 0,
   "public.employee_qualification": 0,
   "public.employee_sensitive_access_audit": 0,
-  "public.employee_user_account": 0,
+  "public.employee_user_account": 1,
   "public.employment_source": 2,
   "public.enrolment_status_history": 0,
   "public.event_mode": 3,
@@ -118749,19 +118783,19 @@
   "public.student_sponsorship": 0,
   "public.student_term_registration": 3,
   "public.student_term_result": 3,
-  "public.student_user_account": 0,
+  "public.student_user_account": 1,
   "public.study_mode": 7,
   "public.sub_caste": 4,
   "public.time_slot": 5,
   "public.timetable_session": 0,
   "public.training_program_type": 9,
   "public.university": 1,
-  "public.user_account": 3,
+  "public.user_account": 5,
   "public.user_permission_override": 0,
-  "public.user_role_assignment": 3,
+  "public.user_role_assignment": 5,
   "public.verification_status": 6,
   "sims_private.announcement_author": 0,
-  "sims_private.auth_identity_map": 3,
+  "sims_private.auth_identity_map": 5,
   "sims_private.feedback_submission": 0,
   "sims_private.mfa_recovery_attempt": 0,
   "sims_private.mfa_recovery_code": 0,
@@ -118773,7 +118807,7 @@
  "counts": {
   "tables": 222,
   "views": 10,
-  "functions": 420,
+  "functions": 421,
   "triggers": 140,
   "policies": 594,
   "rls_tables": 216,
@@ -118782,6 +118816,6 @@
   "domains": 6,
   "enums": 0,
   "composites": 233,
-  "grants": 6223
+  "grants": 6227
  }
 }

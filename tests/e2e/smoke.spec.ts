@@ -54,6 +54,7 @@ const ROUTES = [
   '/audit/logins',
   '/finance',
   '/finance/structures',
+  '/schema/18',
   '/staff-profile',
   // Schema modules 20 to 34 - the staff-profile research sub-modules. Each is
   // an address inside the staff-profile screen.
@@ -72,6 +73,11 @@ const ROUTES = [
   '/staff-profile/contribution',
   '/staff-profile/evidence',
   '/staff-profile/evidence-requirements',
+  '/schema/35',
+  '/schema/36',
+  '/reporting',
+  '/schema/38',
+  '/schema/39',
   '/activities',
   '/my-results',
   '/my-hr',
@@ -219,5 +225,39 @@ test.describe('signed-in smoke test', () => {
     const crumb = page.locator('nav[aria-label="Breadcrumb"]');
     await expect(crumb).toContainText('21 · Journals and journal publications');
     await expect(crumb).not.toContainText('Staff profile');
+  });
+
+  /**
+   * The six screens that were missing until now.
+   *
+   * Each of them is a schema module of its own, so the sidebar draws it as a
+   * group labelled with the module number, and the screen that is open marks
+   * its own item as the current one.
+   */
+  test('the sidebar lists the six new schema groups and marks the open one current', async ({ page }) => {
+    await page.goto('/reporting', { waitUntil: 'domcontentloaded' });
+    await waitForContent(page);
+
+    const sidebar = page.locator('aside[aria-label="Primary"]');
+    await expect(sidebar).toBeVisible();
+
+    // Every new group is drawn, labelled with its schema module number.
+    for (const label of [
+      '18 · Performance indexes & storage',
+      '35 · Seed reference data',
+      '36 · Staff profile RBAC registration',
+      '37 · Reporting & search views',
+      '38 · Staff profile performance indexes',
+      '39 · Data-integrity notes',
+    ]) {
+      await expect(
+        sidebar.getByText(label, { exact: true }),
+        `the sidebar must show the group ${label}`,
+      ).toHaveCount(1);
+    }
+
+    // The open screen marks its own item as the current one.
+    const current = sidebar.getByRole('link', { name: 'Reporting and search views', exact: true });
+    await expect(current).toHaveAttribute('aria-current', 'page');
   });
 });

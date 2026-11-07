@@ -184,9 +184,8 @@ describe('navigation connectivity', () => {
   it('every seeded access_module is used by navigation or explicitly allowlisted', () => {
     // Allowlist of seeded-but-unused codes:
     // - TEACHING: its screens live inside the registration/attendance detail flows, not a page of their own.
-    // - REPORTING: no dedicated screen yet.
     // - COMMUNICATION: the announcement feed is intentionally ungated (see the 'communication' group).
-    const allowlist = new Set(['TEACHING', 'REPORTING', 'COMMUNICATION']);
+    const allowlist = new Set(['TEACHING', 'COMMUNICATION']);
     const unused = [...seededModuleCodes()].filter((c) => !navModules.includes(c) && !allowlist.has(c)).sort();
     expect(unused, `seeded access_module codes missing from navigation: ${unused.join(', ')}`).toEqual([]);
   });
@@ -246,9 +245,52 @@ describe('navigation connectivity', () => {
       'iam', // 15
       'hr', // 16
       'finance', // 17
+      'schema', // 18 · Performance indexes & storage
       'staff', // 19 · Staff profile (schema modules 20–34 are its research sub-modules, drawn as children)
+      'seed', // 35 · Seed reference data
+      'rbac', // 36 · Staff profile RBAC registration
+      'reporting', // 37 · Reporting & search views
+      'staff-index', // 38 · Staff profile performance indexes
+      'integrity', // 39 · Data-integrity notes
       'activities', // 40
       'account',
     ]);
+  });
+
+  /**
+   * The six screens that were missing until now.
+   *
+   * Each one is a schema module of its own, so the sidebar must draw it as a
+   * group, carry the module's number in the group label, point at the right
+   * address and gate it on the right access_module code(s).
+   */
+  it('the six new schema screens are wired into the sidebar', () => {
+    const expected = [
+      { id: 'schema', number: '18', href: '/schema/18', module: 'IAM' },
+      { id: 'seed', number: '35', href: '/schema/35', module: ['IAM', 'STAFF_PROFILE'] },
+      { id: 'rbac', number: '36', href: '/schema/36', module: 'IAM' },
+      { id: 'reporting', number: '37', href: '/reporting', module: 'REPORTING' },
+      { id: 'staff-index', number: '38', href: '/schema/38', module: ['STAFF_PROFILE', 'IAM'] },
+      { id: 'integrity', number: '39', href: '/schema/39', module: ['IAM', 'AUDIT'] },
+    ];
+
+    for (const e of expected) {
+      const group = NAV_GROUPS.find((g) => g.id === e.id);
+      expect(group, `the '${e.id}' navigation group is missing`).toBeDefined();
+
+      // The module number is the first thing the group label says, so the
+      // sidebar shows the schema's numbering and not just a screen name.
+      expect(
+        group?.label.split(' · ')[0],
+        `the '${e.id}' group must carry schema module number ${e.number}`,
+      ).toBe(e.number);
+
+      expect(group?.items, `the '${e.id}' group must hold exactly one screen`).toHaveLength(1);
+      expect(group?.items[0]?.href, `the '${e.id}' group points at the wrong screen`).toBe(e.href);
+      expect(
+        group?.items[0]?.module,
+        `the '${e.id}' screen is gated by the wrong access_module code(s)`,
+      ).toEqual(e.module);
+    }
   });
 });
