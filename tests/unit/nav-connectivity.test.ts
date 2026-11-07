@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ICONS } from '@/components/app-shell';
 import { NAV_GROUPS, NAV_ITEMS } from '@/lib/nav';
+import { STAFF_SECTIONS } from '@/lib/staff-sections';
 
 /**
  * Proves navigation ↔ database ↔ routes stay wired together:
@@ -132,9 +133,42 @@ function splitTopLevel(text: string): string[] {
   return parts;
 }
 
+/**
+ * Does a nav href resolve to a real page?
+ *
+ * A href may end in a dynamic segment - `/staff-profile/publication` is served
+ * by `src/app/(app)/staff-profile/[section]/page.tsx` - so a literal folder is
+ * not enough. The walk follows the address one segment at a time, preferring a
+ * literal folder and falling back to a `[param]` one, and the last folder must
+ * hold a `page.tsx`.
+ */
+function routeExists(href: string): boolean {
+  const segments = href.replace(/^\//, '').split('/').filter(Boolean);
+
+  const walk = (dir: string, index: number): boolean => {
+    if (index === segments.length) return fs.existsSync(path.join(dir, 'page.tsx'));
+
+    const segment = segments[index];
+    if (segment === undefined) return false;
+
+    const candidates: string[] = [];
+
+    const literal = path.join(dir, segment);
+    if (fs.existsSync(literal) && fs.statSync(literal).isDirectory()) candidates.push(literal);
+
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith('[')) candidates.push(path.join(dir, entry.name));
+    }
+
+    return candidates.some((candidate) => walk(candidate, index + 1));
+  };
+
+  return walk(APP_DIR, 0);
+}
+
 describe('navigation connectivity', () => {
   it('every nav href resolves to an existing app route', () => {
-    const broken = NAV_ITEMS.filter((i) => !fs.existsSync(path.join(APP_DIR, `${i.href.replace(/^\//, '')}/page.tsx`))).map(
+    const broken = NAV_ITEMS.filter((i) => !routeExists(i.href)).map(
       (i) => `${i.href} -> src/app/(app)${i.href}/page.tsx`,
     );
     expect(broken, `nav hrefs without a page.tsx:\n${broken.join('\n')}`).toEqual([]);
@@ -162,6 +196,36 @@ describe('navigation connectivity', () => {
     expect(missing, `ICONS entries missing for: ${missing.join(', ')}`).toEqual([]);
   });
 
+  it('the staff group carries every research sub-module, 20 to 34', () => {
+    const staff = NAV_GROUPS.find((g) => g.id === 'staff');
+    expect(staff, 'the staff group is missing').toBeDefined();
+
+    const children = staff?.children ?? [];
+    expect(children.map((c) => c.href)).toEqual(STAFF_SECTIONS.map((s) => `/staff-profile/${s.slug}`));
+
+    // The module number is the first thing the label says, so the sidebar
+    // shows the schema's numbering and not just a screen name.
+    const numbers = children.map((c) => c.label.split(' · ')[0]);
+    expect(numbers).toEqual(['20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34']);
+
+    // Every sub-module is gated by the same access module as its screen.
+    expect(children.every((c) => c.module === 'STAFF_PROFILE')).toBe(true);
+  });
+
+  it('every staff sub-module address is a known section', () => {
+    const children = NAV_GROUPS.find((g) => g.id === 'staff')?.children ?? [];
+    const unknown = children
+      .map((c) => c.href.replace('/staff-profile/', ''))
+      .filter((slug) => !STAFF_SECTIONS.some((s) => s.slug === slug));
+    expect(unknown, `staff sub-module addresses with no section: ${unknown.join(', ')}`).toEqual([]);
+  });
+
+  it('an address that no route serves is rejected', () => {
+    expect(routeExists('/definitely/not/a/route')).toBe(false);
+    expect(routeExists('/staff-profile')).toBe(true);
+    expect(routeExists('/staff-profile/publication')).toBe(true);
+  });
+
   it('NAV_GROUPS stay in the canonical database module order', () => {
     expect(NAV_GROUPS.map((g) => g.id)).toEqual([
       'overview',
@@ -182,7 +246,7 @@ describe('navigation connectivity', () => {
       'iam', // 15
       'hr', // 16
       'finance', // 17
-      'staff', // 19 · Staff profile (schema sections 20–39 are research sub-modules behind this screen)
+      'staff', // 19 · Staff profile (schema modules 20–34 are its research sub-modules, drawn as children)
       'activities', // 40
       'account',
     ]);

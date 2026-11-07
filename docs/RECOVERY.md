@@ -281,7 +281,7 @@ Also regenerated rather than recovered: `tools/catalogue/*`, `tools/rls/table_mo
 
 ### 5.5 Written from scratch after the incident
 
-Everything else. In particular the whole Next.js application layer: the 47 route
+Everything else. In particular the whole Next.js application layer: the 48 route
 pages under `src/app/(app)/`, the `src/features/**` clients, the `src/components/ui/**`
 primitives, `src/lib/context.ts`, `src/lib/server-context.ts`, `src/lib/api.ts`,
 `src/lib/env.ts`, `src/lib/format.ts`, `src/lib/utils.ts`, `src/lib/validation.ts`,
@@ -408,7 +408,7 @@ section 8.
   wiring; see [NAVIGATION.md](NAVIGATION.md).
 - **The application was exercised signed in against the live project.** The test
   administrator signs in through the real form, `public.my_context()` resolves
-  22 readable modules and 349 permissions, and all 47 application routes render
+  22 readable modules and 349 permissions, and all 62 application routes render
   with zero console errors. `tests/e2e/smoke.spec.ts` repeats that as a test;
   the session is created once in `tests/e2e/global-setup.ts` because Supabase
   throttles the password grant endpoint.

@@ -1,13 +1,12 @@
 'use client';
 
 import {
-  Award, BadgeCheck, Bell, BookOpen, BookText, Briefcase, Building2, CalendarCheck, CalendarDays, ChevronRight, ClipboardCheck, ClipboardList, Contact, Database, FileCheck2, FileText, GraduationCap, HeartHandshake, LayoutDashboard, LogOut,
-  Megaphone, MessageSquare, Microscope, Receipt, ScrollText, Search, Settings, ShieldCheck, Table2, Trophy, Users, UserRound,
+  Activity, Award, BadgeCheck, Bell, BookOpen, BookText, Briefcase, Building2, CalendarCheck, CalendarDays, ChevronRight, CircleDollarSign, ClipboardCheck, ClipboardList, Contact, Database, FileCheck2, FileText, FlaskConical, FolderOpen, GraduationCap, Handshake, HeartHandshake, IdCard, LayoutDashboard, ListChecks, LogOut, Megaphone, MessageSquare, Microscope, PartyPopper, PenLine, Presentation, Receipt, ScrollText, Search, Settings, ShieldCheck, Table2, Trophy, Users, UserRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { NAV_PARENTS, type NavGroup } from '@/lib/nav';
+import { NAV_PARENTS, type NavGroup, type NavItem } from '@/lib/nav';
 import { cn } from '@/lib/utils';
 
 export const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -41,12 +40,45 @@ export const ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   '/admin/reference': Database,
   '/audit': ShieldCheck,
   '/settings': Settings,
+  // Schema modules 20 to 34 - the staff-profile research sub-modules. Each is
+  // an address inside the staff-profile screen.
+  '/staff-profile/activity': Activity,
+  '/staff-profile/publication': BookOpen,
+  '/staff-profile/conference': Presentation,
+  '/staff-profile/development': GraduationCap,
+  '/staff-profile/internship': Handshake,
+  '/staff-profile/research': FlaskConical,
+  '/staff-profile/funded-research': CircleDollarSign,
+  '/staff-profile/consultancy': Briefcase,
+  '/staff-profile/co-curricular': Users,
+  '/staff-profile/extra-curricular': PartyPopper,
+  '/staff-profile/award': Trophy,
+  '/staff-profile/membership': IdCard,
+  '/staff-profile/contribution': PenLine,
+  '/staff-profile/evidence': FolderOpen,
+  '/staff-profile/evidence-requirements': ListChecks,
 };
+
+/**
+ * The nav item the current address belongs to.
+ *
+ * The deepest match wins: `/staff-profile/publication` belongs to the
+ * sub-module, not to `/staff-profile`, and `/admin/users/new` belongs to the
+ * new-user page, not to `/admin/users`.
+ */
+function activeItem(pathname: string, groups: NavGroup[]): NavItem | undefined {
+  return groups
+    .flatMap((g) => [...g.items, ...(g.children ?? [])])
+    .filter((i) => pathname === i.href || pathname.startsWith(i.href + '/'))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+}
 
 function Breadcrumbs({ groups }: { groups: NavGroup[] }) {
   const pathname = usePathname();
-  const items = groups.flatMap((g) => g.items);
-  let current = items.find((i) => pathname === i.href || pathname.startsWith(i.href + '/'));
+  const items = groups.flatMap((g) => [...g.items, ...(g.children ?? [])]);
+  // The deepest match wins, so a sub-module gets its own crumb rather than
+  // its parent's.
+  let current = activeItem(pathname, groups);
   if (!current) {
     // breadcrumb-only fallback for routes without their own nav item (e.g. /admin/mfa-policy)
     const parent = NAV_PARENTS[pathname] ??
@@ -97,7 +129,8 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const active = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const current = activeItem(pathname, groups)?.href;
+  const active = (href: string) => href === current;
   return (
     <div className="min-h-screen md:flex">
       <aside className="hidden w-60 shrink-0 border-r border-border bg-card md:block" aria-label="Primary">
@@ -120,6 +153,23 @@ export function AppShell({
                       )}
                     >
                       <Icon className="h-4 w-4" aria-hidden />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+                {group.children?.map((item) => {
+                  const Icon = ICONS[item.href] ?? UserRound;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={active(item.href) ? 'page' : undefined}
+                      className={cn(
+                        'flex items-center gap-3 rounded-md py-1.5 pl-6 pr-3 text-[13px] hover:bg-muted',
+                        active(item.href) && 'bg-muted font-medium text-primary',
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
                       {item.label}
                     </Link>
                   );
@@ -158,7 +208,7 @@ export function AppShell({
           </div>
         </header>
         <nav className="flex gap-1 overflow-x-auto border-b border-border bg-card px-3 py-2 md:hidden" aria-label="Primary mobile">
-          {groups.flatMap((g) => g.items).map((item) => (
+          {groups.flatMap((g) => [...g.items, ...(g.children ?? [])]).map((item) => (
             <Link
               key={item.href}
               href={item.href}

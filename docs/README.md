@@ -63,7 +63,7 @@ See [Signing in](#signing-in) further down for the test account.
 |---|---|---|
 | [RTM.md](RTM.md) | Which database module maps to which tables, RPCs, route and access code, and what is still missing. One row per module. | Hand-written from live data |
 | [MODULE_DOCUMENTATION.md](MODULE_DOCUMENTATION.md) | What each screen actually does, which migration backs it, and how the screen groups relate to the schema's numbered modules. | Recovered, then extended |
-| [NAVIGATION.md](NAVIGATION.md) | The sidebar contract: 21 groups, 29 routes, the four visibility gates, breadcrumb resolution, and the unit test that keeps it honest. | Hand-written from `src/lib/nav.ts` |
+| [NAVIGATION.md](NAVIGATION.md) | The sidebar contract: 21 groups, 44 routes (29 group routes and the 15 staff sub-modules 20–34), the four visibility gates, breadcrumb resolution, and the unit test that keeps it honest. | Hand-written from `src/lib/nav.ts` |
 | [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md) | How authorisation really works: identity, the permission grammar, scope containment, DENY-wins, SELF scope, the sensitive-resource rule, and nine open holes plus two that were found and fixed. | Hand-written from live policies |
 | [AUTHENTICATION_AND_RBAC.md](AUTHENTICATION_AND_RBAC.md) | Identity mapping, effective permissions, the `sims_private` helpers, and what is not done yet. | Recovered verbatim |
 | [ROLE_PERMISSION_MATRIX.md](ROLE_PERMISSION_MATRIX.md) | The per-role grant matrix. | Recovered verbatim; the generator was restored at 23:48:38 and reproduces the file byte for byte |
@@ -195,7 +195,7 @@ npm run verify
 
 # every nav href resolves to a page, every nav module is seeded,
 # every seeded code is used or allowlisted, every href has an icon,
-# and the group order is locked
+# the group order is locked, and the staff sub-modules 20-34 are complete
 npm run test:unit
 
 # the reference seed matches the live schema
@@ -343,11 +343,13 @@ $env:SIMS_TEST_PASSWORD='...'
 npm run test:e2e:smoke
 ```
 
-`tests/e2e/smoke.spec.ts` opens all 47 application routes and asserts three
+`tests/e2e/smoke.spec.ts` opens all 62 application routes and asserts three
 things per route: the page leaves the `Loading…` state, `<main>` has real
 content, and nothing was written to the browser console as an error. The
 `/no-access` page gets its own assertion, because it lives outside the
-application shell and has no `<main>`.
+application shell and has no `<main>`. A further test checks that the sidebar
+draws the fifteen staff sub-modules (schema modules 20–34) and that the
+deepest one is the active item.
 
 **One sign-in for the whole run.** Supabase throttles the password grant
 endpoint, so a suite that signs in once per test runs into `Request rate

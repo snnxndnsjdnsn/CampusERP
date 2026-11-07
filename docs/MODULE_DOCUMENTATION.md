@@ -88,7 +88,7 @@ meant to:
 | Feedback (16), Mentoring (17), Grievance (20) | 11, 12 | `feedback`, `support` |
 | Student documents (8) | 13 | `documents` |
 | Student activities and evidence (23) | 40 | `activities` |
-| Staff profile and research (22) | 19–34 | `staff` |
+| Staff profile and research (22) | 19–34 | `staff` (20–34 are its children) |
 | Communication (10) | 14 | `communication` |
 | Student finance (21) | 17 | `finance` |
 | Audit and compliance (9) | 15 | `iam` |
@@ -126,21 +126,21 @@ lists are the key ones; [RTM.md](RTM.md) has the full table count per module.
 | 18 | Performance indexes | Index-only section. | — | — | — | — |
 | 18 | Extend existing file storage metadata | `ALTER` on `file_object` adding `encryption_key_reference`, `virus_scan_status`, `virus_scanned_at`. | — | — | — | — |
 | 19 | Staff profile reference / master data | The lookup vocabulary for the whole staff-profile area: publication and journal types, indexing agencies, metric types, funding, roles, statuses, evidence types, activity categories. | `publication_type`, `journal_type`, `indexing_agency`, `metric_type`, `organization_type`, `external_organization`, `organizer`, `publisher`, `funding_type`, `funding_agency`, `activity_type`, `participation_level`, `role_type`, `research_status`, `event_mode`, `evidence_type`, `verification_status`, `approval_status`, `training_program_type`, `conference_contribution_type`, `industry_sector`, `cocurricular_category`, `extracurricular_category`, `award_category`, `membership_type`, `professional_contribution_type`, `confidentiality_level` | `staff_lookup_options`, `staff_lookup_add`, `staff_lookup_schema`, `staff_detail_schema` | STAFF_PROFILE | `/staff-profile` |
-| 20 | Staff activity supertype | The one record every staff activity hangs off, with its contributors. | `staff_activity`, `staff_activity_contributor` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_list`, `staff_activity_get`, `staff_activity_review`, `staff_activity_delete`, `staff_activity_report`, `staff_contributor_add`, `staff_contributor_remove` | STAFF_PROFILE | `/staff-profile` |
-| 21 | Journals and journal publications | Journal entries, the publications in them, their indexing entries and the journal metrics. | `journal`, `journal_publication`, `journal_publication_indexing`, `journal_metric` | `staff_indexing_list`, `staff_indexing_save`, `staff_indexing_delete` | STAFF_PROFILE | `/staff-profile` |
-| 22 | Conferences, publications and presentations | Conference events, the activity that links a staff member to one, and its indexing. | `conference_event`, `conference_activity`, `conference_activity_indexing` | `staff_indexing_list`, `staff_indexing_save`, `staff_indexing_delete` | STAFF_PROFILE | `/staff-profile` |
-| 23 | Workshop / FDP / STTP / training / certification | Professional development activities. | `professional_development_activity` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 24 | Industry / faculty internship | Internship placements. | `faculty_internship` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 25 | Research proposals | Proposals, with their own lifecycle. | `research_proposal` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 26 | Funded research projects | Funded projects and their financial utilisation. | `funded_research_project`, `research_project_financial_utilization` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 27 | Consultancy / industry-sponsored project | Consultancy engagements. | `consultancy_project` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 28 | Co-curricular activities | Co-curricular activity records. | `cocurricular_activity` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 29 | Extra-curricular activities | Extra-curricular activity records. | `extracurricular_activity` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 30 | Awards, honours and recognitions | Awards and recognitions. | `staff_award` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 31 | Professional memberships and academic bodies | Memberships of professional bodies. | `staff_professional_membership` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 32 | Academic and professional contributions | Contributions, and the supervision of student research. | `staff_professional_contribution`, `research_supervision` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
-| 33 | Centralized evidence / document management | Evidence documents with versions, tags and their own audit trail — shared by every staff activity kind. | `evidence_document`, `evidence_document_version`, `evidence_tag`, `evidence_document_tag`, `evidence_document_audit` | `staff_evidence_add`, `staff_evidence_replace`, `staff_evidence_delete`, `staff_evidence_download_info` | STAFF_PROFILE | `/staff-profile` |
-| 34 | Document/evidence requirement configuration | Which evidence each activity kind requires. | `activity_evidence_requirement` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile` |
+| 20 | Staff activity supertype | The one record every staff activity hangs off, with its contributors. | `staff_activity`, `staff_activity_contributor` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_list`, `staff_activity_get`, `staff_activity_review`, `staff_activity_delete`, `staff_activity_report`, `staff_contributor_add`, `staff_contributor_remove` | STAFF_PROFILE | `/staff-profile/activity` |
+| 21 | Journals and journal publications | Journal entries, the publications in them, their indexing entries and the journal metrics. | `journal`, `journal_publication`, `journal_publication_indexing`, `journal_metric` | `staff_indexing_list`, `staff_indexing_save`, `staff_indexing_delete` | STAFF_PROFILE | `/staff-profile/publication` |
+| 22 | Conferences, publications and presentations | Conference events, the activity that links a staff member to one, and its indexing. | `conference_event`, `conference_activity`, `conference_activity_indexing` | `staff_indexing_list`, `staff_indexing_save`, `staff_indexing_delete` | STAFF_PROFILE | `/staff-profile/conference` |
+| 23 | Workshop / FDP / STTP / training / certification | Professional development activities. | `professional_development_activity` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/development` |
+| 24 | Industry / faculty internship | Internship placements. | `faculty_internship` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/internship` |
+| 25 | Research proposals | Proposals, with their own lifecycle. | `research_proposal` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/research` |
+| 26 | Funded research projects | Funded projects and their financial utilisation. | `funded_research_project`, `research_project_financial_utilization` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/funded-research` |
+| 27 | Consultancy / industry-sponsored project | Consultancy engagements. | `consultancy_project` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/consultancy` |
+| 28 | Co-curricular activities | Co-curricular activity records. | `cocurricular_activity` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/co-curricular` |
+| 29 | Extra-curricular activities | Extra-curricular activity records. | `extracurricular_activity` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/extra-curricular` |
+| 30 | Awards, honours and recognitions | Awards and recognitions. | `staff_award` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/award` |
+| 31 | Professional memberships and academic bodies | Memberships of professional bodies. | `staff_professional_membership` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/membership` |
+| 32 | Academic and professional contributions | Contributions, and the supervision of student research. | `staff_professional_contribution`, `research_supervision` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/contribution` |
+| 33 | Centralized evidence / document management | Evidence documents with versions, tags and their own audit trail — shared by every staff activity kind. | `evidence_document`, `evidence_document_version`, `evidence_tag`, `evidence_document_tag`, `evidence_document_audit` | `staff_evidence_add`, `staff_evidence_replace`, `staff_evidence_delete`, `staff_evidence_download_info` | STAFF_PROFILE | `/staff-profile/evidence` |
+| 34 | Document/evidence requirement configuration | Which evidence each activity kind requires. | `activity_evidence_requirement` | `staff_activity_save`, `staff_activity_submit`, `staff_activity_review` | STAFF_PROFILE | `/staff-profile/evidence-requirements` |
 | 35 | Seed reference data | Seed rows for the lookup tables. | — | — | — | — |
 | 36 | RBAC registration for staff profile and evidence | The `access_module`, `access_resource`, `permission` and `role_permission` rows that make the staff-profile area authorisable. | — | — | STAFF_PROFILE | — |
 | 37 | Reporting / search views | Cross-module search and dashboard aggregates. | — | `global_search`, `dash_applications`, `dash_employees`, `dash_enrolments`, `dash_fee_collection`, `dash_fee_outstanding`, `dash_registrations`, `dash_sessions`, `dash_term_results`, `my_dashboard` | REPORTING | — (no screen) |
@@ -151,9 +151,9 @@ lists are the key ones; [RTM.md](RTM.md) has the full table count per module.
 # Navigation is owned by `src/lib/nav.ts`
 
 `src/lib/nav.ts` is the **single source of truth** for the sidebar. It holds
-`NAV_GROUPS` (21 groups, 29 routes), the `NavItem` / `NavGroup` types, the
-visibility helpers `visibleNavGroups()` / `visibleNav()` and the breadcrumb
-fallback `NAV_PARENTS`.
+`NAV_GROUPS` (21 groups, 29 group routes and 15 staff sub-module children),
+the `NavItem` / `NavGroup` types, the visibility helpers `visibleNavGroups()` /
+`visibleNav()` and the breadcrumb fallback `NAV_PARENTS`.
 
 Consequences for module work:
 
@@ -161,12 +161,18 @@ Consequences for module work:
   module order — `1..17`, then `19`, then `40` — with `Overview` and `Account` as
   bookends. `tests/unit/nav-connectivity.test.ts` asserts the exact id sequence,
   so inserting or reordering a group fails the test.
-- **A module gets a nav entry only if it has a screen.** Schema modules 18–39
-  (indexes, seed data, research sub-modules, integrity notes) have no group of
-  their own; the research sub-modules 19–34 are all reached through
-  `/staff-profile`.
+- **A module gets a nav entry only if it has a screen.** Schema modules 17A, 18,
+  35, 36, 38 and 39 (triggers, indexes, seed data, RBAC registration, integrity
+  notes) have no group of their own, and module 37 (reporting) has no screen at
+  all — it is the documented gap G-1.
+- **A module with no screen of its own can still be a child.** The research
+  sub-modules 20–34 are reached through `/staff-profile`, and each one has its
+  own address under it: `/staff-profile/publication`, `/staff-profile/research`,
+  `/staff-profile/award` and so on. They are drawn indented under the
+  `staff` group. See [NAVIGATION.md](NAVIGATION.md).
 - **A new route needs a `page.tsx` first.** The test asserts that every nav href
-  resolves to `src/app/(app)<href>/page.tsx`.
+  resolves to a `page.tsx`, following dynamic segments such as
+  `staff-profile/[section]`.
 - **Visibility is a convenience, not a gate.** `readable_modules` decides what is
   drawn; RLS and the RPC's own check decide what may be read. See
   [RLS_SECURITY_MODEL.md](RLS_SECURITY_MODEL.md).
@@ -200,7 +206,7 @@ The honest list. Each of these is a live fact, not a plan.
 
 | Gap | Detail |
 |---|---|
-| `/staff-profile` and `/activities` had no page | **Closed.** `src/app/(app)/staff-profile/page.tsx` (164 lines) and `src/app/(app)/activities/page.tsx` (159 lines) now exist, backed by `src/features/staff-profile/` and `src/features/activities/`. Schema modules 19–34 and 40 are reachable from the UI and the `staff` and `activities` nav groups no longer render dead links. |
+| `/staff-profile` and `/activities` had no page | **Closed.** `src/app/(app)/staff-profile/page.tsx` and `src/app/(app)/activities/page.tsx` now exist, backed by `src/features/staff-profile/` and `src/features/activities/`. The staff-profile screen was later split into `src/features/staff-profile/staff-profile-screen.tsx` so that the fifteen sub-module addresses under `/staff-profile/<section>` can serve it. Schema modules 19–34 and 40 are reachable from the UI and the `staff` and `activities` nav groups no longer render dead links. |
 | `REPORTING` is unenforced | 11 permissions, 0 RLS policies, 0 functions that check them. `global_search` is `LANGUAGE sql, STABLE` — not `SECURITY DEFINER` — and checks no permission code. Schema module 37 has no screen either. |
 | `TEACHING` has no screen of its own | Its screens live inside the registration and attendance flows. The code is seeded and allowlisted in the nav test. |
 | `COMMUNICATION` is ungated in the sidebar | Intentional: the announcement feed is visible to every signed-in user. The rows are still filtered by `announcement_visible`. |

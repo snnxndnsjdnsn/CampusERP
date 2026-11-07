@@ -55,6 +55,23 @@ const ROUTES = [
   '/finance',
   '/finance/structures',
   '/staff-profile',
+  // Schema modules 20 to 34 - the staff-profile research sub-modules. Each is
+  // an address inside the staff-profile screen.
+  '/staff-profile/activity',
+  '/staff-profile/publication',
+  '/staff-profile/conference',
+  '/staff-profile/development',
+  '/staff-profile/internship',
+  '/staff-profile/research',
+  '/staff-profile/funded-research',
+  '/staff-profile/consultancy',
+  '/staff-profile/co-curricular',
+  '/staff-profile/extra-curricular',
+  '/staff-profile/award',
+  '/staff-profile/membership',
+  '/staff-profile/contribution',
+  '/staff-profile/evidence',
+  '/staff-profile/evidence-requirements',
   '/activities',
   '/my-results',
   '/my-hr',
@@ -154,5 +171,53 @@ test.describe('signed-in smoke test', () => {
     const response = await page.goto('/no-access', { waitUntil: 'domcontentloaded' });
     expect(response?.status(), '/no-access must answer with 200').toBe(200);
     await expect(page.getByRole('heading', { name: 'No SIMS account' })).toBeVisible();
+  });
+
+  // An unknown staff sub-module is not a page.
+  //
+  // The **UI** is the assertion, not the status code. Next.js returns 404 only
+  // when `notFound()` is thrown before streaming starts; this app streams the
+  // shell first (the `(app)` segment has a `loading.tsx`), so the status is
+  // already committed as 200 and the not-found page is rendered inside it.
+  // That is the framework's documented behaviour and it is the same for every
+  // route in the application.
+  test('/staff-profile/<unknown> renders the not-found page', async ({ page }) => {
+    await page.goto('/staff-profile/not-a-section', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  });
+
+  /**
+   * The staff group carries schema modules 20 to 34 as sub-modules.
+   *
+   * They are drawn indented under the group, and the deepest match wins for
+   * the active state: `/staff-profile/publication` marks the sub-module, not
+   * `/staff-profile`.
+   */
+  test('the sidebar lists the staff sub-modules 20 to 34 and marks the deepest one active', async ({ page }) => {
+    await page.goto('/staff-profile/publication', { waitUntil: 'domcontentloaded' });
+    await waitForContent(page);
+
+    const sidebar = page.locator('aside[aria-label="Primary"]');
+    await expect(sidebar).toBeVisible();
+
+    // Every sub-module is drawn, labelled with its schema module number.
+    for (const number of ['20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34']) {
+      await expect(
+        sidebar.getByRole('link', { name: new RegExp(`^${number} · `) }),
+        `the sidebar must show sub-module ${number}`,
+      ).toHaveCount(1);
+    }
+
+    // The deepest match wins: the sub-module is current, the parent is not.
+    const child = sidebar.getByRole('link', { name: /^21 · / });
+    await expect(child).toHaveAttribute('aria-current', 'page');
+
+    const parent = sidebar.getByRole('link', { name: 'Staff profile', exact: true });
+    await expect(parent).not.toHaveAttribute('aria-current', 'page');
+
+    // The breadcrumb names the sub-module too, not its parent.
+    const crumb = page.locator('nav[aria-label="Breadcrumb"]');
+    await expect(crumb).toContainText('21 · Journals and journal publications');
+    await expect(crumb).not.toContainText('Staff profile');
   });
 });

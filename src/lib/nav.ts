@@ -1,4 +1,5 @@
 import type { SimsContext } from '@/lib/context';
+import { STAFF_SECTIONS } from '@/lib/staff-sections';
 
 export type NavItem = {
   href: string;
@@ -21,12 +22,24 @@ export type NavGroup = {
   id: string;
   label: string;
   items: NavItem[];
+  /**
+   * Sub-modules of the group's screen, drawn indented under it.
+   *
+   * A child is a module of the schema that has no screen of its own but does
+   * have an address inside its parent's screen - the staff-profile research
+   * modules 20 to 34 are the example.
+   */
+  children?: NavItem[];
 };
 
 /**
  * Canonical grouped navigation, ordered exactly like the database's numbered modules
  * (1..17, 19, 40) with unnumbered Overview/Account bookends. Only pages that actually
  * exist belong here. Visibility is a convenience; RLS is the enforcement.
+ *
+ * Schema modules 20 to 34 are the staff-profile research sub-modules. They have
+ * no screen of their own, so they hang off the `staff` group as children rather
+ * than becoming groups of their own.
  */
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -145,6 +158,13 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'staff',
     label: '19 · Staff profile & research',
     items: [{ href: '/staff-profile', label: 'Staff profile', module: 'STAFF_PROFILE' }],
+    // Schema modules 20 to 34 - the research sub-modules. Each is an address
+    // inside this screen, not a screen of its own.
+    children: STAFF_SECTIONS.map((s) => ({
+      href: `/staff-profile/${s.slug}`,
+      label: `${s.module} · ${s.title}`,
+      module: 'STAFF_PROFILE',
+    })),
   },
   {
     id: 'activities',
@@ -159,7 +179,7 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 /** Flat back-compat view of every nav item, in group order. */
-export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => [...g.items, ...(g.children ?? [])]);
 
 function itemVisible(i: NavItem, ctx: SimsContext, mods: ReadonlySet<string>): boolean {
   if (i.studentOnly) return ctx.student_id !== null;
@@ -175,13 +195,14 @@ export function visibleNavGroups(ctx: SimsContext): NavGroup[] {
   const out: NavGroup[] = [];
   for (const g of NAV_GROUPS) {
     const items = g.items.filter((i) => itemVisible(i, ctx, mods));
-    if (items.length > 0) out.push({ ...g, items });
+    const children = g.children?.filter((i) => itemVisible(i, ctx, mods));
+    if (items.length > 0) out.push({ ...g, items, ...(children && children.length > 0 ? { children } : {}) });
   }
   return out;
 }
 
 export function visibleNav(ctx: SimsContext): NavItem[] {
-  return visibleNavGroups(ctx).flatMap((g) => g.items);
+  return visibleNavGroups(ctx).flatMap((g) => [...g.items, ...(g.children ?? [])]);
 }
 
 export function primaryRoleLabel(ctx: SimsContext): string {

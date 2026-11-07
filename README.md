@@ -53,8 +53,8 @@ signed-in end-to-end suite additionally needs `SIMS_TEST_EMAIL` and
 
 | Path | What it holds |
 |---|---|
-| `src/app` | the routes - 47 application pages plus the auth pages |
-| `src/lib/nav.ts` | the sidebar contract: 21 numbered module groups |
+| `src/app` | the routes - 48 application pages plus the auth pages |
+| `src/lib/nav.ts` | the sidebar contract: 21 numbered module groups, plus the 15 staff sub-modules (schema modules 20–34) drawn under the staff group |
 | `src/features` | one folder per module, each with its client and data layer |
 | `supabase/migrations` | 64 migrations, generated from the live catalogue |
 | `tools` | the migration, catalogue, seed and verification tooling |
