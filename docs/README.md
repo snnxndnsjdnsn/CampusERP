@@ -10,6 +10,53 @@ missing or broken, the document says so.
 
 ---
 
+## Running the site
+
+The site is a Next.js application that runs **on your machine**. There is no
+hosted copy, so if `http://localhost:3000` refuses the connection then the
+server is simply not running - nothing is broken.
+
+```bash
+cd F:\sims\College-ERP
+
+# development: hot reload, listens on http://localhost:3000
+npm run dev
+
+# production: build once, then serve the build
+npm run build
+npm run start
+```
+
+`npm run start` serves the existing `.next` build, so `npm run build` has to
+have run at least once. The Playwright suite starts and stops **its own**
+server, so a finished test run leaves nothing listening on port 3000 - that is
+the usual reason the site appears to be down.
+
+To reach it from another device on the same network, use the `Network:` URL
+that `next start` prints, for example `http://192.168.14.1:3000`.
+
+### The environment
+
+`.env.local` holds the Supabase URL, the publishable key and the database
+password. It is gitignored and never committed. `.env.example` lists what a
+fresh checkout needs:
+
+| Variable | Needed by |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | the browser and the server |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the browser and the server |
+| `SUPABASE_DB_PASSWORD` | only the tools that open a direct database connection |
+| `SUPABASE_SERVICE_ROLE_KEY` | only `tools/create_admin.mjs` - the application itself does not use it |
+
+The application authenticates with the signed-in user's own session, so the
+publishable key is enough to run it. The service-role key is not needed.
+
+### Signing in
+
+See [Signing in](#signing-in) further down for the test account.
+
+---
+
 ## The documents
 
 | Document | What it answers | Kind |
