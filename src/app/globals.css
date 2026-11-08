@@ -30,6 +30,13 @@ body {
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-* {
-  border-color: var(--color-border);
+/* The default border colour. This has to live in a cascade layer: Tailwind's
+   border-colour utilities sit in `@layer utilities`, and an unlayered rule
+   beats every layered one regardless of specificity — written outside a layer it
+   silently disabled `border-primary`, `border-destructive`,
+   `border-transparent` and every other border colour in the app. */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
 }
