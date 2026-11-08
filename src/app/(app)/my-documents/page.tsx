@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { DocumentRegisterForm, MyDocumentsPanel, type Lookup, type StudentDocument } from '@/features/my-documents/my-documents-client';
 import { safeRows } from '@/features/shared/server-rpc';
 import { formatNumber } from '@/lib/format';
@@ -31,6 +32,12 @@ export default async function MyDocumentsPage() {
   return (
     <>
       <PageHeader title="My documents" description="Register the documents the college holds for you, and follow their verification." />
+
+      <AdminTableEditor
+        modules={['DOCUMENT']}
+        title="Manage the document records"
+        description="Add, edit and remove the certificate types, certificate requests, student documents and student exits behind this screen. Every change is written through the database and audited."
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile label="Registered" value={formatNumber(documents.rows.length)} />

@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { ServiceRequestForm, ServiceRequestWorkspace, type ServiceRequest, type Term } from '@/features/requests/requests-client';
 import { safeRows } from '@/features/shared/server-rpc';
 import { formatNumber } from '@/lib/format';
@@ -26,6 +27,12 @@ export default async function RequestsPage() {
       <PageHeader
         title="Hall ticket and graduation requests"
         description="Hall tickets, hostel check-out and graduation requests, and the decisions waiting on you."
+      />
+
+      <AdminTableEditor
+        modules={['DOCUMENT']}
+        title="Manage the document records"
+        description="Add, edit and remove the certificate types, certificate requests, student documents and student exits behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">

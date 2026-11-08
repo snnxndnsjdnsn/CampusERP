@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { ActivitiesDesk } from '@/features/activities/activities-client';
 import { readActivityTypes, readStudents, tableOptions } from '@/features/activities/data';
 import type { ActivityReportRow, StudentActivityRow } from '@/features/activities/types';
@@ -94,6 +95,12 @@ export default async function ActivitiesPage({
       <PageHeader
         title="Student activities"
         description="Competitions, conferences, clubs, sports and community work. A student records the activity, then it is verified and approved."
+      />
+
+      <AdminTableEditor
+        modules={['STUDENT']}
+        title="Manage student activities"
+        description="Add, edit and remove the student records behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

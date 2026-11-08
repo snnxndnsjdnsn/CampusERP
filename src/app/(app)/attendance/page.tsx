@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { safeRpcRows, safeSelect, shortTime } from '@/features/academic/data';
 import {
   AttendanceMarkForm,
@@ -130,6 +131,12 @@ export default async function AttendancePage({
       <PageHeader
         title="Attendance"
         description="Mark the register for a class session, and decide correction requests."
+      />
+
+      <AdminTableEditor
+        modules={['ATTENDANCE']}
+        title="Manage attendance"
+        description="Add, edit and remove the class sessions, class sections and attendance statuses behind this screen. Every change is written through the database and audited."
       />
 
       <Card>

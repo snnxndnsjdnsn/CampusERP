@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { CertificateRequestForm, CertificateWorkspace, type CertificateRequest, type Lookup } from '@/features/certificates/certificates-client';
 import { safeRows } from '@/features/shared/server-rpc';
 import { formatNumber } from '@/lib/format';
@@ -30,6 +31,12 @@ export default async function CertificatesPage() {
       <PageHeader
         title="Certificates"
         description="Raise a certificate request, decide the ones waiting for you, and issue the approved ones."
+      />
+
+      <AdminTableEditor
+        modules={['DOCUMENT']}
+        title="Manage certificates"
+        description="Add, edit and remove the certificate types, certificate requests, student documents and student exits behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">

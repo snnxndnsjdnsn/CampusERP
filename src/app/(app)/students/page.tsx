@@ -149,7 +149,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
 
       <AdminTableEditor
-        tables={['student', 'student_programme_enrolment']}
+        modules={['STUDENT']}
         title="Manage the register"
         description="Add, edit and remove student records and the programme enrolments that place them on a curriculum. Every change is written through the database and audited."
       />

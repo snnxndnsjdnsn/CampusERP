@@ -64499,26 +64499,26 @@
   {
    "schema": "public",
    "name": "admin_table_delete",
-   "args": "p_table text, p_id bigint",
-   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_delete(p_table text, p_id bigint)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text;\n    v_exists integer;\n    v_code text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    v_code := CASE\n        WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE'\n        ELSE d.perm_prefix || '.ALL.DELETE'\n    END;\n\n    IF NOT sims_private.admin_can(p_table, 'DELETE', p_id, NULL) THEN\n        RAISE EXCEPTION 'Not authorised to delete % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n    END IF;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    EXECUTE format('SELECT 1 FROM public.%I WHERE %I = $1', p_table, v_pk) INTO v_exists USING p_id;\n    IF v_exists IS NULL THEN\n        RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n    END IF;\n\n    BEGIN\n        EXECUTE format('DELETE FROM public.%I WHERE %I = $1', p_table, v_pk) USING p_id;\n    EXCEPTION WHEN foreign_key_violation THEN\n        RAISE EXCEPTION 'This row is still in use and cannot be deleted' USING ERRCODE = '45000';\n    END;\n\n    -- Audited by the table's own `sims_private.audit_row` trigger - see `admin_table_save`.\nEND $function$\n"
+   "args": "p_table text, p_key jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_delete(p_table text, p_key jsonb)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text[];\n    v_where text;\n    v_exists integer;\n    v_before jsonb;\n    v_code text;\n    v_audit_id text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    v_pk := d.pk_cols;\n    v_code := d.perm_delete;\n\n    IF NOT sims_private.admin_can(p_table, 'DELETE', p_key, NULL) THEN\n        RAISE EXCEPTION 'Not authorised to delete % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n    END IF;\n\n    v_where := sims_private.admin_key_where(p_table, p_key);\n    IF v_where = '' THEN\n        RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n    END IF;\n\n    EXECUTE format('SELECT 1 FROM public.%I WHERE %s', p_table, v_where) INTO v_exists;\n    IF v_exists IS NULL THEN\n        RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n    END IF;\n\n    EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE %s', p_table, v_where) INTO v_before;\n\n    BEGIN\n        EXECUTE format('DELETE FROM public.%I WHERE %s', p_table, v_where);\n    EXCEPTION WHEN foreign_key_violation THEN\n        RAISE EXCEPTION 'This row is still in use and cannot be deleted' USING ERRCODE = '45000';\n    END;\n\n    IF d.audit_mode = 'MANUAL' THEN\n        v_audit_id := v_before ->> v_pk[1];\n        IF cardinality(v_pk) > 1 THEN\n            SELECT string_agg(k || '=' || (v_before ->> k), ', ' ORDER BY k) INTO v_audit_id\n              FROM unnest(v_pk) AS k(k);\n        END IF;\n        INSERT INTO public.activity_audit (user_id, module_code, action_code, entity_name, entity_id, before_values, after_values)\n        VALUES (sims_private.current_user_id(), d.audit_module, 'DELETE', p_table, v_audit_id, v_before, NULL);\n    END IF;\n\n    -- Audited by the table's own `sims_private.audit_row` trigger otherwise -\n    -- see `admin_table_save`.\nEND $function$\n"
   },
   {
    "schema": "public",
    "name": "admin_table_list",
    "args": "",
-   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_list()\n RETURNS TABLE(tbl text, label text, module_code text)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT d.tbl, d.label, d.module_code\n      FROM sims_private.admin_table_def(NULL) d\n     WHERE sims_private.admin_holds(ARRAY[\n               CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.CREATE'  END,\n               CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.UPDATE'  END,\n               CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.DELETE'  END\n             ]::text[])\n     ORDER BY d.module_code, d.label;\n$function$\n"
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_list()\n RETURNS TABLE(tbl text, label text, module_codes text[])\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT d.tbl, d.label, d.module_codes\n      FROM sims_private.admin_table_def(NULL) d\n     WHERE sims_private.admin_holds(ARRAY[d.perm_create, d.perm_update, d.perm_delete]::text[])\n      ORDER BY d.module_codes[1], d.label;\n$function$\n"
   },
   {
    "schema": "public",
    "name": "admin_table_save",
-   "args": "p_table text, p_id bigint, p jsonb",
-   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_save(p_table text, p_id bigint, p jsonb)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text;\n    v_exists integer;\n    v_after jsonb;\n    v_id bigint;\n    v_action text;\n    v_code text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    IF p IS NULL OR jsonb_typeof(p) <> 'object' THEN\n        RAISE EXCEPTION 'The details must be an object' USING ERRCODE = '22023';\n    END IF;\n\n    v_action := CASE WHEN p_id IS NULL THEN 'CREATE' ELSE 'UPDATE' END;\n    v_code := CASE\n        WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE'\n        ELSE d.perm_prefix || '.ALL.' || v_action\n    END;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    -- The write functions are SECURITY DEFINER, so the row level policies do not\n    -- run for them.  The function therefore has to make the same decision the\n    -- policy makes, in two parts:\n    --\n    --   USING      the row that exists now (an update) or the row that is about\n    --              to be written (an insert)\n    --   WITH CHECK the row as it is afterwards\n    --\n    -- The second part is what stops a scoped caller from moving a row out of\n    -- its own scope: without it a department could hand its course to another\n    -- department, which the policy's WITH CHECK clause forbids.\n\n    IF p_id IS NOT NULL THEN\n        EXECUTE format('SELECT 1 FROM public.%I WHERE %I = $1', p_table, v_pk) INTO v_exists USING p_id;\n        IF v_exists IS NULL THEN\n            RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n        END IF;\n\n        IF NOT sims_private.admin_can(p_table, 'UPDATE', p_id, NULL) THEN\n            RAISE EXCEPTION 'Not authorised to update % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n        END IF;\n    ELSE\n        IF NOT sims_private.admin_can(p_table, 'CREATE', NULL, p) THEN\n            RAISE EXCEPTION 'Not authorised to create % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n        END IF;\n    END IF;\n\n    -- The write itself is audited by the table's own `sims_private.audit_row` trigger,\n    -- so the function must not audit as well - that would record every change twice.\n    v_id := sims_private.write_row(p_table, v_pk, NULL, NULL, p_id, p);\n\n    -- WITH CHECK: the row as it is now.  A refusal here aborts the transaction,\n    -- so the write and its audit row are rolled back together.\n    EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE t.%I = $1', p_table, v_pk) INTO v_after USING v_id;\n    IF NOT sims_private.admin_can(p_table, v_action, NULL, v_after) THEN\n        RAISE EXCEPTION 'Not authorised to % % outside your scope (%)',\n            lower(v_action), lower(d.label), v_code USING ERRCODE = '42501';\n    END IF;\n\n    RETURN v_id;\nEND $function$\n"
+   "args": "p_table text, p_key jsonb, p jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_save(p_table text, p_key jsonb, p jsonb)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text[];\n    v_where text;\n    v_exists integer;\n    v_after jsonb;\n    v_before jsonb;\n    v_id bigint;\n    v_action text;\n    v_code text;\n    v_cols text;\n    v_audit_id text;\n    v_payload jsonb;\n    v_n integer;\n    v_audit_action text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    IF p IS NULL OR jsonb_typeof(p) <> 'object' THEN\n        RAISE EXCEPTION 'The details must be an object' USING ERRCODE = '22023';\n    END IF;\n\n    v_pk := d.pk_cols;\n    v_action := CASE WHEN p_key IS NULL OR jsonb_typeof(p_key) = 'null' THEN 'CREATE' ELSE 'UPDATE' END;\n    v_code := CASE v_action WHEN 'CREATE' THEN d.perm_create ELSE d.perm_update END;\n\n    -- The write itself is audited by the table's own `sims_private.audit_row`\n    -- trigger, so the function must not audit as well - that would record\n    -- every change twice.  The tables whose own write path already audits are\n    -- marked MANUAL in the catalogue, and the function audits those itself.\n    IF v_action = 'CREATE' THEN\n        IF NOT sims_private.admin_can(p_table, 'CREATE', NULL, p) THEN\n            RAISE EXCEPTION 'Not authorised to create % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n        END IF;\n\n        v_payload := jsonb_strip_nulls(p);\n        SELECT string_agg(quote_ident(k), ', ') INTO v_cols FROM jsonb_object_keys(v_payload) k;\n        IF v_cols IS NULL THEN\n            RAISE EXCEPTION 'Nothing to save' USING ERRCODE = '22023';\n        END IF;\n\n        v_id := sims_private.exec_dml_id(\n            format('INSERT INTO public.%I (%s) SELECT %s FROM jsonb_populate_record(NULL::public.%I, $1) RETURNING %I::bigint',\n                   p_table, v_cols, v_cols, p_table, v_pk[1]),\n            v_payload);\n\n        -- Read the row back.  A single column key is generated by the database,\n        -- so the id the insert returned is the address.  A composite key is\n        -- part of the form, so it comes back from the payload.\n        IF cardinality(v_pk) = 1 THEN\n            v_where := format('%I = %s', v_pk[1], v_id::text);\n        ELSE\n            SELECT string_agg(format('%I = %s', k, quote_literal(v_payload ->> k)), ' AND ') INTO v_where\n              FROM unnest(v_pk) AS k(k) WHERE jsonb_exists(v_payload, k);\n            SELECT count(*) INTO v_n FROM unnest(v_pk) AS k(k) WHERE jsonb_exists(v_payload, k);\n            IF v_where IS NULL OR v_n <> cardinality(v_pk) THEN\n                RAISE EXCEPTION 'This table needs every key column' USING ERRCODE = '22023';\n            END IF;\n        END IF;\n        EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE %s', p_table, v_where) INTO v_after;\n    ELSE\n        v_where := sims_private.admin_key_where(p_table, p_key);\n        IF v_where = '' THEN\n            RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n        END IF;\n\n        EXECUTE format('SELECT 1 FROM public.%I WHERE %s', p_table, v_where) INTO v_exists;\n        IF v_exists IS NULL THEN\n            RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n        END IF;\n\n        IF NOT sims_private.admin_can(p_table, 'UPDATE', p_key, NULL) THEN\n            RAISE EXCEPTION 'Not authorised to update % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n        END IF;\n\n        EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE %s', p_table, v_where) INTO v_before;\n\n        SELECT string_agg(quote_ident(k), ', ') INTO v_cols FROM jsonb_object_keys(p) k;\n        IF v_cols IS NOT NULL THEN\n            PERFORM sims_private.exec_dml(\n                format('UPDATE public.%I t SET (%s) = (SELECT %s FROM jsonb_populate_record(NULL::public.%I, $1)) WHERE %s',\n                       p_table, v_cols, v_cols, p_table, v_where),\n                p);\n        END IF;\n\n        -- A composite key can be part of the form, so the row may have moved.\n        -- Read it back by its new key - but only when the payload carries the\n        -- whole key, otherwise the old address is still the right one.\n        SELECT count(*) INTO v_n FROM unnest(v_pk) AS k(k) WHERE jsonb_exists(p, k);\n        IF v_n = cardinality(v_pk) THEN\n            SELECT string_agg(format('%I = %s', k, quote_literal(p ->> k)), ' AND ') INTO v_where\n              FROM unnest(v_pk) AS k(k);\n        ELSE\n            v_where := sims_private.admin_key_where(p_table, p_key);\n        END IF;\n        EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE %s', p_table, v_where) INTO v_after;\n    END IF;\n\n    IF v_after IS NULL THEN\n        RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n    END IF;\n    v_id := (v_after ->> v_pk[1])::bigint;\n\n    -- WITH CHECK: the row as it is now.  A refusal here aborts the transaction,\n    -- so the write and its audit row are rolled back together.\n    IF NOT sims_private.admin_can(p_table, v_action, NULL, v_after) THEN\n        RAISE EXCEPTION 'Not authorised to % % outside your scope (%)',\n            lower(v_action), lower(d.label), v_code USING ERRCODE = '42501';\n    END IF;\n\n    IF d.audit_mode = 'MANUAL' THEN\n        v_audit_action := CASE v_action WHEN 'CREATE' THEN 'INSERT' ELSE v_action END;\n        v_audit_id := v_after ->> v_pk[1];\n        IF cardinality(v_pk) > 1 THEN\n            SELECT string_agg(k || '=' || (v_after ->> k), ', ' ORDER BY k) INTO v_audit_id\n              FROM unnest(v_pk) AS k(k);\n        END IF;\n        INSERT INTO public.activity_audit (user_id, module_code, action_code, entity_name, entity_id, before_values, after_values)\n        VALUES (sims_private.current_user_id(), d.audit_module, v_audit_action, p_table, v_audit_id, v_before, v_after);\n    END IF;\n\n    RETURN v_id;\nEND $function$\n"
   },
   {
    "schema": "public",
    "name": "admin_table_schema",
    "args": "p_table text",
-   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_schema(p_table text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    IF NOT sims_private.admin_holds(ARRAY[\n           CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.CREATE' END,\n           CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.UPDATE' END,\n           CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.DELETE' END\n         ]::text[]) THEN\n        RAISE EXCEPTION 'Not authorised (%)', d.label USING ERRCODE = '42501';\n    END IF;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    RETURN jsonb_build_object(\n        'table', d.tbl,\n        'label', d.label,\n        'module_code', d.module_code,\n        'pk', v_pk,\n        'columns', sims_private.form_columns(p_table, ARRAY[v_pk])\n    );\nEND $function$\n"
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_schema(p_table text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text[];\n    v_columns jsonb;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    IF NOT sims_private.admin_holds(ARRAY[d.perm_create, d.perm_update, d.perm_delete]::text[]) THEN\n        RAISE EXCEPTION 'Not authorised (%)', d.label USING ERRCODE = '42501';\n    END IF;\n\n    v_pk := d.pk_cols;\n    v_columns := sims_private.form_columns(d.tbl, CASE WHEN cardinality(v_pk) = 1 THEN v_pk ELSE ARRAY[]::text[] END);\n\n    RETURN jsonb_build_object(\n        'table', d.tbl,\n        'label', d.label,\n        'module_codes', d.module_codes,\n        'pk', CASE WHEN cardinality(v_pk) = 1 THEN v_pk[1] ELSE NULL END,\n        'pk_cols', to_jsonb(v_pk),\n        'columns', v_columns\n    );\nEND $function$\n"
   },
   {
    "schema": "public",
@@ -66185,8 +66185,8 @@
   {
    "schema": "sims_private",
    "name": "admin_can",
-   "args": "p_table text, p_action text, p_row_id bigint, p_payload jsonb",
-   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_can(p_table text, p_action text, p_row_id bigint, p_payload jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_code text;\n    v_scope bigint;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RETURN false;\n    END IF;\n\n    v_code := CASE\n        WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE'\n        ELSE d.perm_prefix || '.ALL.' || upper(p_action)\n    END;\n\n    v_scope := sims_private.admin_scope_value(d.tbl, d.scope_kind, d.scope_col, d.scope_ref, p_row_id, p_payload);\n\n    RETURN CASE d.scope_kind\n        WHEN 'global'     THEN sims_private.can_global(ARRAY[v_code]::text[])\n        WHEN 'campus'     THEN sims_private.can_campus(ARRAY[v_code]::text[], v_scope)\n        WHEN 'department' THEN sims_private.can_department(ARRAY[v_code]::text[], v_scope)\n        WHEN 'programme'  THEN sims_private.can_programme(ARRAY[v_code]::text[], v_scope)\n        WHEN 'student'    THEN sims_private.can_student(ARRAY[v_code]::text[], v_scope, true)\n        ELSE false\n    END;\nEND $function$\n"
+   "args": "p_table text, p_action text, p_key jsonb, p_payload jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_can(p_table text, p_action text, p_key jsonb, p_payload jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_code text;\n    v_scope bigint;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RETURN false;\n    END IF;\n\n    v_code := CASE upper(p_action)\n        WHEN 'CREATE' THEN d.perm_create\n        WHEN 'UPDATE' THEN d.perm_update\n        WHEN 'DELETE' THEN d.perm_delete\n        ELSE NULL\n    END;\n    IF v_code IS NULL THEN\n        RETURN false;\n    END IF;\n\n    v_scope := sims_private.admin_scope_value(d.tbl, d.scope_kind, d.scope_path, p_key, p_payload);\n\n    RETURN CASE d.scope_kind\n        WHEN 'global'      THEN sims_private.can_global(ARRAY[v_code]::text[])\n        WHEN 'campus'      THEN sims_private.can_campus(ARRAY[v_code]::text[], v_scope)\n        WHEN 'department'  THEN sims_private.can_department(ARRAY[v_code]::text[], v_scope)\n        WHEN 'programme'   THEN sims_private.can_programme(ARRAY[v_code]::text[], v_scope)\n        WHEN 'student'     THEN sims_private.can_student(ARRAY[v_code]::text[], v_scope, true)\n        WHEN 'employee'    THEN sims_private.can_employee(ARRAY[v_code]::text[], v_scope, true)\n        WHEN 'institution' THEN sims_private.can_institution(ARRAY[v_code]::text[], v_scope)\n        ELSE false\n    END;\nEND $function$\n"
   },
   {
    "schema": "sims_private",
@@ -66196,21 +66196,33 @@
   },
   {
    "schema": "sims_private",
+   "name": "admin_key_where",
+   "args": "p_table text, p_key jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_key_where(p_table text, p_key jsonb)\n RETURNS text\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_cols text[];\n    v_parts text[];\n    v_col text;\nBEGIN\n    IF p_key IS NULL OR jsonb_typeof(p_key) = 'null' THEN\n        RETURN '';\n    END IF;\n\n    v_cols := sims_private.admin_pk_cols(p_table);\n\n    IF jsonb_typeof(p_key) = 'object' THEN\n        FOR v_col IN SELECT jsonb_object_keys(p_key) ORDER BY 1 LOOP\n            IF NOT (v_col = ANY (v_cols)) THEN\n                RAISE EXCEPTION 'Unknown key column %', v_col USING ERRCODE = '22023';\n            END IF;\n            IF p_key ->> v_col IS NULL THEN\n                RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n            END IF;\n            v_parts := v_parts || ARRAY[format('%I = %s', v_col, quote_literal(p_key ->> v_col))];\n        END LOOP;\n        -- A composite key addresses its row exactly, so every key column has to\n        -- be there.  Half a key is not a row.\n        IF cardinality(v_parts) <> cardinality(v_cols) THEN\n            RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n        END IF;\n        RETURN COALESCE(array_to_string(v_parts, ' AND '), '');\n    END IF;\n\n    IF cardinality(v_cols) <> 1 THEN\n        RAISE EXCEPTION 'This table needs every key column' USING ERRCODE = '22023';\n    END IF;\n\n    IF p_key #>> '{}' IS NULL THEN\n        RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n    END IF;\n\n    RETURN format('%I = %s', v_cols[1], quote_literal(p_key #>> '{}'));\nEND $function$\n"
+  },
+  {
+   "schema": "sims_private",
    "name": "admin_lookup_def",
    "args": "p_table text",
-   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_lookup_def(p_table text)\n RETURNS TABLE(tbl text, pk_col text, label_sql text)\n LANGUAGE sql\n IMMUTABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT v.tbl, v.pk_col, v.label_sql\n      FROM (VALUES\n        ('academic_year',              'academic_year_id',              'year_code'),\n        ('academic_term',              'academic_term_id',              'term_name'),\n        ('semester',                   'semester_id',                   'semester_name'),\n        ('campus',                     'campus_id',                     'campus_name'),\n        ('building',                   'building_id',                   'building_name'),\n        ('department',                 'department_id',                 'department_name'),\n        ('programme',                  'programme_id',                  'programme_name'),\n        ('programme_specialization',   'specialization_id',             'specialization_name'),\n        ('course_category',            'course_category_id',            'category_name'),\n        ('course_catalog',             'course_id',                     'course_title'),\n        ('curriculum_scheme',          'curriculum_scheme_id',          'scheme_name'),\n        ('curriculum_course',          'curriculum_course_id',          '(SELECT c.course_code || '' - '' || c.course_title FROM public.course_catalog c WHERE c.course_id = t.course_id)'),\n        ('programme_term_offering',    'programme_term_offering_id',    '(SELECT p.programme_name || '' - '' || a.term_name FROM public.programme p JOIN public.academic_term a ON a.academic_term_id = t.academic_term_id WHERE p.programme_id = t.programme_id)'),\n        ('student',                    'student_id',                    'display_name'),\n        ('admission_category',         'admission_category_id',         'category_name'),\n        ('student_programme_enrolment','enrolment_id',                  '(SELECT s.display_name FROM public.student s WHERE s.student_id = t.student_id)'),\n        ('room',                       'room_id',                       'room_name'),\n        ('gender',                     'gender_id',                     'gender_name'),\n        ('blood_group',                'blood_group_id',                'blood_group_code'),\n        ('country',                    'country_id',                    'country_name'),\n        ('religion',                   'religion_id',                   'religion_name'),\n        ('social_category',            'social_category_id',            'category_name'),\n        ('caste',                      'caste_id',                      'caste_name'),\n        ('sub_caste',                  'sub_caste_id',                  'sub_caste_name')\n      ) AS v(tbl, pk_col, label_sql)\n     WHERE p_table IS NULL OR v.tbl = p_table;\n$function$\n"
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_lookup_def(p_table text)\n RETURNS TABLE(tbl text, pk_col text, label_sql text)\n LANGUAGE sql\n IMMUTABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT v.tbl, v.pk_col, v.label_sql\n      FROM (VALUES\n                ('academic_term', 'academic_term_id', 'term_name'),\n                ('academic_year', 'academic_year_id', 'year_code'),\n                ('activity_type', 'activity_type_id', 'activity_type_name'),\n                ('admission_category', 'admission_category_id', 'category_name'),\n                ('awarding_body', 'awarding_body_id', 'awarding_body_name'),\n                ('awarding_body_type', 'awarding_body_type_id', 'type_name'),\n                ('blood_group', 'blood_group_id', 'blood_group_code'),\n                ('building', 'building_id', 'building_name'),\n                ('campus', 'campus_id', 'campus_name'),\n                ('caste', 'caste_id', 'caste_name'),\n                ('certificate_type', 'certificate_type_id', 'certificate_code'),\n                ('class_section', 'class_section_id', 'section_code'),\n                ('country', 'country_id', 'country_name'),\n                ('course_catalog', 'course_id', 'course_title'),\n                ('course_category', 'course_category_id', 'category_name'),\n                ('course_offering', 'course_offering_id', 'offering_code'),\n                ('course_offering_section', 'course_offering_section_id', '(SELECT co.offering_code || '' / '' || COALESCE(cs.section_code, ''-'') FROM public.course_offering co LEFT JOIN public.class_section cs ON cs.class_section_id = t.class_section_id WHERE co.course_offering_id = t.course_offering_id)'),\n                ('curriculum_course', 'curriculum_course_id', '(SELECT c.course_code || '' - '' || c.course_title FROM public.course_catalog c WHERE c.course_id = t.course_id)'),\n                ('curriculum_scheme', 'curriculum_scheme_id', 'scheme_name'),\n                ('department', 'department_id', 'department_name'),\n                ('designation', 'designation_id', 'description'),\n                ('document_type', 'document_type_id', 'document_code'),\n                ('education_institution', 'education_institution_id', 'institution_name'),\n                ('education_institution_type', 'education_institution_type_id', 'type_name'),\n                ('employee', 'employee_id', 'display_name'),\n                ('employee_document', 'employee_document_id', 'document_title'),\n                ('employee_document_category', 'employee_document_category_id', 'category_name'),\n                ('employment_source', 'employment_source_id', 'description'),\n                ('event_mode', 'event_mode_id', 'mode_code'),\n                ('evidence_type', 'evidence_type_id', 'evidence_type_name'),\n                ('external_agency', 'external_agency_id', 'agency_code'),\n                ('external_organization', 'organization_id', 'organization_name'),\n                ('faculty_course_assignment', 'faculty_assignment_id', '(SELECT e.display_name || '' - '' || COALESCE(t.assignment_role, ''-'') FROM public.employee e WHERE e.employee_id = t.employee_id)'),\n                ('feedback_question', 'feedback_question_id', 'question_text'),\n                ('feedback_question_category', 'feedback_category_id', 'category_name'),\n                ('feedback_questionnaire', 'questionnaire_id', 'questionnaire_name'),\n                ('file_object', 'file_object_id', 'original_file_name'),\n                ('funded_research_project', 'staff_activity_id', 'project_title'),\n                ('funding_type', 'funding_type_id', 'description'),\n                ('gender', 'gender_id', 'gender_name'),\n                ('grade_scale', 'grade_scale_id', 'scale_name'),\n                ('institution', 'institution_id', 'institution_code'),\n                ('journal', 'journal_id', 'journal_name'),\n                ('journal_type', 'journal_type_id', 'description'),\n                ('metric_type', 'metric_type_id', 'description'),\n                ('organizer', 'organizer_id', '(SELECT o.organization_name FROM public.external_organization o WHERE o.organization_id = t.organization_id)'),\n                ('participation_level', 'participation_level_id', 'level_code'),\n                ('previous_organization', 'previous_organization_id', 'organization_name'),\n                ('previous_organization_type', 'previous_organization_type_id', 'type_name'),\n                ('programme', 'programme_id', 'programme_name'),\n                ('programme_term_offering', 'programme_term_offering_id', '(SELECT p.programme_name || '' - '' || a.term_name FROM public.programme p JOIN public.academic_term a ON a.academic_term_id = t.academic_term_id WHERE p.programme_id = t.programme_id)'),\n                ('publisher', 'publisher_id', '(SELECT o.organization_name FROM public.external_organization o WHERE o.organization_id = t.organization_id)'),\n                ('qualification_level', 'qualification_level_id', 'description'),\n                ('religion', 'religion_id', 'religion_name'),\n                ('role', 'role_id', 'role_name'),\n                ('room', 'room_id', 'room_name'),\n                ('semester', 'semester_id', 'semester_name'),\n                ('social_category', 'social_category_id', 'category_name'),\n                ('staff_category', 'staff_category_id', 'category_name'),\n                ('staff_professional_contribution', 'staff_activity_id', 'title_topic'),\n                ('staff_type', 'staff_type_id', 'description'),\n                ('state', 'state_id', 'state_code'),\n                ('student', 'student_id', 'display_name'),\n                ('student_activity_type', 'student_activity_type_id', 'description'),\n                ('student_programme_enrolment', 'enrolment_id', '(SELECT s.display_name FROM public.student s WHERE s.student_id = t.student_id)'),\n                ('student_term_registration', 'term_registration_id', '(SELECT COALESCE(t.roll_number, ''-'') || '' - '' || s.display_name FROM public.student_programme_enrolment e JOIN public.student s ON s.student_id = e.student_id WHERE e.enrolment_id = t.enrolment_id)'),\n                ('study_mode', 'study_mode_id', 'mode_code'),\n                ('sub_caste', 'sub_caste_id', 'sub_caste_name'),\n                ('time_slot', 'time_slot_id', 'slot_code'),\n                ('timetable_session', 'timetable_session_id', '(SELECT ts.slot_code || '' / day '' || t.day_of_week || '' / '' || COALESCE(r.room_name, ''-'') FROM public.time_slot ts LEFT JOIN public.room r ON r.room_id = t.room_id WHERE ts.time_slot_id = t.time_slot_id)')\n      ) AS v(tbl, pk_col, label_sql)\n     WHERE p_table IS NULL OR v.tbl = p_table;\n$function$\n"
+  },
+  {
+   "schema": "sims_private",
+   "name": "admin_pk_cols",
+   "args": "p_table text",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_pk_cols(p_table text)\n RETURNS text[]\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT COALESCE(\n        (SELECT array_agg(a.attname::text ORDER BY x.ord)\n           FROM pg_constraint c\n           CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS x(attnum, ord)\n           JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = x.attnum\n          WHERE c.contype = 'p' AND c.conrelid = format('public.%I', p_table)::regclass),\n        ARRAY[]::text[]);\n$function$\n"
   },
   {
    "schema": "sims_private",
    "name": "admin_scope_value",
-   "args": "p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb",
-   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_scope_value(p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb)\n RETURNS bigint\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_pk text;\n    v_scope bigint;\n    v_raw text;\n    v_ref_table text;\n    v_ref_column text;\nBEGIN\n    IF p_scope_kind IS NULL OR p_scope_kind = 'global' THEN\n        RETURN NULL;\n    END IF;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    IF p_row_id IS NOT NULL THEN\n        EXECUTE format('SELECT %I::bigint FROM public.%I WHERE %I = $1', p_scope_col, p_table, v_pk)\n           INTO v_scope USING p_row_id;\n    ELSE\n        v_raw := btrim(COALESCE(p_payload ->> p_scope_col, ''));\n        IF v_raw ~ '^-?[0-9]+$' THEN\n            v_scope := v_raw::bigint;\n        ELSE\n            v_scope := NULL;\n        END IF;\n    END IF;\n\n    IF p_scope_ref IS NULL OR v_scope IS NULL THEN\n        RETURN v_scope;\n    END IF;\n\n    v_ref_table := split_part(p_scope_ref, '.', 1);\n    v_ref_column := split_part(p_scope_ref, '.', 2);\n\n    EXECUTE format('SELECT %I::bigint FROM public.%I WHERE %I = $1',\n                   v_ref_column, v_ref_table, sims_private.pk_column(v_ref_table))\n       INTO v_scope USING v_scope;\n\n    RETURN v_scope;\nEND $function$\n"
+   "args": "p_table text, p_scope_kind text, p_scope_path text[], p_key jsonb, p_payload jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_scope_value(p_table text, p_scope_kind text, p_scope_path text[], p_key jsonb, p_payload jsonb)\n RETURNS bigint\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_scope bigint;\n    v_raw text;\n    v_where text;\n    v_hop text;\n    v_table text;\n    v_column text;\n    v_pk text;\nBEGIN\n    IF p_scope_kind IS NULL OR p_scope_kind = 'global' THEN\n        RETURN NULL;\n    END IF;\n\n    IF cardinality(p_scope_path) = 0 THEN\n        RETURN NULL;\n    END IF;\n\n    -- The first element is the table's own column.\n    IF p_key IS NOT NULL AND jsonb_typeof(p_key) <> 'null' THEN\n        v_where := sims_private.admin_key_where(p_table, p_key);\n        IF v_where <> '' THEN\n            EXECUTE format('SELECT %I::bigint FROM public.%I WHERE %s',\n                           p_scope_path[1], p_table, v_where)\n               INTO v_scope;\n        END IF;\n    ELSE\n        v_raw := btrim(COALESCE(p_payload ->> p_scope_path[1], ''));\n        IF v_raw ~ '^-?[0-9]+$' THEN\n            v_scope := v_raw::bigint;\n        END IF;\n    END IF;\n\n    IF v_scope IS NULL THEN\n        RETURN NULL;\n    END IF;\n\n    -- The remaining elements are the foreign key hops the policy follows.\n    FOR v_hop IN SELECT unnest(p_scope_path[2:]) LOOP\n        v_table := split_part(v_hop, '.', 1);\n        v_column := split_part(v_hop, '.', 2);\n        v_pk := sims_private.pk_column(v_table);\n        IF v_pk IS NULL THEN\n            RETURN NULL;\n        END IF;\n        EXECUTE format('SELECT %I::bigint FROM public.%I WHERE %I = $1',\n                       v_column, v_table, v_pk)\n           INTO v_scope USING v_scope;\n        IF v_scope IS NULL THEN\n            RETURN NULL;\n        END IF;\n    END LOOP;\n\n    RETURN v_scope;\nEND $function$\n"
   },
   {
    "schema": "sims_private",
    "name": "admin_table_def",
    "args": "p_table text",
-   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_table_def(p_table text)\n RETURNS TABLE(tbl text, label text, module_code text, perm_prefix text, perm_mode text, scope_kind text, scope_col text, scope_ref text)\n LANGUAGE sql\n IMMUTABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT v.tbl, v.label, v.module_code, v.perm_prefix, v.perm_mode, v.scope_kind, v.scope_col, v.scope_ref\n      FROM (VALUES\n        -- module 3 - academic calendar\n        ('academic_year',               'Academic years',          'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'CONFIGURE', 'global',     NULL,                        NULL),\n        ('academic_term',               'Academic terms',          'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'CONFIGURE', 'global',     NULL,                        NULL),\n        ('semester',                    'Semesters',               'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'CONFIGURE', 'global',     NULL,                        NULL),\n        ('time_slot',                   'Teaching time slots',     'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'ACTION',    'campus',     'campus_id',                 NULL),\n        -- module 4 - curriculum and courses\n        ('course_category',             'Course categories',       'CURRICULUM',        'CURRICULUM',        'CONFIGURE', 'global',     NULL,                        NULL),\n        ('curriculum_scheme',           'Curriculum schemes',      'CURRICULUM',        'CURRICULUM',        'ACTION',    'programme',  'programme_id',              NULL),\n        ('curriculum_course',           'Curriculum courses',      'CURRICULUM',        'CURRICULUM',        'ACTION',    'programme',  'curriculum_scheme_id',      'curriculum_scheme.programme_id'),\n        ('course_catalog',              'Courses',                 'CURRICULUM',        'CURRICULUM',        'ACTION',    'department', 'owning_department_id',     NULL),\n        -- module 5 - student register and enrolments\n        ('student',                     'Students',                'STUDENT',           'STUDENT',           'ACTION',    'student',    'student_id',                NULL),\n        ('student_programme_enrolment', 'Programme enrolments',    'STUDENT',           'ADMISSION',         'ACTION',    'student',    'student_id',                NULL),\n        -- module 7 - registration\n        ('programme_term_offering',     'Programme term offerings','REGISTRATION',      'REGISTRATION',      'ACTION',    'programme',  'programme_id',              NULL),\n        ('course_offering',             'Course offerings',        'REGISTRATION',      'TEACHING',          'ACTION',    'programme',  'programme_term_offering_id','programme_term_offering.programme_id'),\n        ('class_section',               'Class sections',          'REGISTRATION',      'REGISTRATION',      'ACTION',    'programme',  'programme_term_offering_id','programme_term_offering.programme_id'),\n        ('student_term_registration',   'Term registrations',      'REGISTRATION',      'REGISTRATION',      'ACTION',    'student',    'enrolment_id',              'student_programme_enrolment.student_id'),\n        -- module 8 - timetable\n        ('room',                        'Rooms',                   'TIMETABLE',         'INSTITUTION',       'ACTION',    'campus',     'building_id',               'building.campus_id')\n      ) AS v(tbl, label, module_code, perm_prefix, perm_mode, scope_kind, scope_col, scope_ref)\n     WHERE p_table IS NULL OR v.tbl = p_table;\n$function$\n"
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_table_def(p_table text)\n RETURNS TABLE(tbl text, label text, module_codes text[], perm_create text, perm_update text, perm_delete text, scope_kind text, scope_path text[], pk_cols text[], audit_module text, audit_mode text)\n LANGUAGE sql\n IMMUTABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT v.tbl, v.label, v.module_codes, v.perm_create, v.perm_update, v.perm_delete,\n           v.scope_kind, v.scope_path, v.pk_cols, v.audit_module, v.audit_mode\n      FROM (VALUES\n                ('academic_term', 'Academic terms', ARRAY['ACADEMIC_CALENDAR', 'REGISTRATION']::text[], 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['academic_term_id']::text[], 'ACADEMIC_CALENDAR', 'TRIGGER'),\n                ('academic_year', 'Academic years', ARRAY['ACADEMIC_CALENDAR', 'REGISTRATION']::text[], 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['academic_year_id']::text[], 'ACADEMIC_CALENDAR', 'TRIGGER'),\n                ('activity_evidence_requirement', 'Activity evidence requirements', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['activity_evidence_requirement_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('activity_type', 'Activity types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['activity_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('admission_category', 'Admission categories', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['admission_category_id']::text[], 'IAM', 'TRIGGER'),\n                ('announcement_type', 'Announcement types', ARRAY['COMMUNICATION']::text[], 'COMMUNICATION.ALL.CONFIGURE', 'COMMUNICATION.ALL.CONFIGURE', 'COMMUNICATION.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['announcement_type_id']::text[], 'COMMUNICATION', 'TRIGGER'),\n                ('approval_status', 'Approval statuses', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['approval_status_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('assessment_component', 'Assessment components', ARRAY['ASSESSMENT']::text[], 'ASSESSMENT.ALL.CREATE', 'ASSESSMENT.ALL.UPDATE', 'ASSESSMENT.ALL.DELETE', 'programme', ARRAY['course_offering_id', 'course_offering.programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['assessment_component_id']::text[], 'ASSESSMENT', 'TRIGGER'),\n                ('assessment_event', 'Assessment events', ARRAY['ASSESSMENT']::text[], 'ASSESSMENT.ALL.CREATE', 'ASSESSMENT.ALL.UPDATE', 'ASSESSMENT.ALL.DELETE', 'programme', ARRAY['assessment_component_id', 'assessment_component.course_offering_id', 'course_offering.programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['assessment_event_id']::text[], 'ASSESSMENT', 'TRIGGER'),\n                ('attendance_status', 'Attendance statuses', ARRAY['ATTENDANCE']::text[], 'ATTENDANCE.ALL.CONFIGURE', 'ATTENDANCE.ALL.CONFIGURE', 'ATTENDANCE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['attendance_status_id']::text[], 'ATTENDANCE', 'TRIGGER'),\n                ('award_category', 'Award categories', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['award_category_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('awarding_body', 'Awarding bodies', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['awarding_body_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('awarding_body_type', 'Awarding body types', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['awarding_body_type_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('blood_group', 'Blood groups', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['blood_group_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('building', 'Buildings', ARRAY['INSTITUTION']::text[], 'INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.UPDATE', 'INSTITUTION.ALL.DELETE', 'campus', ARRAY['campus_id']::text[], ARRAY['building_id']::text[], 'INSTITUTION', 'TRIGGER'),\n                ('campus', 'Campuses', ARRAY['INSTITUTION']::text[], 'INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.UPDATE', 'INSTITUTION.ALL.DELETE', 'institution', ARRAY['institution_id']::text[], ARRAY['campus_id']::text[], 'INSTITUTION', 'TRIGGER'),\n                ('caste', 'Castes', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['caste_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('certificate_request', 'Certificate requests', ARRAY['DOCUMENT']::text[], 'DOCUMENT.ALL.CREATE', 'DOCUMENT.ALL.UPDATE', 'DOCUMENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['certificate_request_id']::text[], 'DOCUMENT', 'TRIGGER'),\n                ('certificate_type', 'Certificate types', ARRAY['DOCUMENT']::text[], 'DOCUMENT.ALL.CONFIGURE', 'DOCUMENT.ALL.CONFIGURE', 'DOCUMENT.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['certificate_type_id']::text[], 'DOCUMENT', 'MANUAL'),\n                ('class_batch', 'Class batches', ARRAY['REGISTRATION']::text[], 'REGISTRATION.ALL.CREATE', 'REGISTRATION.ALL.UPDATE', 'REGISTRATION.ALL.DELETE', 'programme', ARRAY['class_section_id', 'class_section.programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['class_batch_id']::text[], 'REGISTRATION', 'TRIGGER'),\n                ('class_section', 'Class sections', ARRAY['REGISTRATION', 'ATTENDANCE']::text[], 'REGISTRATION.ALL.CREATE', 'REGISTRATION.ALL.UPDATE', 'REGISTRATION.ALL.DELETE', 'programme', ARRAY['programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['class_section_id']::text[], 'REGISTRATION', 'TRIGGER'),\n                ('class_session', 'Class sessions', ARRAY['ATTENDANCE']::text[], 'ATTENDANCE.ALL.CREATE', 'ATTENDANCE.ALL.UPDATE', 'ATTENDANCE.ALL.DELETE', 'programme', ARRAY['course_offering_section_id', 'course_offering_section.course_offering_id', 'course_offering.programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['class_session_id']::text[], 'ATTENDANCE', 'TRIGGER'),\n                ('cocurricular_category', 'Co-curricular categories', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['cocurricular_category_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('conference_activity_indexing', 'Conference indexing records', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.STAFF_ACTIVITY.CREATE', 'STAFF_PROFILE.STAFF_ACTIVITY.UPDATE', 'STAFF_PROFILE.STAFF_ACTIVITY.DELETE', 'employee', ARRAY['staff_activity_id', 'conference_activity.staff_activity_id', 'staff_activity.employee_id']::text[], ARRAY['staff_activity_id', 'indexing_agency_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('conference_contribution_type', 'Conference contribution types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['conference_contribution_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('conference_event', 'Conference events', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['conference_event_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('confidentiality_level', 'Confidentiality levels', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['confidentiality_level_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('country', 'Countries', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['country_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('course_catalog', 'Courses', ARRAY['CURRICULUM']::text[], 'CURRICULUM.ALL.CREATE', 'CURRICULUM.ALL.UPDATE', 'CURRICULUM.ALL.DELETE', 'department', ARRAY['owning_department_id']::text[], ARRAY['course_id']::text[], 'CURRICULUM', 'TRIGGER'),\n                ('course_category', 'Course categories', ARRAY['CURRICULUM']::text[], 'CURRICULUM.ALL.CONFIGURE', 'CURRICULUM.ALL.CONFIGURE', 'CURRICULUM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['course_category_id']::text[], 'CURRICULUM', 'TRIGGER'),\n                ('course_offering', 'Course offerings', ARRAY['TIMETABLE', 'REGISTRATION']::text[], 'TEACHING.ALL.CREATE', 'TEACHING.ALL.UPDATE', 'TEACHING.ALL.DELETE', 'programme', ARRAY['programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['course_offering_id']::text[], 'TEACHING', 'TRIGGER'),\n                ('course_offering_section', 'Course offering sections', ARRAY['TIMETABLE', 'REGISTRATION']::text[], 'TEACHING.ALL.CREATE', 'TEACHING.ALL.UPDATE', 'TEACHING.ALL.DELETE', 'programme', ARRAY['course_offering_id', 'course_offering.programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['course_offering_section_id']::text[], 'TEACHING', 'TRIGGER'),\n                ('course_offering_section_student', 'Section student allocations', ARRAY['REGISTRATION']::text[], 'REGISTRATION.ALL.CREATE', 'REGISTRATION.ALL.UPDATE', 'REGISTRATION.ALL.DELETE', 'student', ARRAY['course_registration_id', 'student_course_registration.term_registration_id', 'student_term_registration.enrolment_id', 'student_programme_enrolment.student_id']::text[], ARRAY['course_offering_section_student_id']::text[], 'REGISTRATION', 'TRIGGER'),\n                ('course_prerequisite', 'Course prerequisites', ARRAY['CURRICULUM']::text[], 'CURRICULUM.ALL.CREATE', 'CURRICULUM.ALL.UPDATE', 'CURRICULUM.ALL.DELETE', 'department', ARRAY['course_id', 'course_catalog.owning_department_id']::text[], ARRAY['course_id', 'prerequisite_course_id']::text[], 'CURRICULUM', 'TRIGGER'),\n                ('curriculum_course', 'Curriculum courses', ARRAY['CURRICULUM']::text[], 'CURRICULUM.ALL.CREATE', 'CURRICULUM.ALL.UPDATE', 'CURRICULUM.ALL.DELETE', 'programme', ARRAY['curriculum_scheme_id', 'curriculum_scheme.programme_id']::text[], ARRAY['curriculum_course_id']::text[], 'CURRICULUM', 'TRIGGER'),\n                ('curriculum_scheme', 'Curriculum schemes', ARRAY['CURRICULUM', 'REGISTRATION']::text[], 'CURRICULUM.ALL.CREATE', 'CURRICULUM.ALL.UPDATE', 'CURRICULUM.ALL.DELETE', 'programme', ARRAY['programme_id']::text[], ARRAY['curriculum_scheme_id']::text[], 'CURRICULUM', 'TRIGGER'),\n                ('department', 'Departments', ARRAY['INSTITUTION']::text[], 'INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.UPDATE', 'INSTITUTION.ALL.DELETE', 'campus', ARRAY['campus_id']::text[], ARRAY['department_id']::text[], 'INSTITUTION', 'TRIGGER'),\n                ('designation', 'Designations', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['designation_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('document_type', 'Document types', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['document_type_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('education_institution', 'Education institutions', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['education_institution_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('education_institution_type', 'Education institution types', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['education_institution_type_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee', 'Employees', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CREATE', 'EMPLOYEE.ALL.UPDATE', 'EMPLOYEE.ALL.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_aadhaar', 'Employee Aadhaar records', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.AADHAAR.CREATE', 'EMPLOYEE.AADHAAR.UPDATE', 'EMPLOYEE.AADHAAR.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_aadhaar_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_address', 'Employee addresses', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CREATE', 'EMPLOYEE.ALL.UPDATE', 'EMPLOYEE.ALL.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_address_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('employee_assignment', 'Employee assignments', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CREATE', 'EMPLOYEE.ALL.UPDATE', 'EMPLOYEE.ALL.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_assignment_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_bank_account', 'Employee bank accounts', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.BANK_ACCOUNT.CREATE', 'EMPLOYEE.BANK_ACCOUNT.UPDATE', 'EMPLOYEE.BANK_ACCOUNT.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_bank_account_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_competency', 'Employee competencies', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CREATE', 'EMPLOYEE.ALL.UPDATE', 'EMPLOYEE.ALL.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_id', 'course_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('employee_document', 'Employee documents', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.EMPLOYEE_DOCUMENT.CREATE', 'EMPLOYEE.EMPLOYEE_DOCUMENT.UPDATE', 'EMPLOYEE.EMPLOYEE_DOCUMENT.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_document_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_document_access_rule', 'Employee document access rules', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.EMPLOYEE_DOCUMENT.CREATE', 'EMPLOYEE.EMPLOYEE_DOCUMENT.UPDATE', 'EMPLOYEE.EMPLOYEE_DOCUMENT.DELETE', 'employee', ARRAY['employee_document_id', 'employee_document.employee_id']::text[], ARRAY['employee_document_access_rule_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_document_category', 'Employee document categories', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['employee_document_category_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_pan', 'Employee PAN records', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.PAN.CREATE', 'EMPLOYEE.PAN.UPDATE', 'EMPLOYEE.PAN.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_pan_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('employee_previous_employment', 'Employee previous employment', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.EXPERIENCE.CREATE', 'EMPLOYEE.EXPERIENCE.UPDATE', 'EMPLOYEE.EXPERIENCE.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_previous_employment_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('employee_qualification', 'Employee qualifications', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.QUALIFICATION.CREATE', 'EMPLOYEE.QUALIFICATION.UPDATE', 'EMPLOYEE.QUALIFICATION.DELETE', 'employee', ARRAY['employee_id']::text[], ARRAY['employee_qualification_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('employment_source', 'Employment sources', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['employment_source_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('enrolment_status_history', 'Enrolment status history', ARRAY['ADMISSION']::text[], 'ADMISSION.ALL.CREATE', 'ADMISSION.ALL.UPDATE', 'ADMISSION.ALL.DELETE', 'student', ARRAY['enrolment_id', 'student_programme_enrolment.student_id']::text[], ARRAY['enrolment_status_history_id']::text[], 'ADMISSION', 'TRIGGER'),\n                ('event_mode', 'Event modes', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['event_mode_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('evidence_document_tag', 'Evidence document tags', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.STAFF_EVIDENCE.CREATE', 'STAFF_PROFILE.STAFF_EVIDENCE.UPDATE', 'STAFF_PROFILE.STAFF_EVIDENCE.DELETE', 'employee', ARRAY['evidence_document_id', 'evidence_document.staff_activity_id', 'staff_activity.employee_id']::text[], ARRAY['evidence_document_id', 'evidence_tag_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('evidence_tag', 'Evidence tags', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['evidence_tag_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('evidence_type', 'Evidence types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['evidence_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('external_agency', 'External agencies', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CREATE', 'EMPLOYEE.ALL.UPDATE', 'EMPLOYEE.ALL.DELETE', 'institution', ARRAY['institution_id']::text[], ARRAY['external_agency_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('external_organization', 'External organisations', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['organization_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('external_organization_type', 'External organisation types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['organization_id', 'organization_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('extracurricular_category', 'Extra-curricular categories', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['extracurricular_category_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('faculty_course_assignment', 'Faculty course assignments', ARRAY['TIMETABLE']::text[], 'TEACHING.ALL.CREATE', 'TEACHING.ALL.UPDATE', 'TEACHING.ALL.DELETE', 'programme', ARRAY['course_offering_section_id', 'course_offering_section.course_offering_id', 'course_offering.programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['faculty_assignment_id']::text[], 'TEACHING', 'TRIGGER'),\n                ('feedback_choice', 'Feedback choices', ARRAY['FEEDBACK']::text[], 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['feedback_choice_id']::text[], 'FEEDBACK', 'TRIGGER'),\n                ('feedback_cycle', 'Feedback cycles', ARRAY['FEEDBACK']::text[], 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['feedback_cycle_id']::text[], 'FEEDBACK', 'TRIGGER'),\n                ('feedback_question', 'Feedback questions', ARRAY['FEEDBACK']::text[], 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['feedback_question_id']::text[], 'FEEDBACK', 'TRIGGER'),\n                ('feedback_question_category', 'Feedback question categories', ARRAY['FEEDBACK']::text[], 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['feedback_category_id']::text[], 'FEEDBACK', 'TRIGGER'),\n                ('feedback_questionnaire', 'Feedback questionnaires', ARRAY['FEEDBACK']::text[], 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['questionnaire_id']::text[], 'FEEDBACK', 'TRIGGER'),\n                ('feedback_questionnaire_item', 'Feedback questionnaire items', ARRAY['FEEDBACK']::text[], 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'FEEDBACK.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['questionnaire_item_id']::text[], 'FEEDBACK', 'TRIGGER'),\n                ('funding_agency', 'Funding agencies', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['funding_agency_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('funding_type', 'Funding types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['funding_type_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('gender', 'Genders', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['gender_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('grade_rule', 'Grade rules', ARRAY['RESULT']::text[], 'RESULT.ALL.CONFIGURE', 'RESULT.ALL.CONFIGURE', 'RESULT.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['grade_rule_id']::text[], 'RESULT', 'TRIGGER'),\n                ('grade_scale', 'Grade scales', ARRAY['RESULT']::text[], 'RESULT.ALL.CONFIGURE', 'RESULT.ALL.CONFIGURE', 'RESULT.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['grade_scale_id']::text[], 'RESULT', 'TRIGGER'),\n                ('grievance_category', 'Grievance categories', ARRAY['GRIEVANCE']::text[], 'GRIEVANCE.ALL.CONFIGURE', 'GRIEVANCE.ALL.CONFIGURE', 'GRIEVANCE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['grievance_category_id']::text[], 'GRIEVANCE', 'TRIGGER'),\n                ('indexing_agency', 'Indexing agencies', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['indexing_agency_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('industry_sector', 'Industry sectors', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['industry_sector_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('journal', 'Journals', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['journal_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('journal_metric', 'Journal metrics', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['journal_metric_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('journal_publication_indexing', 'Journal indexing records', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.STAFF_ACTIVITY.CREATE', 'STAFF_PROFILE.STAFF_ACTIVITY.UPDATE', 'STAFF_PROFILE.STAFF_ACTIVITY.DELETE', 'employee', ARRAY['staff_activity_id', 'journal_publication.staff_activity_id', 'staff_activity.employee_id']::text[], ARRAY['staff_activity_id', 'indexing_agency_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('journal_type', 'Journal types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['journal_type_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('membership_type', 'Membership types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['membership_type_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('metric_type', 'Journal metric types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['metric_type_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('organization_type', 'Organisation types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['organization_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('organizer', 'Organisers', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['organizer_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('participation_level', 'Participation levels', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['participation_level_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('previous_organization', 'Previous organisations', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['previous_organization_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('previous_organization_type', 'Previous organisation types', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['previous_organization_type_id']::text[], 'EMPLOYEE', 'TRIGGER'),\n                ('professional_contribution_type', 'Professional contribution types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['professional_contribution_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('programme', 'Programmes', ARRAY['INSTITUTION', 'CURRICULUM', 'REGISTRATION']::text[], 'INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.UPDATE', 'INSTITUTION.ALL.DELETE', 'department', ARRAY['department_id']::text[], ARRAY['programme_id']::text[], 'INSTITUTION', 'TRIGGER'),\n                ('programme_specialization', 'Programme specialisations', ARRAY['INSTITUTION']::text[], 'INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.UPDATE', 'INSTITUTION.ALL.DELETE', 'programme', ARRAY['programme_id']::text[], ARRAY['specialization_id']::text[], 'INSTITUTION', 'TRIGGER'),\n                ('programme_term_offering', 'Programme term offerings', ARRAY['REGISTRATION']::text[], 'REGISTRATION.ALL.CREATE', 'REGISTRATION.ALL.UPDATE', 'REGISTRATION.ALL.DELETE', 'programme', ARRAY['programme_id']::text[], ARRAY['programme_term_offering_id']::text[], 'REGISTRATION', 'TRIGGER'),\n                ('publication_type', 'Publication types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['publication_type_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('publisher', 'Publishers', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['publisher_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('qualification_level', 'Qualification levels', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['qualification_level_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('religion', 'Religions', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['religion_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('research_project_financial_utilization', 'Research project financial utilisation', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.STAFF_RESEARCH.CREATE', 'STAFF_PROFILE.STAFF_RESEARCH.UPDATE', 'STAFF_PROFILE.STAFF_RESEARCH.DELETE', 'employee', ARRAY['staff_activity_id', 'funded_research_project.principal_investigator_employee_id']::text[], ARRAY['utilization_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('research_status', 'Research statuses', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['research_status_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('research_supervision', 'Research supervision', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.STAFF_RESEARCH.CREATE', 'STAFF_PROFILE.STAFF_RESEARCH.UPDATE', 'STAFF_PROFILE.STAFF_RESEARCH.DELETE', 'employee', ARRAY['staff_activity_id', 'staff_professional_contribution.staff_activity_id', 'staff_activity.employee_id']::text[], ARRAY['research_supervision_id']::text[], 'STAFF_PROFILE', 'MANUAL'),\n                ('role_type', 'Role types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['role_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('room', 'Rooms', ARRAY['INSTITUTION', 'TIMETABLE']::text[], 'INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.UPDATE', 'INSTITUTION.ALL.DELETE', 'campus', ARRAY['building_id', 'building.campus_id']::text[], ARRAY['room_id']::text[], 'TIMETABLE', 'TRIGGER'),\n                ('semester', 'Semesters', ARRAY['ACADEMIC_CALENDAR', 'REGISTRATION', 'CURRICULUM']::text[], 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'ACADEMIC_CALENDAR.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['semester_id']::text[], 'ACADEMIC_CALENDAR', 'TRIGGER'),\n                ('social_category', 'Social categories', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['social_category_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('staff_category', 'Staff categories', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['staff_category_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('staff_type', 'Staff types', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['staff_type_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('state', 'States', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['state_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('student', 'Students', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CREATE', 'STUDENT.ALL.UPDATE', 'STUDENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['student_id']::text[], 'STUDENT', 'TRIGGER'),\n                ('student_activity_evidence_requirement', 'Student activity evidence requirements', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CONFIGURE', 'STUDENT.ALL.CONFIGURE', 'STUDENT.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['student_activity_evidence_requirement_id']::text[], 'STUDENT', 'TRIGGER'),\n                ('student_activity_type', 'Student activity types', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CONFIGURE', 'STUDENT.ALL.CONFIGURE', 'STUDENT.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['student_activity_type_id']::text[], 'STUDENT', 'TRIGGER'),\n                ('student_address', 'Student addresses', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CREATE', 'STUDENT.ALL.UPDATE', 'STUDENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['student_address_id']::text[], 'STUDENT', 'MANUAL'),\n                ('student_course_registration', 'Student course registrations', ARRAY['REGISTRATION', 'STUDENT']::text[], 'REGISTRATION.ALL.CREATE', 'REGISTRATION.ALL.UPDATE', 'REGISTRATION.ALL.DELETE', 'student', ARRAY['term_registration_id', 'student_term_registration.enrolment_id', 'student_programme_enrolment.student_id']::text[], ARRAY['course_registration_id']::text[], 'REGISTRATION', 'TRIGGER'),\n                ('student_document', 'Student documents', ARRAY['DOCUMENT']::text[], 'DOCUMENT.ALL.CREATE', 'DOCUMENT.ALL.UPDATE', 'DOCUMENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['student_document_id']::text[], 'DOCUMENT', 'TRIGGER'),\n                ('student_entrance_exam', 'Student entrance exams', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CREATE', 'STUDENT.ALL.UPDATE', 'STUDENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['student_entrance_exam_id']::text[], 'STUDENT', 'MANUAL'),\n                ('student_exit', 'Student exit records', ARRAY['DOCUMENT']::text[], 'DOCUMENT.ALL.CREATE', 'DOCUMENT.ALL.UPDATE', 'DOCUMENT.ALL.DELETE', 'student', ARRAY['enrolment_id', 'student_programme_enrolment.student_id']::text[], ARRAY['student_exit_id']::text[], 'DOCUMENT', 'TRIGGER'),\n                ('student_parent_guardian', 'Student parents and guardians', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CREATE', 'STUDENT.ALL.UPDATE', 'STUDENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['student_parent_guardian_id']::text[], 'STUDENT', 'MANUAL'),\n                ('student_previous_education', 'Student previous education', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CREATE', 'STUDENT.ALL.UPDATE', 'STUDENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['previous_education_id']::text[], 'STUDENT', 'MANUAL'),\n                ('student_programme_enrolment', 'Programme enrolments', ARRAY['ADMISSION', 'STUDENT']::text[], 'ADMISSION.ALL.CREATE', 'ADMISSION.ALL.UPDATE', 'ADMISSION.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['enrolment_id']::text[], 'ADMISSION', 'TRIGGER'),\n                ('student_residence', 'Student residences', ARRAY['STUDENT']::text[], 'STUDENT.ALL.CREATE', 'STUDENT.ALL.UPDATE', 'STUDENT.ALL.DELETE', 'student', ARRAY['student_id']::text[], ARRAY['student_residence_id']::text[], 'STUDENT', 'MANUAL'),\n                ('student_term_registration', 'Term registrations', ARRAY['REGISTRATION', 'STUDENT']::text[], 'REGISTRATION.ALL.CREATE', 'REGISTRATION.ALL.UPDATE', 'REGISTRATION.ALL.DELETE', 'student', ARRAY['enrolment_id', 'student_programme_enrolment.student_id']::text[], ARRAY['term_registration_id']::text[], 'REGISTRATION', 'TRIGGER'),\n                ('study_mode', 'Study modes', ARRAY['EMPLOYEE']::text[], 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'EMPLOYEE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['study_mode_id']::text[], 'EMPLOYEE', 'MANUAL'),\n                ('sub_caste', 'Sub-castes', ARRAY['IAM']::text[], 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'IAM.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['sub_caste_id']::text[], 'PLATFORM', 'MANUAL'),\n                ('time_slot', 'Teaching time slots', ARRAY['ACADEMIC_CALENDAR', 'TIMETABLE']::text[], 'ACADEMIC_CALENDAR.ALL.CREATE', 'ACADEMIC_CALENDAR.ALL.UPDATE', 'ACADEMIC_CALENDAR.ALL.DELETE', 'campus', ARRAY['campus_id']::text[], ARRAY['time_slot_id']::text[], 'ACADEMIC_CALENDAR', 'TRIGGER'),\n                ('timetable_session', 'Timetable sessions', ARRAY['TIMETABLE']::text[], 'TIMETABLE.ALL.CREATE', 'TIMETABLE.ALL.UPDATE', 'TIMETABLE.ALL.DELETE', 'programme', ARRAY['course_offering_section_id', 'course_offering_section.course_offering_id', 'course_offering.programme_term_offering_id', 'programme_term_offering.programme_id']::text[], ARRAY['timetable_session_id']::text[], 'TIMETABLE', 'TRIGGER'),\n                ('training_program_type', 'Training programme types', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['training_program_type_id']::text[], 'STAFF_PROFILE', 'TRIGGER'),\n                ('university', 'Universities', ARRAY['INSTITUTION']::text[], 'INSTITUTION.ALL.CONFIGURE', 'INSTITUTION.ALL.CONFIGURE', 'INSTITUTION.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['university_id']::text[], 'INSTITUTION', 'TRIGGER'),\n                ('verification_status', 'Verification statuses', ARRAY['STAFF_PROFILE']::text[], 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'STAFF_PROFILE.ALL.CONFIGURE', 'global', ARRAY[]::text[], ARRAY['verification_status_id']::text[], 'STAFF_PROFILE', 'TRIGGER')\n      ) AS v(tbl, label, module_codes, perm_create, perm_update, perm_delete,\n               scope_kind, scope_path, pk_cols, audit_module, audit_mode)\n     WHERE p_table IS NULL OR v.tbl = p_table;\n$function$\n"
   },
   {
    "schema": "sims_private",
@@ -67092,6 +67104,18 @@
   },
   {
    "schema": "public",
+   "table": "activity_evidence_requirement",
+   "name": "trg_activity_evidence_requirement_audit",
+   "definition": "CREATE TRIGGER trg_activity_evidence_requirement_audit AFTER INSERT OR DELETE OR UPDATE ON activity_evidence_requirement FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'activity_evidence_requirement_id')"
+  },
+  {
+   "schema": "public",
+   "table": "activity_type",
+   "name": "trg_activity_type_audit",
+   "definition": "CREATE TRIGGER trg_activity_type_audit AFTER INSERT OR DELETE OR UPDATE ON activity_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'activity_type_id')"
+  },
+  {
+   "schema": "public",
    "table": "admission_applicant",
    "name": "trg_admission_applicant_audit",
    "definition": "CREATE TRIGGER trg_admission_applicant_audit AFTER INSERT OR DELETE OR UPDATE ON admission_applicant FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ADMISSION', 'admission_applicant_id')"
@@ -67116,6 +67140,12 @@
   },
   {
    "schema": "public",
+   "table": "admission_category",
+   "name": "trg_admission_category_audit",
+   "definition": "CREATE TRIGGER trg_admission_category_audit AFTER INSERT OR DELETE OR UPDATE ON admission_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('IAM', 'admission_category_id')"
+  },
+  {
+   "schema": "public",
    "table": "announcement",
    "name": "trg_announcement_audit",
    "definition": "CREATE TRIGGER trg_announcement_audit AFTER INSERT OR DELETE OR UPDATE ON announcement FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('COMMUNICATION', 'announcement_id')"
@@ -67125,6 +67155,18 @@
    "table": "announcement",
    "name": "trg_announcement_workflow_guard",
    "definition": "CREATE TRIGGER trg_announcement_workflow_guard BEFORE INSERT OR UPDATE ON announcement FOR EACH ROW EXECUTE FUNCTION sims_guard_announcement()"
+  },
+  {
+   "schema": "public",
+   "table": "announcement_type",
+   "name": "trg_announcement_type_audit",
+   "definition": "CREATE TRIGGER trg_announcement_type_audit AFTER INSERT OR DELETE OR UPDATE ON announcement_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('COMMUNICATION', 'announcement_type_id')"
+  },
+  {
+   "schema": "public",
+   "table": "approval_status",
+   "name": "trg_approval_status_audit",
+   "definition": "CREATE TRIGGER trg_approval_status_audit AFTER INSERT OR DELETE OR UPDATE ON approval_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'approval_status_id')"
   },
   {
    "schema": "public",
@@ -67176,6 +67218,18 @@
   },
   {
    "schema": "public",
+   "table": "awarding_body_type",
+   "name": "trg_awarding_body_type_audit",
+   "definition": "CREATE TRIGGER trg_awarding_body_type_audit AFTER INSERT OR DELETE OR UPDATE ON awarding_body_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'awarding_body_type_id')"
+  },
+  {
+   "schema": "public",
+   "table": "building",
+   "name": "trg_building_audit",
+   "definition": "CREATE TRIGGER trg_building_audit AFTER INSERT OR DELETE OR UPDATE ON building FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'building_id')"
+  },
+  {
+   "schema": "public",
    "table": "campus",
    "name": "trg_campus_audit",
    "definition": "CREATE TRIGGER trg_campus_audit AFTER INSERT OR DELETE OR UPDATE ON campus FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'campus_id')"
@@ -67185,6 +67239,12 @@
    "table": "certificate_request",
    "name": "trg_a_certificate_request_fee_hold",
    "definition": "CREATE TRIGGER trg_a_certificate_request_fee_hold BEFORE UPDATE ON certificate_request FOR EACH ROW EXECUTE FUNCTION sims_guard_certificate_hold()"
+  },
+  {
+   "schema": "public",
+   "table": "certificate_request",
+   "name": "trg_certificate_request_audit",
+   "definition": "CREATE TRIGGER trg_certificate_request_audit AFTER INSERT OR DELETE OR UPDATE ON certificate_request FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('DOCUMENT', 'certificate_request_id')"
   },
   {
    "schema": "public",
@@ -67218,15 +67278,39 @@
   },
   {
    "schema": "public",
+   "table": "cocurricular_category",
+   "name": "trg_cocurricular_category_audit",
+   "definition": "CREATE TRIGGER trg_cocurricular_category_audit AFTER INSERT OR DELETE OR UPDATE ON cocurricular_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'cocurricular_category_id')"
+  },
+  {
+   "schema": "public",
    "table": "conference_activity_indexing",
    "name": "trg_conference_activity_indexing_workflow_guard",
    "definition": "CREATE TRIGGER trg_conference_activity_indexing_workflow_guard BEFORE INSERT OR UPDATE ON conference_activity_indexing FOR EACH ROW EXECUTE FUNCTION sims_guard_conference_activity_indexing()"
   },
   {
    "schema": "public",
+   "table": "conference_contribution_type",
+   "name": "trg_conference_contribution_type_audit",
+   "definition": "CREATE TRIGGER trg_conference_contribution_type_audit AFTER INSERT OR DELETE OR UPDATE ON conference_contribution_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'conference_contribution_type_id')"
+  },
+  {
+   "schema": "public",
+   "table": "conference_event",
+   "name": "trg_conference_event_audit",
+   "definition": "CREATE TRIGGER trg_conference_event_audit AFTER INSERT OR DELETE OR UPDATE ON conference_event FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'conference_event_id')"
+  },
+  {
+   "schema": "public",
    "table": "conference_event",
    "name": "trg_conference_event_touch_updated_at",
    "definition": "CREATE TRIGGER trg_conference_event_touch_updated_at BEFORE UPDATE ON conference_event FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
+  },
+  {
+   "schema": "public",
+   "table": "confidentiality_level",
+   "name": "trg_confidentiality_level_audit",
+   "definition": "CREATE TRIGGER trg_confidentiality_level_audit AFTER INSERT OR DELETE OR UPDATE ON confidentiality_level FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'confidentiality_level_id')"
   },
   {
    "schema": "public",
@@ -67260,6 +67344,12 @@
   },
   {
    "schema": "public",
+   "table": "course_offering_section_student",
+   "name": "trg_course_offering_section_student_audit",
+   "definition": "CREATE TRIGGER trg_course_offering_section_student_audit AFTER INSERT OR DELETE OR UPDATE ON course_offering_section_student FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('REGISTRATION', 'course_offering_section_student_id')"
+  },
+  {
+   "schema": "public",
    "table": "course_prerequisite",
    "name": "trg_course_prerequisite_audit",
    "definition": "CREATE TRIGGER trg_course_prerequisite_audit AFTER INSERT OR DELETE OR UPDATE ON course_prerequisite FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('CURRICULUM', 'course_id')"
@@ -67290,6 +67380,12 @@
   },
   {
    "schema": "public",
+   "table": "education_institution_type",
+   "name": "trg_education_institution_type_audit",
+   "definition": "CREATE TRIGGER trg_education_institution_type_audit AFTER INSERT OR DELETE OR UPDATE ON education_institution_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'education_institution_type_id')"
+  },
+  {
+   "schema": "public",
    "table": "employee",
    "name": "trg_employee_audit",
    "definition": "CREATE TRIGGER trg_employee_audit AFTER INSERT OR DELETE OR UPDATE ON employee FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_id')"
@@ -67305,6 +67401,12 @@
    "table": "employee",
    "name": "trg_employee_touch_updated_at",
    "definition": "CREATE TRIGGER trg_employee_touch_updated_at BEFORE UPDATE ON employee FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
+  },
+  {
+   "schema": "public",
+   "table": "employee_aadhaar",
+   "name": "trg_employee_aadhaar_audit",
+   "definition": "CREATE TRIGGER trg_employee_aadhaar_audit AFTER INSERT OR DELETE OR UPDATE ON employee_aadhaar FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_aadhaar_id')"
   },
   {
    "schema": "public",
@@ -67327,6 +67429,12 @@
   {
    "schema": "public",
    "table": "employee_bank_account",
+   "name": "trg_employee_bank_account_audit",
+   "definition": "CREATE TRIGGER trg_employee_bank_account_audit AFTER INSERT OR DELETE OR UPDATE ON employee_bank_account FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_bank_account_id')"
+  },
+  {
+   "schema": "public",
+   "table": "employee_bank_account",
    "name": "trg_employee_bank_account_touch_updated_at",
    "definition": "CREATE TRIGGER trg_employee_bank_account_touch_updated_at BEFORE UPDATE ON employee_bank_account FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
   },
@@ -67339,6 +67447,12 @@
   {
    "schema": "public",
    "table": "employee_document",
+   "name": "trg_employee_document_audit",
+   "definition": "CREATE TRIGGER trg_employee_document_audit AFTER INSERT OR DELETE OR UPDATE ON employee_document FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_document_id')"
+  },
+  {
+   "schema": "public",
+   "table": "employee_document",
    "name": "trg_employee_document_touch_updated_at",
    "definition": "CREATE TRIGGER trg_employee_document_touch_updated_at BEFORE UPDATE ON employee_document FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
   },
@@ -67347,6 +67461,24 @@
    "table": "employee_document",
    "name": "trg_employee_document_workflow_guard",
    "definition": "CREATE TRIGGER trg_employee_document_workflow_guard BEFORE INSERT OR UPDATE ON employee_document FOR EACH ROW EXECUTE FUNCTION sims_guard_employee_document()"
+  },
+  {
+   "schema": "public",
+   "table": "employee_document_access_rule",
+   "name": "trg_employee_document_access_rule_audit",
+   "definition": "CREATE TRIGGER trg_employee_document_access_rule_audit AFTER INSERT OR DELETE OR UPDATE ON employee_document_access_rule FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_document_access_rule_id')"
+  },
+  {
+   "schema": "public",
+   "table": "employee_document_category",
+   "name": "trg_employee_document_category_audit",
+   "definition": "CREATE TRIGGER trg_employee_document_category_audit AFTER INSERT OR DELETE OR UPDATE ON employee_document_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_document_category_id')"
+  },
+  {
+   "schema": "public",
+   "table": "employee_pan",
+   "name": "trg_employee_pan_audit",
+   "definition": "CREATE TRIGGER trg_employee_pan_audit AFTER INSERT OR DELETE OR UPDATE ON employee_pan FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_pan_id')"
   },
   {
    "schema": "public",
@@ -67375,8 +67507,26 @@
   {
    "schema": "public",
    "table": "employment_source",
+   "name": "trg_employment_source_audit",
+   "definition": "CREATE TRIGGER trg_employment_source_audit AFTER INSERT OR DELETE OR UPDATE ON employment_source FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employment_source_id')"
+  },
+  {
+   "schema": "public",
+   "table": "employment_source",
    "name": "trg_employment_source_touch_updated_at",
    "definition": "CREATE TRIGGER trg_employment_source_touch_updated_at BEFORE UPDATE ON employment_source FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
+  },
+  {
+   "schema": "public",
+   "table": "enrolment_status_history",
+   "name": "trg_enrolment_status_history_audit",
+   "definition": "CREATE TRIGGER trg_enrolment_status_history_audit AFTER INSERT OR DELETE OR UPDATE ON enrolment_status_history FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ADMISSION', 'enrolment_status_history_id')"
+  },
+  {
+   "schema": "public",
+   "table": "event_mode",
+   "name": "trg_event_mode_audit",
+   "definition": "CREATE TRIGGER trg_event_mode_audit AFTER INSERT OR DELETE OR UPDATE ON event_mode FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'event_mode_id')"
   },
   {
    "schema": "public",
@@ -67392,6 +67542,30 @@
   },
   {
    "schema": "public",
+   "table": "evidence_document_tag",
+   "name": "trg_evidence_document_tag_audit",
+   "definition": "CREATE TRIGGER trg_evidence_document_tag_audit AFTER INSERT OR DELETE OR UPDATE ON evidence_document_tag FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'evidence_document_id')"
+  },
+  {
+   "schema": "public",
+   "table": "evidence_tag",
+   "name": "trg_evidence_tag_audit",
+   "definition": "CREATE TRIGGER trg_evidence_tag_audit AFTER INSERT OR DELETE OR UPDATE ON evidence_tag FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'evidence_tag_id')"
+  },
+  {
+   "schema": "public",
+   "table": "evidence_type",
+   "name": "trg_evidence_type_audit",
+   "definition": "CREATE TRIGGER trg_evidence_type_audit AFTER INSERT OR DELETE OR UPDATE ON evidence_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'evidence_type_id')"
+  },
+  {
+   "schema": "public",
+   "table": "external_agency",
+   "name": "trg_external_agency_audit",
+   "definition": "CREATE TRIGGER trg_external_agency_audit AFTER INSERT OR DELETE OR UPDATE ON external_agency FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'external_agency_id')"
+  },
+  {
+   "schema": "public",
    "table": "external_agency",
    "name": "trg_external_agency_touch_updated_at",
    "definition": "CREATE TRIGGER trg_external_agency_touch_updated_at BEFORE UPDATE ON external_agency FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
@@ -67399,8 +67573,26 @@
   {
    "schema": "public",
    "table": "external_organization",
+   "name": "trg_external_organization_audit",
+   "definition": "CREATE TRIGGER trg_external_organization_audit AFTER INSERT OR DELETE OR UPDATE ON external_organization FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organization_id')"
+  },
+  {
+   "schema": "public",
+   "table": "external_organization",
    "name": "trg_external_organization_touch_updated_at",
    "definition": "CREATE TRIGGER trg_external_organization_touch_updated_at BEFORE UPDATE ON external_organization FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
+  },
+  {
+   "schema": "public",
+   "table": "external_organization_type",
+   "name": "trg_external_organization_type_audit",
+   "definition": "CREATE TRIGGER trg_external_organization_type_audit AFTER INSERT OR DELETE OR UPDATE ON external_organization_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organization_id')"
+  },
+  {
+   "schema": "public",
+   "table": "extracurricular_category",
+   "name": "trg_extracurricular_category_audit",
+   "definition": "CREATE TRIGGER trg_extracurricular_category_audit AFTER INSERT OR DELETE OR UPDATE ON extracurricular_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'extracurricular_category_id')"
   },
   {
    "schema": "public",
@@ -67476,6 +67668,12 @@
   },
   {
    "schema": "public",
+   "table": "feedback_question_category",
+   "name": "trg_feedback_question_category_audit",
+   "definition": "CREATE TRIGGER trg_feedback_question_category_audit AFTER INSERT OR DELETE OR UPDATE ON feedback_question_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('FEEDBACK', 'feedback_category_id')"
+  },
+  {
+   "schema": "public",
    "table": "feedback_questionnaire",
    "name": "trg_feedback_questionnaire_audit",
    "definition": "CREATE TRIGGER trg_feedback_questionnaire_audit AFTER INSERT OR DELETE OR UPDATE ON feedback_questionnaire FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('FEEDBACK', 'questionnaire_id')"
@@ -67512,6 +67710,12 @@
   },
   {
    "schema": "public",
+   "table": "funding_agency",
+   "name": "trg_funding_agency_audit",
+   "definition": "CREATE TRIGGER trg_funding_agency_audit AFTER INSERT OR DELETE OR UPDATE ON funding_agency FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'funding_agency_id')"
+  },
+  {
+   "schema": "public",
    "table": "grade_rule",
    "name": "trg_grade_rule_audit",
    "definition": "CREATE TRIGGER trg_grade_rule_audit AFTER INSERT OR DELETE OR UPDATE ON grade_rule FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('RESULT', 'grade_rule_id')"
@@ -67530,6 +67734,18 @@
   },
   {
    "schema": "public",
+   "table": "grievance_category",
+   "name": "trg_grievance_category_audit",
+   "definition": "CREATE TRIGGER trg_grievance_category_audit AFTER INSERT OR DELETE OR UPDATE ON grievance_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('GRIEVANCE', 'grievance_category_id')"
+  },
+  {
+   "schema": "public",
+   "table": "industry_sector",
+   "name": "trg_industry_sector_audit",
+   "definition": "CREATE TRIGGER trg_industry_sector_audit AFTER INSERT OR DELETE OR UPDATE ON industry_sector FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'industry_sector_id')"
+  },
+  {
+   "schema": "public",
    "table": "institution",
    "name": "trg_institution_audit",
    "definition": "CREATE TRIGGER trg_institution_audit AFTER INSERT OR DELETE OR UPDATE ON institution FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'institution_id')"
@@ -67539,6 +67755,12 @@
    "table": "institution",
    "name": "trg_institution_touch_updated_at",
    "definition": "CREATE TRIGGER trg_institution_touch_updated_at BEFORE UPDATE ON institution FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
+  },
+  {
+   "schema": "public",
+   "table": "journal",
+   "name": "trg_journal_audit",
+   "definition": "CREATE TRIGGER trg_journal_audit AFTER INSERT OR DELETE OR UPDATE ON journal FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'journal_id')"
   },
   {
    "schema": "public",
@@ -67563,6 +67785,24 @@
    "table": "mentor_assignment",
    "name": "trg_mentor_assignment_audit",
    "definition": "CREATE TRIGGER trg_mentor_assignment_audit AFTER INSERT OR DELETE OR UPDATE ON mentor_assignment FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('MENTORING', 'mentor_assignment_id')"
+  },
+  {
+   "schema": "public",
+   "table": "organization_type",
+   "name": "trg_organization_type_audit",
+   "definition": "CREATE TRIGGER trg_organization_type_audit AFTER INSERT OR DELETE OR UPDATE ON organization_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organization_type_id')"
+  },
+  {
+   "schema": "public",
+   "table": "organizer",
+   "name": "trg_organizer_audit",
+   "definition": "CREATE TRIGGER trg_organizer_audit AFTER INSERT OR DELETE OR UPDATE ON organizer FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organizer_id')"
+  },
+  {
+   "schema": "public",
+   "table": "participation_level",
+   "name": "trg_participation_level_audit",
+   "definition": "CREATE TRIGGER trg_participation_level_audit AFTER INSERT OR DELETE OR UPDATE ON participation_level FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'participation_level_id')"
   },
   {
    "schema": "public",
@@ -67602,6 +67842,18 @@
   },
   {
    "schema": "public",
+   "table": "previous_organization_type",
+   "name": "trg_previous_organization_type_audit",
+   "definition": "CREATE TRIGGER trg_previous_organization_type_audit AFTER INSERT OR DELETE OR UPDATE ON previous_organization_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'previous_organization_type_id')"
+  },
+  {
+   "schema": "public",
+   "table": "professional_contribution_type",
+   "name": "trg_professional_contribution_type_audit",
+   "definition": "CREATE TRIGGER trg_professional_contribution_type_audit AFTER INSERT OR DELETE OR UPDATE ON professional_contribution_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'professional_contribution_type_id')"
+  },
+  {
+   "schema": "public",
    "table": "programme",
    "name": "trg_programme_audit",
    "definition": "CREATE TRIGGER trg_programme_audit AFTER INSERT OR DELETE OR UPDATE ON programme FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'programme_id')"
@@ -67626,15 +67878,33 @@
   },
   {
    "schema": "public",
+   "table": "publisher",
+   "name": "trg_publisher_audit",
+   "definition": "CREATE TRIGGER trg_publisher_audit AFTER INSERT OR DELETE OR UPDATE ON publisher FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'publisher_id')"
+  },
+  {
+   "schema": "public",
    "table": "qualification_level",
    "name": "trg_qualification_level_touch_updated_at",
    "definition": "CREATE TRIGGER trg_qualification_level_touch_updated_at BEFORE UPDATE ON qualification_level FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
   },
   {
    "schema": "public",
+   "table": "research_status",
+   "name": "trg_research_status_audit",
+   "definition": "CREATE TRIGGER trg_research_status_audit AFTER INSERT OR DELETE OR UPDATE ON research_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'research_status_id')"
+  },
+  {
+   "schema": "public",
    "table": "role",
    "name": "trg_role_touch_updated_at",
    "definition": "CREATE TRIGGER trg_role_touch_updated_at BEFORE UPDATE ON role FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
+  },
+  {
+   "schema": "public",
+   "table": "role_type",
+   "name": "trg_role_type_audit",
+   "definition": "CREATE TRIGGER trg_role_type_audit AFTER INSERT OR DELETE OR UPDATE ON role_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'role_type_id')"
   },
   {
    "schema": "public",
@@ -67722,6 +67992,18 @@
   },
   {
    "schema": "public",
+   "table": "student_activity_evidence_requirement",
+   "name": "trg_student_activity_evidence_requirement_audit",
+   "definition": "CREATE TRIGGER trg_student_activity_evidence_requirement_audit AFTER INSERT OR DELETE OR UPDATE ON student_activity_evidence_requirement FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STUDENT', 'student_activity_evidence_requirement_id')"
+  },
+  {
+   "schema": "public",
+   "table": "student_activity_type",
+   "name": "trg_student_activity_type_audit",
+   "definition": "CREATE TRIGGER trg_student_activity_type_audit AFTER INSERT OR DELETE OR UPDATE ON student_activity_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STUDENT', 'student_activity_type_id')"
+  },
+  {
+   "schema": "public",
    "table": "student_activity_type",
    "name": "trg_student_activity_type_touch_updated_at",
    "definition": "CREATE TRIGGER trg_student_activity_type_touch_updated_at BEFORE UPDATE ON student_activity_type FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()"
@@ -67779,6 +68061,12 @@
    "table": "student_document",
    "name": "trg_student_document_workflow_guard",
    "definition": "CREATE TRIGGER trg_student_document_workflow_guard BEFORE INSERT OR UPDATE ON student_document FOR EACH ROW EXECUTE FUNCTION sims_guard_student_document()"
+  },
+  {
+   "schema": "public",
+   "table": "student_exit",
+   "name": "trg_student_exit_audit",
+   "definition": "CREATE TRIGGER trg_student_exit_audit AFTER INSERT OR DELETE OR UPDATE ON student_exit FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('DOCUMENT', 'student_exit_id')"
   },
   {
    "schema": "public",
@@ -67878,6 +68166,12 @@
   },
   {
    "schema": "public",
+   "table": "training_program_type",
+   "name": "trg_training_program_type_audit",
+   "definition": "CREATE TRIGGER trg_training_program_type_audit AFTER INSERT OR DELETE OR UPDATE ON training_program_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'training_program_type_id')"
+  },
+  {
+   "schema": "public",
    "table": "university",
    "name": "trg_university_audit",
    "definition": "CREATE TRIGGER trg_university_audit AFTER INSERT OR DELETE OR UPDATE ON university FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'university_id')"
@@ -67929,6 +68223,12 @@
    "table": "user_role_assignment",
    "name": "trg_user_role_assignment_scope_bu",
    "definition": "CREATE TRIGGER trg_user_role_assignment_scope_bu BEFORE UPDATE ON user_role_assignment FOR EACH ROW EXECUTE FUNCTION sims_user_role_assignment_scope()"
+  },
+  {
+   "schema": "public",
+   "table": "verification_status",
+   "name": "trg_verification_status_audit",
+   "definition": "CREATE TRIGGER trg_verification_status_audit AFTER INSERT OR DELETE OR UPDATE ON verification_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'verification_status_id')"
   }
  ],
  "policies": [
@@ -76408,28 +76708,28 @@
   },
   {
    "schema": "public",
-   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "object": "admin_table_delete(p_table text, p_key jsonb)",
    "grantee": "PUBLIC",
    "privilege": "EXECUTE",
    "grantable": false
   },
   {
    "schema": "public",
-   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "object": "admin_table_delete(p_table text, p_key jsonb)",
    "grantee": "authenticated",
    "privilege": "EXECUTE",
    "grantable": false
   },
   {
    "schema": "public",
-   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "object": "admin_table_delete(p_table text, p_key jsonb)",
    "grantee": "postgres",
    "privilege": "EXECUTE",
    "grantable": false
   },
   {
    "schema": "public",
-   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "object": "admin_table_delete(p_table text, p_key jsonb)",
    "grantee": "service_role",
    "privilege": "EXECUTE",
    "grantable": false
@@ -76464,28 +76764,28 @@
   },
   {
    "schema": "public",
-   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "object": "admin_table_save(p_table text, p_key jsonb, p jsonb)",
    "grantee": "PUBLIC",
    "privilege": "EXECUTE",
    "grantable": false
   },
   {
    "schema": "public",
-   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "object": "admin_table_save(p_table text, p_key jsonb, p jsonb)",
    "grantee": "authenticated",
    "privilege": "EXECUTE",
    "grantable": false
   },
   {
    "schema": "public",
-   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "object": "admin_table_save(p_table text, p_key jsonb, p jsonb)",
    "grantee": "postgres",
    "privilege": "EXECUTE",
    "grantable": false
   },
   {
    "schema": "public",
-   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "object": "admin_table_save(p_table text, p_key jsonb, p jsonb)",
    "grantee": "service_role",
    "privilege": "EXECUTE",
    "grantable": false
@@ -116462,6 +116762,27 @@
   },
   {
    "schema": "sims_private",
+   "object": "admin_pk_cols(p_table text)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "admin_pk_cols(p_table text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "admin_pk_cols(p_table text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
    "object": "admin_table_def(p_table text)",
    "grantee": "PUBLIC",
    "privilege": "EXECUTE",
@@ -118840,14 +119161,14 @@
   "public.access_action": 12,
   "public.access_module": 22,
   "public.access_resource": 40,
-  "public.activity_evidence_requirement": 0,
+  "public.activity_evidence_requirement": 5,
   "public.activity_type": 17,
   "public.admission_applicant": 2,
   "public.admission_application": 2,
   "public.admission_category": 8,
-  "public.admission_payment": 0,
+  "public.admission_payment": 1,
   "public.announcement": 2,
-  "public.announcement_attachment": 0,
+  "public.announcement_attachment": 1,
   "public.announcement_type": 3,
   "public.approval_status": 6,
   "public.assessment_component": 4,
@@ -118855,191 +119176,191 @@
   "public.attendance_correction_request": 1,
   "public.attendance_status": 5,
   "public.award_category": 8,
-  "public.awarding_body": 0,
+  "public.awarding_body": 3,
   "public.awarding_body_type": 5,
   "public.blood_group": 8,
   "public.building": 1,
   "public.campus": 1,
   "public.caste": 4,
-  "public.certificate_request": 0,
+  "public.certificate_request": 3,
   "public.certificate_type": 5,
   "public.class_batch": 1,
   "public.class_section": 1,
   "public.class_session": 3,
-  "public.cocurricular_activity": 0,
+  "public.cocurricular_activity": 1,
   "public.cocurricular_category": 8,
   "public.concession_type": 4,
-  "public.conference_activity": 0,
-  "public.conference_activity_indexing": 0,
+  "public.conference_activity": 1,
+  "public.conference_activity_indexing": 2,
   "public.conference_contribution_type": 9,
-  "public.conference_event": 0,
+  "public.conference_event": 2,
   "public.confidentiality_level": 5,
-  "public.consultancy_project": 0,
-  "public.counselling_session": 0,
+  "public.consultancy_project": 1,
+  "public.counselling_session": 4,
   "public.country": 7,
   "public.course_catalog": 4,
   "public.course_category": 3,
   "public.course_offering": 2,
   "public.course_offering_section": 2,
   "public.course_offering_section_student": 6,
-  "public.course_prerequisite": 0,
+  "public.course_prerequisite": 2,
   "public.curriculum_course": 3,
   "public.curriculum_scheme": 1,
   "public.department": 2,
   "public.designation": 13,
   "public.document_type": 28,
-  "public.education_institution": 0,
+  "public.education_institution": 1,
   "public.education_institution_type": 6,
   "public.employee": 2,
-  "public.employee_aadhaar": 0,
-  "public.employee_address": 0,
+  "public.employee_aadhaar": 2,
+  "public.employee_address": 2,
   "public.employee_assignment": 2,
-  "public.employee_bank_account": 0,
-  "public.employee_competency": 0,
-  "public.employee_document": 0,
-  "public.employee_document_access_rule": 0,
+  "public.employee_bank_account": 2,
+  "public.employee_competency": 3,
+  "public.employee_document": 8,
+  "public.employee_document_access_rule": 2,
   "public.employee_document_category": 6,
-  "public.employee_pan": 0,
-  "public.employee_previous_employment": 0,
-  "public.employee_qualification": 0,
+  "public.employee_pan": 2,
+  "public.employee_previous_employment": 1,
+  "public.employee_qualification": 2,
   "public.employee_user_account": 1,
   "public.employment_source": 2,
-  "public.enrolment_status_history": 0,
+  "public.enrolment_status_history": 3,
   "public.event_mode": 3,
-  "public.evidence_document": 0,
-  "public.evidence_document_tag": 0,
-  "public.evidence_document_version": 0,
-  "public.evidence_tag": 0,
+  "public.evidence_document": 1,
+  "public.evidence_document_tag": 2,
+  "public.evidence_document_version": 1,
+  "public.evidence_tag": 5,
   "public.evidence_type": 63,
-  "public.external_agency": 0,
-  "public.external_organization": 0,
-  "public.external_organization_type": 0,
-  "public.extracurricular_activity": 0,
+  "public.external_agency": 2,
+  "public.external_organization": 4,
+  "public.external_organization_type": 4,
+  "public.extracurricular_activity": 1,
   "public.extracurricular_category": 11,
   "public.faculty_course_assignment": 2,
-  "public.faculty_internship": 0,
-  "public.fee_adjustment": 0,
-  "public.fee_assessment_benefit": 0,
+  "public.faculty_internship": 1,
+  "public.fee_adjustment": 2,
+  "public.fee_assessment_benefit": 2,
   "public.fee_category": 9,
-  "public.fee_charge_source": 0,
+  "public.fee_charge_source": 12,
   "public.fee_receipt": 1,
-  "public.fee_refund": 0,
+  "public.fee_refund": 1,
   "public.fee_structure": 1,
   "public.fee_structure_item": 4,
   "public.fee_type": 10,
-  "public.feedback_choice": 0,
-  "public.feedback_cycle": 0,
-  "public.feedback_question": 0,
-  "public.feedback_question_category": 0,
-  "public.feedback_questionnaire": 0,
-  "public.feedback_questionnaire_item": 0,
-  "public.feedback_response": 0,
-  "public.feedback_response_item": 0,
-  "public.file_object": 0,
+  "public.feedback_choice": 17,
+  "public.feedback_cycle": 2,
+  "public.feedback_question": 5,
+  "public.feedback_question_category": 3,
+  "public.feedback_questionnaire": 2,
+  "public.feedback_questionnaire_item": 5,
+  "public.feedback_response": 12,
+  "public.feedback_response_item": 30,
+  "public.file_object": 16,
   "public.financial_ledger_account": 6,
-  "public.funded_research_project": 0,
-  "public.funding_agency": 0,
+  "public.funded_research_project": 1,
+  "public.funding_agency": 2,
   "public.funding_type": 8,
   "public.gender": 3,
   "public.grade_rule": 7,
   "public.grade_scale": 1,
-  "public.grievance": 0,
-  "public.grievance_action": 0,
-  "public.grievance_category": 0,
+  "public.grievance": 3,
+  "public.grievance_action": 8,
+  "public.grievance_category": 4,
   "public.indexing_agency": 10,
-  "public.industry_sector": 0,
+  "public.industry_sector": 5,
   "public.installment_plan": 4,
   "public.institution": 1,
-  "public.journal": 0,
-  "public.journal_metric": 0,
-  "public.journal_publication": 0,
-  "public.journal_publication_indexing": 0,
+  "public.journal": 3,
+  "public.journal_metric": 3,
+  "public.journal_publication": 1,
+  "public.journal_publication_indexing": 2,
   "public.journal_type": 2,
-  "public.late_fee_rule": 0,
-  "public.late_fee_slab": 0,
+  "public.late_fee_rule": 2,
+  "public.late_fee_slab": 3,
   "public.membership_type": 8,
-  "public.mentor_assignment": 0,
+  "public.mentor_assignment": 3,
   "public.metric_type": 5,
-  "public.organization_type": 0,
-  "public.organizer": 0,
+  "public.organization_type": 6,
+  "public.organizer": 1,
   "public.participation_level": 7,
-  "public.password_history": 0,
+  "public.password_history": 1,
   "public.payment_allocation": 1,
   "public.payment_mode": 11,
-  "public.payment_transaction": 1,
+  "public.payment_transaction": 2,
   "public.permission": 384,
-  "public.previous_organization": 0,
+  "public.previous_organization": 1,
   "public.previous_organization_type": 8,
   "public.professional_contribution_type": 19,
-  "public.professional_development_activity": 0,
+  "public.professional_development_activity": 1,
   "public.programme": 2,
   "public.programme_specialization": 1,
   "public.programme_term_offering": 1,
   "public.publication_type": 4,
-  "public.publisher": 0,
+  "public.publisher": 1,
   "public.qualification_level": 10,
-  "public.refund_request": 0,
+  "public.refund_request": 1,
   "public.religion": 8,
-  "public.research_project_financial_utilization": 0,
-  "public.research_proposal": 0,
+  "public.research_project_financial_utilization": 1,
+  "public.research_proposal": 1,
   "public.research_status": 9,
-  "public.research_supervision": 0,
+  "public.research_supervision": 1,
   "public.role": 39,
-  "public.role_delegation": 0,
+  "public.role_delegation": 1,
   "public.role_permission": 2301,
   "public.role_type": 26,
   "public.room": 1,
   "public.scholarship_scheme": 4,
   "public.semester": 6,
-  "public.service_fee_request": 0,
+  "public.service_fee_request": 2,
   "public.social_category": 5,
-  "public.staff_activity": 1,
-  "public.staff_activity_contributor": 0,
-  "public.staff_award": 0,
+  "public.staff_activity": 12,
+  "public.staff_activity_contributor": 2,
+  "public.staff_award": 1,
   "public.staff_category": 8,
-  "public.staff_professional_contribution": 0,
-  "public.staff_professional_membership": 0,
+  "public.staff_professional_contribution": 1,
+  "public.staff_professional_membership": 1,
   "public.staff_type": 2,
   "public.state": 20,
   "public.student": 3,
   "public.student_activity": 2,
-  "public.student_activity_evidence": 0,
-  "public.student_activity_evidence_requirement": 0,
-  "public.student_activity_evidence_version": 0,
-  "public.student_activity_team_member": 0,
+  "public.student_activity_evidence": 2,
+  "public.student_activity_evidence_requirement": 5,
+  "public.student_activity_evidence_version": 2,
+  "public.student_activity_team_member": 3,
   "public.student_activity_type": 16,
   "public.student_address": 3,
   "public.student_assessment_mark": 12,
   "public.student_attendance": 9,
   "public.student_course_registration": 6,
   "public.student_course_result": 6,
-  "public.student_document": 0,
-  "public.student_entrance_exam": 0,
-  "public.student_exit": 0,
+  "public.student_document": 3,
+  "public.student_entrance_exam": 3,
+  "public.student_exit": 2,
   "public.student_fee_assessment": 3,
   "public.student_fee_assessment_item": 12,
-  "public.student_fee_concession": 0,
-  "public.student_fee_penalty": 0,
+  "public.student_fee_concession": 1,
+  "public.student_fee_penalty": 1,
   "public.student_financial_account": 3,
-  "public.student_financial_hold": 0,
-  "public.student_installment_schedule": 0,
-  "public.student_parent_guardian": 0,
-  "public.student_previous_education": 0,
+  "public.student_financial_hold": 1,
+  "public.student_installment_schedule": 3,
+  "public.student_parent_guardian": 4,
+  "public.student_previous_education": 3,
   "public.student_programme_enrolment": 3,
-  "public.student_residence": 0,
-  "public.student_scholarship": 0,
-  "public.student_sponsorship": 0,
+  "public.student_residence": 3,
+  "public.student_scholarship": 1,
+  "public.student_sponsorship": 1,
   "public.student_term_registration": 3,
   "public.student_term_result": 3,
   "public.student_user_account": 1,
   "public.study_mode": 7,
   "public.sub_caste": 4,
   "public.time_slot": 5,
-  "public.timetable_session": 0,
+  "public.timetable_session": 10,
   "public.training_program_type": 9,
   "public.university": 1,
   "public.user_account": 5,
-  "public.user_permission_override": 0,
+  "public.user_permission_override": 1,
   "public.user_role_assignment": 5,
   "public.verification_status": 6,
   "sims_private.announcement_author": 0,
@@ -119050,13 +119371,13 @@
   "sims_private.mfa_required_role": 0,
   "sims_private.notification_dismissal": 0,
   "sims_private.receipt_counter": 1,
-  "sims_private.student_service_request": 0
+  "sims_private.student_service_request": 3
  },
  "counts": {
   "tables": 222,
   "views": 10,
-  "functions": 431,
-  "triggers": 142,
+  "functions": 433,
+  "triggers": 190,
   "policies": 594,
   "rls_tables": 216,
   "indexes": 365,
@@ -119064,6 +119385,6 @@
   "domains": 6,
   "enums": 0,
   "composites": 233,
-  "grants": 6253
+  "grants": 6256
  }
 }

@@ -92,7 +92,7 @@ export default async function TimetablePage({
       />
 
       <AdminTableEditor
-        tables={['time_slot', 'room']}
+        modules={['TIMETABLE']}
         title="Manage the timetable"
         description="Add, edit and remove the teaching time slots and the rooms the weekly grid is built from. Every change is written through the database and audited."
       />

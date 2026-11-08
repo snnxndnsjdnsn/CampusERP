@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { safeRpcRows, safeSelect } from '@/features/academic/data';
 import type { AssessmentOffering, AssessmentOfferingInfo } from '@/features/assessment/types';
 import { CourseResultForm, ResultOfferingPicker, TermResultActions } from '@/features/results/results-client';
@@ -68,6 +69,12 @@ export default async function ResultsGradesPage({
       <PageHeader
         title="Results and grade book"
         description="Record course results, compute term results and publish them to students."
+      />
+
+      <AdminTableEditor
+        modules={['RESULT']}
+        title="Manage the grade book"
+        description="Add, edit and remove the grade scales and grade rules behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

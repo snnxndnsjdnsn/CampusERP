@@ -13,7 +13,7 @@ One section per application area: what it does, where it lives, the database obj
 ## How every module is built
 - **Screens** are server components that load data (`src/features/<module>-data.ts`) plus client forms (`<module>-forms.tsx`) validated with Zod (`src/lib/<module>-validation.ts`).
 - **Writes** that matter go through one `SECURITY DEFINER` RPC = one transaction, which authorises the caller at the row's scope, validates, writes and audits. Where a module has no RPC the table's own row level security policy decides.
-- **The generic write surface** (`public.admin_table_save`, `admin_table_delete`, `admin_table_schema`, `admin_table_list`, `admin_lookup_options`, migration 066) gives the six module screens that used to be read-only a Manage panel. The catalogue `sims_private.admin_table_def` names, per table, the permission prefix and the scope column, so the panel and the row level policy cannot disagree.
+- **The generic write surface** (`public.admin_table_save`, `admin_table_delete`, `admin_table_schema`, `admin_table_list`, `admin_lookup_options`, migrations 066 and 067) gives every module screen a Manage panel. The catalogue `sims_private.admin_table_def` names, per table, the permission codes, the scope kind and the scope path, so the panel and the row level policy cannot disagree. 127 tables across 17 modules are editable; the catalogue was derived from the live row level policies rather than written by hand.
 - **Authorisation** is `sims_private.can_global / can_institution / can_department / can_programme / can_student / can_employee` against permission codes such as `STUDENT.ALL.READ`. Owners (a student, an employee) act on their own records by identity because the seed gives them SELF-scope grants only.
 - **Tests**: a database test per migration on embedded PostgreSQL, unit tests for validation and for "drift" between application tables and the migrations, Playwright for route protection.
 
@@ -57,12 +57,57 @@ One section per application area: what it does, where it lives, the database obj
 
 ## Cross-cutting mechanisms worth knowing
 - **Generic catalogue-driven forms** (`sims_private.describe_columns`, `form_columns`, `write_row`, `write_detail`): used for staff record details (M044), student and employee sub-records and reference data (M046). Only whitelisted tables are reachable, only catalogue columns can be written, keys, audit columns and user references are rejected, and constraint violations become readable messages.
-- **The generic write surface** (`public.admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` - migration 066): one collapsible **Manage** panel on the academic calendar, curriculum, courses, students, registration and timetable screens. The panel lists only the tables the signed-in user holds a write permission for, the form is generated from the column description the database hands out, and the write functions mirror the row level policy - they check the row as it exists now *and* the row as it is afterwards, so a scoped caller cannot move a row out of its scope. Every change is audited by the table's own trigger.
+- **The generic write surface** (`public.admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` - migrations 066 and 067): one collapsible **Manage** panel on 28 screens. The panel lists only the tables the signed-in user holds a write permission for, the form is generated from the column description the database hands out, and the write functions mirror the row level policy - they check the row as it exists now *and* the row as it is afterwards, so a scoped caller cannot move a row out of its scope. Every change is audited exactly once: by the table's own `audit_row` trigger where it has one, and by the write function itself where the table's own write path already audits.
 - **Workflow lifecycle** (DRAFT -> SUBMITTED -> UNDER_REVIEW -> APPROVED / REJECTED, NEEDS_CORRECTION back to DRAFT, nobody reviews their own record): student activities (M043) and staff records (M044), sharing `workflow-actions.tsx` and `evidence-panel.tsx`.
 - **Private Storage**: one bucket, `student/<id>/...` and `employee/<id>/...` prefixes, 60-second signed URLs after an RPC has authorised and logged the download. The rules live in `can_use_student_doc_path` and `can_use_employee_doc_path`; `STORAGE_DOCUMENTATION.md` is **not present in this tree**.
 
 ## Access control
 Every default grant is listed in [ROLE_PERMISSION_MATRIX.md](ROLE_PERMISSION_MATRIX.md) (generated). Per-user exceptions are permission overrides on `/admin/users/[id]` (migration 057). Recovery codes for two-step verification are on `/settings` (migration 056).
+
+## The editable catalogue
+
+`sims_private.admin_table_def` is the catalogue of the 127 tables the Manage
+panel can write. It was **derived from the live row level policies** rather
+than written by hand: every table that carries a writable policy was parsed,
+its permission codes were taken verbatim from the policy, and the scope was
+read off the policy's own `USING` / `WITH CHECK` expression. 127 tables, 17
+modules, zero parse problems.
+
+Each catalogue row carries:
+
+| Column | What it holds |
+|---|---|
+| `tbl`, `label` | The table and the name the picker shows |
+| `module_codes` | The screens the table is edited on - a table can belong to more than one |
+| `perm_create`, `perm_update`, `perm_delete` | The permission codes, verbatim, e.g. `EMPLOYEE.AADHAAR.CREATE` |
+| `scope_kind` | `global`, `institution`, `campus`, `department`, `programme`, `employee` or `self` |
+| `scope_path` | The column chain the scope is read through - the table's own column first, then `table.column` foreign key hops |
+| `pk_cols` | The key columns; a table with a composite key keeps them in the form |
+| `audit_module`, `audit_mode` | Where the change is audited: `TRIGGER` (the table has an `audit_row` trigger) or `MANUAL` (the table's own write path already audits, so the write function audits it) |
+
+| Module | Tables | Module | Tables |
+|---|---|---|---|
+| STAFF_PROFILE | 38 | REGISTRATION | 13 |
+| EMPLOYEE | 25 | STUDENT | 11 |
+| IAM | 10 | CURRICULUM | 7 |
+| INSTITUTION | 7 | TIMETABLE | 6 |
+| FEEDBACK | 6 | ACADEMIC_CALENDAR | 4 |
+| DOCUMENT | 4 | ATTENDANCE | 3 |
+| ADMISSION | 2 | ASSESSMENT | 2 |
+| RESULT | 2 | COMMUNICATION | 1 |
+| GRIEVANCE | 1 | | |
+
+The scope is always resolved from **the row being written** - the existing row
+for an update or a delete, the payload for an insert - so a scoped caller
+cannot forge an identifier to escape its scope. The write function also
+enforces the policy's `WITH CHECK`, not only its `USING`, so a row cannot be
+moved out of the caller's scope either. A refusal raises, and the write and its
+audit row are rolled back together.
+
+`sims_private.admin_lookup_def` holds the 70 foreign-key targets of those 127
+tables, so every foreign key in a form is a dropdown of real rows rather than
+a number to type. The lookup RPC is `SECURITY INVOKER`, so the referenced
+table's own row level policies decide what a dropdown contains.
 
 ## Student services
 `/requests` (migration 063): hall ticket per term, hostel check-out and graduation requests, approved by `DOCUMENT.ALL.APPROVE`, blocked by the matching fee hold. `/certificates` (migration 060): certificate requests.
@@ -240,8 +285,10 @@ The current feature folders are `academic`, `account`, `activities`, `admin`,
 `requests`, `results`, `schema`, `shared`, `staff-profile`, `structure`,
 `timetable`, plus the loose `dashboard-stats.ts` and `students-lookups.ts`.
 
-`src/features/admin/` holds the one component the six editable screens share:
-`admin-table-editor.tsx`.
+`src/features/admin/` holds the one component the editable screens share:
+`admin-table-editor.tsx`. It takes either a list of `tables` or a list of
+`modules`; the module form is what the 28 screens use, and the panel offers
+the union of the catalogue tables of those modules.
 
 # Module gaps
 
@@ -252,6 +299,8 @@ The honest list. Each of these is a live fact, not a plan.
 | `/staff-profile` and `/activities` had no page | **Closed.** `src/app/(app)/staff-profile/page.tsx` and `src/app/(app)/activities/page.tsx` now exist, backed by `src/features/staff-profile/` and `src/features/activities/`. The staff-profile screen was later split into `src/features/staff-profile/staff-profile-screen.tsx` so that the fifteen sub-module addresses under `/staff-profile/<section>` can serve it. Schema modules 19–34 and 40 are reachable from the UI and the `staff` and `activities` nav groups no longer render dead links. |
 | Schema modules 18, 35, 36, 37, 38 and 39 had no screen | **Closed.** Modules 18, 35, 36, 38 and 39 are served by `src/app/(app)/schema/[module]/page.tsx` and module 37 by `src/app/(app)/reporting/page.tsx`. The sidebar carries six groups for them: `schema`, `seed`, `rbac`, `reporting`, `staff-index` and `integrity`. `supabase/migrations/065_schema_indexes.sql` adds `public.schema_indexes(p_scope text DEFAULT NULL)`, the only door to `pg_indexes`. |
 | Six module screens were read-only | **Closed.** The academic calendar, curriculum, courses, students, registration and timetable had no write RPC at all, so their rows could be read but not added, edited or removed. `supabase/migrations/066_admin_editing.sql` adds the generic write surface (`admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options`) and `src/features/admin/admin-table-editor.tsx` renders a Manage panel on all six screens. The panel only offers the tables the signed-in user holds a write permission for, and the write functions mirror the row level policy - `USING` and `WITH CHECK` - so a scoped caller cannot move a row out of its scope. |
+| The Employees screen had no editing surface | **Closed.** The employee master and the HR tables around it - qualifications, previous employment, assignments, addresses, PAN, Aadhaar, bank accounts, documents and their access rules, competencies - are now editable through the Manage panel on `/employees`, `/employees/[id]/records`, `/employees/[id]/hr` and `/my-hr`. `supabase/migrations/067_admin_editing_expansion.sql` grew the catalogue from 15 to 127 tables across 17 modules and gave every one of them exactly one audit path. |
+| 25 module screens had no editing surface | **Closed.** The catalogue now covers every module that has a writable table: structure, admissions, attendance, assessment, results, feedback, grievances, certificates, requests, documents, announcements, activities, staff profile and the schema screens. The 28 screens pass their module code to the panel, and the panel offers the union of the catalogue tables of those modules. Modules with no writable table of their own - mentoring, audit, reporting, fees and the IAM-only tables - get no panel, because there is nothing for it to write. |
 | `REPORTING` is unenforced | 11 permissions, 0 RLS policies, 0 functions that check them. `global_search` is `LANGUAGE sql, STABLE` — not `SECURITY DEFINER` — and checks no permission code. Schema module 37 now has a screen at `/reporting`, and the ten reporting views are `security_invoker` views, so they inherit the RLS of their base tables — but `global_search` is still the hole. |
 | `TEACHING` has no screen of its own | Its screens live inside the registration and attendance flows. The code is seeded and allowlisted in the nav test. |
 | `COMMUNICATION` is ungated in the sidebar | Intentional: the announcement feed is visible to every signed-in user. The rows are still filtered by `announcement_visible`. |

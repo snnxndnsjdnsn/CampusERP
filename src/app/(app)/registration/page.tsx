@@ -137,7 +137,7 @@ export default async function RegistrationPage({
       />
 
       <AdminTableEditor
-        tables={['programme_term_offering', 'course_offering', 'class_section', 'student_term_registration']}
+        modules={['REGISTRATION']}
         title="Manage registration"
         description="Add, edit and remove the programme term offerings, the course offerings and class sections they carry, and the term registrations themselves. Every change is written through the database and audited."
       />

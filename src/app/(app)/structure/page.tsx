@@ -1,5 +1,6 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import {
   StructureEditor,
   type InstitutionRow,
@@ -97,6 +98,12 @@ export default async function StructurePage() {
       />
 
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
+
+      <AdminTableEditor
+        modules={['INSTITUTION']}
+        title="Manage the institution structure"
+        description="Add, edit and remove the universities, campuses, departments, programmes, specialisations, buildings and rooms behind this screen. Every change is written through the database and audited."
+      />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Institutions" value={formatNumber(institutions.data.length)} />

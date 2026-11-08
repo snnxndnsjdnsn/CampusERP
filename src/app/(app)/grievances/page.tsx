@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { GrievanceDesk, GrievanceSubmitForm, MyGrievances, type Lookup, type MyGrievance } from '@/features/grievances/grievance-client';
 import { safeRows, safeSelect } from '@/features/shared/server-rpc';
 import { formatNumber } from '@/lib/format';
@@ -45,6 +46,12 @@ export default async function GrievancesPage() {
       <PageHeader
         title="Grievances"
         description="Raise a grievance, follow its progress, and work the cases your role lets you see."
+      />
+
+      <AdminTableEditor
+        modules={['GRIEVANCE']}
+        title="Manage grievances"
+        description="Add, edit and remove the grievance categories behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">

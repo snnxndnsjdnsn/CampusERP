@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import {
   AadhaarPanel,
   BankPanel,
@@ -65,101 +66,111 @@ export default async function MyHrPage() {
   const typeOptions: DocumentTypeOption[] = documentTypes.rows.map((t) => ({ id: Number(t.id), label: String(t.label ?? '') }));
   const pending = documents.rows.filter((d) => d.verification_status === 'PENDING').length;
 
-  if (employeeId === null) {
-    return (
-      <>
-        <PageHeader title="My HR records" description="Your PAN, Aadhaar, bank accounts, documents and competencies." />
-        <EmptyState title="No employee record" description="This account is not linked to an employee, so there are no HR records to show." />
-      </>
-    );
-  }
-
   return (
     <>
       <PageHeader title="My HR records" description="Your PAN, Aadhaar, bank accounts, documents and competencies." />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile label="Documents" value={formatNumber(documents.rows.length)} />
-        <StatTile label="Awaiting verification" value={formatNumber(pending)} tone="warning" />
-        <StatTile label="Competencies" value={formatNumber(competencies?.rows.length ?? 0)} />
-      </div>
+      {/*
+        The panel comes before the "no employee record" branch on purpose.  The
+        screen is the employee's own file, but an administrator who is not an
+        employee still has to be able to reach the employee master and the HR
+        tables from here - the panel only offers the tables that caller may
+        write to, so it stays empty for an account without the permission.
+      */}
+      <AdminTableEditor
+        modules={['EMPLOYEE']}
+        title="Manage the HR records"
+        description="Add, edit and remove the employee records, their assignments and the HR details behind this screen. Every change is written through the database and audited."
+      />
 
-      {sensitiveResult.error ? <ErrorPanel message={sensitiveResult.error} /> : null}
+      {employeeId === null ? (
+        <EmptyState title="No employee record" description="This account is not linked to an employee, so there are no HR records to show." />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatTile label="Documents" value={formatNumber(documents.rows.length)} />
+            <StatTile label="Awaiting verification" value={formatNumber(pending)} tone="warning" />
+            <StatTile label="Competencies" value={formatNumber(competencies?.rows.length ?? 0)} />
+          </div>
 
-      <section className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>PAN</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PanPanel employeeId={employeeId} pan={summary?.pan ?? null} can={can} />
-          </CardContent>
-        </Card>
-      </section>
+          {sensitiveResult.error ? <ErrorPanel message={sensitiveResult.error} /> : null}
 
-      <section className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Aadhaar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AadhaarPanel employeeId={employeeId} aadhaar={summary?.aadhaar ?? null} can={can} />
-          </CardContent>
-        </Card>
-      </section>
+          <section className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>PAN</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PanPanel employeeId={employeeId} pan={summary?.pan ?? null} can={can} />
+              </CardContent>
+            </Card>
+          </section>
 
-      <section className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Bank accounts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BankPanel employeeId={employeeId} accounts={summary?.bank ?? []} can={can} />
-          </CardContent>
-        </Card>
-      </section>
+          <section className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Aadhaar</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AadhaarPanel employeeId={employeeId} aadhaar={summary?.aadhaar ?? null} can={can} />
+              </CardContent>
+            </Card>
+          </section>
 
-      <section className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Register a document</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {categories.error ? <ErrorPanel message={categories.error} /> : null}
-            <EmployeeDocumentRegisterForm employeeId={employeeId} categories={categories.rows} documentTypes={typeOptions} />
-          </CardContent>
-        </Card>
-      </section>
+          <section className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bank accounts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BankPanel employeeId={employeeId} accounts={summary?.bank ?? []} can={can} />
+              </CardContent>
+            </Card>
+          </section>
 
-      <section className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>My documents</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {documents.error ? <ErrorPanel message={documents.error} /> : <EmployeeDocumentTable rows={documents.rows} />}
-          </CardContent>
-        </Card>
-      </section>
+          <section className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Register a document</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {categories.error ? <ErrorPanel message={categories.error} /> : null}
+                <EmployeeDocumentRegisterForm employeeId={employeeId} categories={categories.rows} documentTypes={typeOptions} />
+              </CardContent>
+            </Card>
+          </section>
 
-      <section className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Competencies</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {competencyResult.error ? (
-              <ErrorPanel message={competencyResult.error} />
-            ) : (
-              <CompetencyPanel
-                employeeId={employeeId}
-                summary={competencies ?? { can_edit: false, can_delete: false, rows: [] }}
-                courses={courses.rows}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </section>
+          <section className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>My documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {documents.error ? <ErrorPanel message={documents.error} /> : <EmployeeDocumentTable rows={documents.rows} />}
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Competencies</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {competencyResult.error ? (
+                  <ErrorPanel message={competencyResult.error} />
+                ) : (
+                  <CompetencyPanel
+                    employeeId={employeeId}
+                    summary={competencies ?? { can_edit: false, can_delete: false, rows: [] }}
+                    courses={courses.rows}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      )}
     </>
   );
 }

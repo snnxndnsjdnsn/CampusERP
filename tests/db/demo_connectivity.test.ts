@@ -496,7 +496,7 @@ describe('demo seed: chunk 3 - finance, communication and activity', () => {
     expect(assessments).toEqual([
       { assessment_number: 'DEMO-FEA-001', gross_amount: '153000.00', concession_amount: '0.00', net_payable_amount: '153000.00', amount_paid: '0.00', balance_amount: '153000.00', assessment_status: 'ASSESSED' },
       { assessment_number: 'DEMO-FEA-002', gross_amount: '153000.00', concession_amount: '0.00', net_payable_amount: '153000.00', amount_paid: '0.00', balance_amount: '153000.00', assessment_status: 'ASSESSED' },
-      { assessment_number: 'DEMO-FEA-003', gross_amount: '153000.00', concession_amount: '5000.00', net_payable_amount: '148000.00', amount_paid: '50000.00', balance_amount: '98000.00', assessment_status: 'PARTIALLY_PAID' },
+      { assessment_number: 'DEMO-FEA-003', gross_amount: '153000.00', concession_amount: '5000.00', net_payable_amount: '143000.00', amount_paid: '50000.00', balance_amount: '93000.00', assessment_status: 'PARTIALLY_PAID' },
     ]);
 
     // The concession of 5000 sits on the tuition fee of DEMO-FEA-003.
@@ -509,12 +509,92 @@ describe('demo seed: chunk 3 - finance, communication and activity', () => {
     expect(concession).toEqual([{ fee_code: 'TUITION_FEE', concession_amount: '5000.00', net_amount: '115000.00', item_status: 'PARTIALLY_PAID' }]);
   });
 
+  it('records the benefits, the adjustments, the penalty and the instalment plan of the demo accounts', async () => {
+    // Every applied benefit is mirrored in the fee item it was applied to.
+    const benefits = await q<{
+      assessment_number: string;
+      fee_code: string;
+      benefit_type: string;
+      benefit_amount: string;
+      concession_amount: string;
+      scholarship_amount: string;
+    }>(`
+      select a.assessment_number, ft.fee_code, b.benefit_type, b.benefit_amount::text,
+             i.concession_amount::text, i.scholarship_amount::text
+        from fee_assessment_benefit b
+        join student_fee_assessment_item i on i.assessment_item_id = b.assessment_item_id
+        join student_fee_assessment a on a.fee_assessment_id = i.fee_assessment_id
+        join fee_type ft on ft.fee_type_id = i.fee_type_id
+       order by a.assessment_number, ft.fee_code`);
+    expect(benefits).toEqual([
+      {
+        assessment_number: 'DEMO-FEA-003',
+        fee_code: 'LAB_FEE',
+        benefit_type: 'SPONSORSHIP',
+        benefit_amount: '5000.00',
+        concession_amount: '0.00',
+        scholarship_amount: '5000.00',
+      },
+      {
+        assessment_number: 'DEMO-FEA-003',
+        fee_code: 'TUITION_FEE',
+        benefit_type: 'CONCESSION',
+        benefit_amount: '5000.00',
+        concession_amount: '5000.00',
+        scholarship_amount: '0.00',
+      },
+    ]);
+
+    // The scholarship is still waiting for a decision, the sponsorship is only partly applied.
+    expect(await n(`select count(*)::int n from student_scholarship where application_status = 'SUBMITTED'`)).toBe(1);
+    expect(await n(`select count(*)::int n from student_sponsorship where approval_status = 'APPROVED'`)).toBe(1);
+
+    // Both adjustments are submitted, so the super administrator can still decide them.
+    const adjustments = await q<{
+      adjustment_number: string;
+      adjustment_type: string;
+      adjustment_amount: string;
+      approval_status: string;
+    }>(`
+      select adjustment_number, adjustment_type, adjustment_amount::text, approval_status
+        from fee_adjustment order by adjustment_number`);
+    expect(adjustments).toEqual([
+      { adjustment_number: 'DEMO-ADJ-001', adjustment_type: 'CREDIT', adjustment_amount: '1000.00', approval_status: 'SUBMITTED' },
+      { adjustment_number: 'DEMO-ADJ-002', adjustment_type: 'WAIVER', adjustment_amount: '500.00', approval_status: 'SUBMITTED' },
+    ]);
+
+    // The penalty is assessed but not waived.
+    expect(await n(`select count(*)::int n from student_fee_penalty where penalty_status = 'ASSESSED' and waived_amount = 0`)).toBe(1);
+
+    // The instalment plan of DEMO-S002 is the one the three way split produces.
+    const instalments = await q<{
+      installment_number: number;
+      installment_amount: string;
+      balance_amount: string;
+      installment_status: string;
+    }>(`
+      select s.installment_number, s.installment_amount::text, s.balance_amount::text, s.installment_status
+        from student_installment_schedule s
+        join student_fee_assessment a on a.fee_assessment_id = s.fee_assessment_id
+       where a.assessment_number = 'DEMO-FEA-002'
+       order by s.installment_number`);
+    expect(instalments).toEqual([
+      { installment_number: 1, installment_amount: '61200.00', balance_amount: '61200.00', installment_status: 'PENDING' },
+      { installment_number: 2, installment_amount: '45900.00', balance_amount: '45900.00', installment_status: 'PENDING' },
+      { installment_number: 3, installment_amount: '45900.00', balance_amount: '45900.00', installment_status: 'PENDING' },
+    ]);
+
+    // The refund has been processed, so the payment it was refunded from is no longer a success.
+    expect(await n(`select count(*)::int n from refund_request where request_status = 'PROCESSED'`)).toBe(1);
+    expect(await n(`select count(*)::int n from fee_refund where refund_status = 'SUCCESS'`)).toBe(1);
+  });
+
   it('allocates the payment to the tuition fee and issues the receipt', async () => {
     const payment = await q<{ transaction_number: string; mode_code: string; amount: string; payment_status: string }>(`
       select p.transaction_number, pm.mode_code, p.amount::text, p.payment_status
         from payment_transaction p join payment_mode pm on pm.payment_mode_id = p.payment_mode_id
        where p.transaction_number = 'DEMO-PAY-001'`);
-    expect(payment).toEqual([{ transaction_number: 'DEMO-PAY-001', mode_code: 'UPI', amount: '50000.00', payment_status: 'SUCCESS' }]);
+    expect(payment).toEqual([{ transaction_number: 'DEMO-PAY-001', mode_code: 'UPI', amount: '50000.00', payment_status: 'PARTIALLY_REFUNDED' }]);
 
     const allocation = await q<{ assessment_number: string; fee_code: string; allocated_amount: string }>(`
       select a.assessment_number, ft.fee_code, al.allocated_amount::text
@@ -705,9 +785,14 @@ describe('demo seed: row level security', () => {
       announcement: 2,
       class_session: 3,
       course_offering: 2,
-      payment_transaction: 1,
+      // DEMO-PAY-001 is the tuition payment of DEMO-S003, DEMO-PAY-002 the admission fee
+      // of the same student.  Only DEMO-PAY-001 has an allocation and a receipt.
+      payment_transaction: 2,
       fee_receipt: 1,
-      staff_activity: 1,
+      // One journal publication for DEMO-E001, three research records and eight profile
+      // activities (internship, proposal, consultancy, co-curricular, extra-curricular,
+      // award, membership, FDP) for DEMO-E002.
+      staff_activity: 12,
       admission_application: 2,
     };
     for (const [table, expected] of Object.entries(visible)) {

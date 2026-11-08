@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { DetailStack, DetailTable } from '@/features/detail/detail-ui';
 import { safeRpc } from '@/features/shared/server-rpc';
 import { formatDate, formatNumber } from '@/lib/format';
@@ -56,6 +57,12 @@ export default async function StudentDocumentsPage({ params }: { params: Promise
             <Button variant="outline">Back to the record</Button>
           </Link>
         }
+      />
+
+      <AdminTableEditor
+        modules={['STUDENT']}
+        title="Manage the student records"
+        description="Add, edit and remove the student records behind this screen. Every change is written through the database and audited."
       />
 
       <DetailStack>

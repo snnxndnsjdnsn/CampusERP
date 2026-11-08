@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { DetailStack, DetailTable } from '@/features/detail/detail-ui';
 import { safeRpc } from '@/features/shared/server-rpc';
 import { formatDateTime } from '@/lib/format';
@@ -47,6 +48,12 @@ export default async function AnnouncementsManagePage() {
             <Button variant="outline">Back to the feed</Button>
           </Link>
         }
+      />
+
+      <AdminTableEditor
+        modules={['COMMUNICATION']}
+        title="Manage announcements"
+        description="Add, edit and remove the announcement types behind this screen. Every change is written through the database and audited."
       />
 
       <DetailStack>

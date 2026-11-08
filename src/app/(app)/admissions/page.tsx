@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { safeSelect } from '@/features/academic/data';
 import {
   ApplicationAdmit,
@@ -92,6 +93,12 @@ export default async function AdmissionsPage() {
       <PageHeader
         title="Admissions"
         description="Applications, eligibility decisions and admission. Every move is recorded by the database."
+      />
+
+      <AdminTableEditor
+        modules={['ADMISSION']}
+        title="Manage admissions"
+        description="Add, edit and remove the programme enrolments and their status history behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

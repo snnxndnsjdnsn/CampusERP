@@ -122,7 +122,7 @@ export default async function CoursesPage({ searchParams }: { searchParams: Sear
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
 
       <AdminTableEditor
-        tables={['course_catalog', 'course_category']}
+        modules={['CURRICULUM']}
         title="Manage the catalogue"
         description="Add, edit and remove the courses and the categories they belong to. Every change is written through the database and audited."
       />

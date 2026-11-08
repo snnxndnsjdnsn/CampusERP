@@ -3,7 +3,7 @@
 A Student Information System built with **Next.js 16.4.5** (App Router,
 Turbopack), **React 19**, **TypeScript** and **Supabase** (PostgreSQL + RLS).
 
-The database is the authority: 213 public tables, 421 functions, 594 row-level
+The database is the authority: 213 public tables, 433 functions, 594 row-level
 security policies and a role/permission model with 39 roles. Every screen
 reads through RPCs that the policies guard - there is no client-side trust.
 
@@ -87,28 +87,48 @@ The index catalogue behind modules 18 and 38 is read through
 ## The editable module screens
 
 Six module screens used to show their rows and offer no way to change one. Each
-of them now carries a collapsible **Manage** panel:
+of them now carries a collapsible **Manage** panel. Migration 067 grew the
+catalogue from 15 tables to **127 tables across 17 modules**, so the panel now
+reaches every module that has a writable table - **28 screens** in all:
 
-| Screen | Editable tables |
+| Nav group | Routes with the panel |
 |---|---|
-| `/calendar` | `academic_year`, `academic_term`, `semester`, `time_slot` |
-| `/curriculum` | `curriculum_scheme`, `curriculum_course` |
-| `/courses` | `course_catalog`, `course_category` |
-| `/students` | `student`, `student_programme_enrolment` |
-| `/registration` | `programme_term_offering`, `course_offering`, `class_section`, `student_term_registration` |
-| `/timetable` | `time_slot`, `room` |
+| `institution` (2) | `/structure` |
+| `calendar` (3) | `/calendar` |
+| `curriculum` (4) | `/curriculum`, `/courses` |
+| `people` (5) | `/students`, `/students/[id]/records`, `/students/[id]/documents`, `/employees`, `/employees/[id]/records`, `/employees/[id]/hr` |
+| `admission` (6) | `/admissions` |
+| `registration` (7) | `/registration` |
+| `teaching` (8) | `/timetable` |
+| `attendance` (9) | `/attendance` |
+| `assessment` (10) | `/assessment`, `/results/grades`, `/my-results` |
+| `feedback` (11) | `/feedback` |
+| `support` (12) | `/grievances` |
+| `documents` (13) | `/certificates`, `/requests`, `/my-documents` |
+| `communication` (14) | `/announcements`, `/announcements/manage` |
+| `hr` (16) | `/my-hr` |
+| `schema` (18), `seed` (35), `rbac` (36), `staff-index` (38), `integrity` (39) | `/schema/[module]` |
+| `staff` (19) | `/staff-profile` |
+| `activities` (40) | `/activities` |
 
 The panel is one component - `src/features/admin/admin-table-editor.tsx` - and
 the database owns it. `public.admin_table_list` returns only the tables the
 signed-in user holds a write permission for, `admin_table_schema` describes the
 columns, and `admin_table_save` / `admin_table_delete` do the write. All five
-functions come from `supabase/migrations/066_admin_editing.sql`.
+functions come from `supabase/migrations/066_admin_editing.sql`, reshaped by
+`supabase/migrations/067_admin_editing_expansion.sql`.
+
+The catalogue `sims_private.admin_table_def` was **derived from the live row
+level policies** rather than written by hand, so the permission codes are the
+policies' own, verbatim, and the panel and the policy cannot disagree.
 
 The write functions are `SECURITY DEFINER`, so the row level policies do not run
 for them; each one therefore makes the same decision the policy makes, checking
 the row as it exists now *and* the row as it is afterwards. A scoped caller
-therefore cannot move a row out of its own scope. Every change is audited by the
-table's own trigger, so one change is one audit row.
+therefore cannot move a row out of its own scope. Every change is audited
+**exactly once**: by the table's own trigger where it has one (88 tables), and
+by the write function itself where the table's own write path already audits
+(39 tables).
 
 ## Documentation
 

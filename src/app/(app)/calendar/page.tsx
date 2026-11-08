@@ -83,7 +83,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
 
       <AdminTableEditor
-        tables={['academic_year', 'academic_term', 'semester', 'time_slot']}
+        modules={['ACADEMIC_CALENDAR']}
         title="Manage the calendar"
         description="Add, edit and remove the academic years, terms, semesters and teaching slots behind this screen. Every change is written through the database and audited."
       />

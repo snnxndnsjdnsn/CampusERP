@@ -101,33 +101,54 @@ traced in [RTM.md](RTM.md). The index catalogue behind modules 18 and 38 is read
 through `public.schema_indexes(p_scope text)`, added by
 `supabase/migrations/065_schema_indexes.sql`.
 
-### The six editable module screens
+### The 28 editable module screens
 
 Six module screens used to show their rows and offer no way to change one: the
 academic calendar, curriculum, courses, students, registration and timetable.
-Each of them now carries a collapsible **Manage** panel:
+Migration 066 gave those six a collapsible **Manage** panel. Migration 067 grew
+the catalogue from 15 tables to **127 tables across 17 modules**, so the panel
+now reaches every module that has a writable table - **28 screens** in all:
 
-| Screen | Editable tables |
+| Nav group | Routes with the panel |
 |---|---|
-| `/calendar` | `academic_year`, `academic_term`, `semester`, `time_slot` |
-| `/curriculum` | `curriculum_scheme`, `curriculum_course` |
-| `/courses` | `course_catalog`, `course_category` |
-| `/students` | `student`, `student_programme_enrolment` |
-| `/registration` | `programme_term_offering`, `course_offering`, `class_section`, `student_term_registration` |
-| `/timetable` | `time_slot`, `room` |
+| `institution` (2) | `/structure` |
+| `calendar` (3) | `/calendar` |
+| `curriculum` (4) | `/curriculum`, `/courses` |
+| `people` (5) | `/students`, `/students/[id]/records`, `/students/[id]/documents`, `/employees`, `/employees/[id]/records`, `/employees/[id]/hr` |
+| `admission` (6) | `/admissions` |
+| `registration` (7) | `/registration` |
+| `teaching` (8) | `/timetable` |
+| `attendance` (9) | `/attendance` |
+| `assessment` (10) | `/assessment`, `/results/grades`, `/my-results` |
+| `feedback` (11) | `/feedback` |
+| `support` (12) | `/grievances` |
+| `documents` (13) | `/certificates`, `/requests`, `/my-documents` |
+| `communication` (14) | `/announcements`, `/announcements/manage` |
+| `hr` (16) | `/my-hr` |
+| `schema` (18), `seed` (35), `rbac` (36), `staff-index` (38), `integrity` (39) | `/schema/[module]` |
+| `staff` (19) | `/staff-profile` |
+| `activities` (40) | `/activities` |
 
 The panel is one component - `src/features/admin/admin-table-editor.tsx` - and
 the database owns it. `public.admin_table_list` returns only the tables the
 signed-in user holds a write permission for, `admin_table_schema` describes the
 columns, and `admin_table_save` / `admin_table_delete` do the write. All five
-functions come from `supabase/migrations/066_admin_editing.sql`.
+functions come from `supabase/migrations/066_admin_editing.sql`, reshaped by
+`supabase/migrations/067_admin_editing_expansion.sql`.
+
+The catalogue `sims_private.admin_table_def` was **derived from the live row
+level policies** rather than written by hand: 127 writable tables parsed with
+zero problems, and the permission codes are the policies' own, verbatim. Each
+table also carries the scope kind and the column chain the scope is read
+through, so the panel and the policy cannot disagree.
 
 The write functions are `SECURITY DEFINER`, so the row level policies do not run
 for them; each one therefore makes the same decision the policy makes, checking
 the row as it exists now *and* the row as it is afterwards. A scoped caller
 therefore cannot move a row out of its own scope - a department cannot hand its
-course to another department. Every change is audited by the table's own
-trigger, so one change is one audit row.
+course to another department. Every change is audited **exactly once**: by the
+table's own trigger where it has one (88 tables), and by the write function
+itself where the table's own write path already audits (39 tables).
 
 The panel adds no sidebar group and no route: the screens were already there.
 
@@ -221,9 +242,10 @@ PostgreSQL (`--source rebuilt`).
 | `tests/e2e/global-setup.ts` | Signs in **once** for the whole Playwright run and writes the session to `playwright/.auth/sims.json`. Supabase throttles the password grant endpoint, so a suite that signs in per test runs into `Request rate limit reached`. |
 | `tests/e2e/signin.spec.ts` | The sign-in form itself: a valid password lands on the dashboard, a wrong one is refused. Runs anonymously. |
 | `supabase/migrations/066_admin_editing.sql` | The generic write surface. `sims_private.admin_table_def` is the catalogue of editable tables, each with its permission prefix and its scope column; `sims_private.admin_holds`, `admin_scope_value` and `admin_can` do the checking. The public side is `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete` and `admin_lookup_options`. The migration also adds the two audit triggers that were missing: `trg_time_slot_audit` and `trg_room_audit`. |
-| `src/features/admin/admin-table-editor.tsx` | The **Manage** panel the six editable screens share. The form is generated from the column description the database hands out, and the rows are read through PostgREST, so the row level policies decide what is visible. |
-| `tests/db/admin-editing.test.ts` | The database test for migration 066: the catalogue, the permission check, the scope check and the refusal paths. Runs on embedded PostgreSQL. |
-| `tests/e2e/admin-editing.spec.ts` | The end-to-end test for the Manage panel: the six screens offer the expected tables, and a full add / duplicate-refused / edit / delete round trip on the academic calendar. |
+| `supabase/migrations/067_admin_editing_expansion.sql` | The expansion of the generic write surface: the catalogue grows from 15 to **127 tables across 17 modules**, derived from the live row level policies rather than written by hand. The write functions take a JSON key so a composite key can address a row; `sims_private.admin_pk_cols` and `admin_key_where` resolve it. The lookup catalogue grows from 24 to **70** entries - one for every foreign key target of the 127 tables. The **48 tables that had no audit trigger** get one, so every writable table has exactly one audit path: 88 by trigger, 39 by the write function itself where the table's own write path already audits. |
+| `src/features/admin/admin-table-editor.tsx` | The **Manage** panel the 28 editable screens share. It takes either a list of `tables` or a list of `modules`; the module form is what the screens use. The form is generated from the column description the database hands out, and the rows are read through PostgREST, so the row level policies decide what is visible. |
+| `tests/db/admin-editing.test.ts` | The database test for migrations 066 and 067: the catalogue, the permission check, the scope check, the composite key, the employee and institution scope kinds, the audit path of every table and the refusal paths. 18 tests on embedded PostgreSQL. |
+| `tests/e2e/admin-editing.spec.ts` | The end-to-end test for the Manage panel: all 28 screens offer the tables of their modules, and a full add / duplicate-refused / edit / delete round trip on the academic calendar, plus the Employees screen reaching the employee master. |
 | `tools/work/run_seed.mjs`, `tools/work/run_seed_step.mjs` | Scratch runners for the seed. `tools/work/` is a scratch area, not a tool surface. |
 
 ### Consequences
@@ -476,7 +498,7 @@ than about the browser.
 | Table, view, function, trigger and policy counts | The live database, read with `SELECT` only. |
 | The index catalogue (572 public indexes; 146 on the 55 `STAFF_PROFILE.*` tables) | `public.schema_indexes('all')` and `public.schema_indexes('staff')` on the live project. |
 | Permission codes and role grants | `public.permission`, `public.role_permission` on the live database. |
-| The editable tables and their permissions | The catalogue `sims_private.admin_table_def` on the live database, added by migration 066. |
+| The editable tables and their permissions | The catalogue `sims_private.admin_table_def` on the live database, added by migration 066 and grown by migration 067. |
 | Navigation | `src/lib/nav.ts` - the single source of truth. |
 | Route existence | `src/app/**/page.tsx` on disk. |
 | File provenance | The opencode session log; see [RECOVERY.md](RECOVERY.md). |

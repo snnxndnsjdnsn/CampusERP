@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import {
   readActivityTypes,
   readEmployees,
@@ -106,6 +107,12 @@ export async function StaffProfileScreen({
           heading?.description ??
           'Research, publications, professional development and every other activity recorded against a member of staff. The database decides what each person may see.'
         }
+      />
+
+      <AdminTableEditor
+        modules={['STAFF_PROFILE']}
+        title="Manage the staff profile"
+        description="Add, edit and remove the staff activity records and the vocabulary behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

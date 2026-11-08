@@ -393,6 +393,11 @@ primitives, `src/lib/context.ts`, `src/lib/server-context.ts`, `src/lib/api.ts`,
 | 06:41:27 | The end-to-end round trip on the academic calendar exercised against the live project: add, a refused duplicate, edit and delete, each one audited exactly once. |
 | 06:45:28 | The last verification write of the round. |
 | 06:41 | The catalogue check taught to leave the append-only audit logs out of the row counts. Their count is a function of activity, not of the schema - the end-to-end suite alone adds three rows to `activity_audit` per run - so recording it made `catalogue.mjs --check` fail after every test run. The list lives in `tools/validate/pg_catalogue.mjs` and is used by all three dumpers. |
+| 07:10-08:40 | The catalogue widened. The live row level policies were parsed instead of a hand-written list: 127 writable tables, their permission codes verbatim, their scope kind and scope path. Two scope kinds were added - `employee` and `institution` - and the scope was generalised to a path of foreign key hops. |
+| 08:40-09:05 | `supabase/migrations/067_admin_editing_expansion.sql` written and applied to the live project: 127 catalogue rows, 70 foreign key lookups, the 48 missing audit triggers, and the write functions reshaped to take a JSON key so a composite key can address a row. |
+| 09:05-09:30 | The 28 screens wired to the panel. Each one now passes its module code instead of a table list, and the panel offers the union of the catalogue tables of those modules. `src/features/admin/admin-table-editor.tsx` gained the `modules` prop and the composite-key handling. |
+| 09:30-10:10 | The tests rewritten: `tests/db/admin-editing.test.ts` grew to 18 tests and `tests/e2e/admin-editing.spec.ts` to 30, and `tools/seed_demo.sql` grew from 51 to 79 seeded tables so that no screen is empty. |
+| 10:10 | The catalogue contract re-blessed and the documents rewritten. |
 
 The 00:30:12 row is the point at which the tooling stopped comparing the
 migration set against a **rebuild** and started comparing it against a
@@ -681,7 +686,92 @@ together.
 
 ---
 
-## 11. Rules that came out of this
+## 11. The round that gave every module its Manage panel
+
+On 2026-11-08 the round of section 10 was widened. The six screens of that
+round were the first symptom; the real gap was that the **Employees** screen
+and 25 further module screens had no editing surface at all, and that the
+catalogue of migration 066 held only 15 tables.
+
+### 11.1 How the catalogue was built
+
+The catalogue was **not** written by hand. Every table on the live project that
+carries a writable row level policy was parsed: the policy's own permission
+codes were taken **verbatim** (`EMPLOYEE.AADHAAR.CREATE`,
+`STAFF_PROFILE.STAFF_ACTIVITY.CREATE` and so on), and the scope was read off
+the policy's `USING` / `WITH CHECK` expression. 127 writable tables out of 213,
+parsed with zero problems.
+
+Two scope kinds had no equivalent in the first round and were added:
+
+| Kind | What it resolves |
+|---|---|
+| `employee` | The employee record's own institution, and the institution of its current assignment - `sims_private.can_employee(codes, id, true)` |
+| `institution` | The row's own institution - `sims_private.can_institution(codes, id)` |
+
+The scope is generalised to a **path**: the table's own column first, then
+`table.column` foreign key hops, up to four. That is how a row three tables
+away from its institution still resolves to the right scope.
+
+### 11.2 What the round changed
+
+| | Before | After |
+|---|---|---|
+| Catalogue | 15 tables | **127 tables across 17 modules** |
+| Foreign key lookups | 24 | **70** - one for every FK target of the 127 tables |
+| Audit triggers | 40 | **88** - the 48 tables that had none got one |
+| Audit paths | trigger only | 88 `TRIGGER` + 39 `MANUAL`, exactly one per table |
+| Write functions | `admin_table_save(text, bigint, jsonb)` | `admin_table_save(text, jsonb, jsonb)` - a JSON key, so a composite key can address a row |
+| Screens with the panel | 6 | **28** |
+
+Six tables have a **composite key**: `conference_activity_indexing`,
+`course_prerequisite`, `employee_competency`, `evidence_document_tag`,
+`external_organization_type` and `journal_publication_indexing`. Their key
+columns stay in the form, because a new row has to be given its key, and
+`sims_private.admin_key_where` refuses a partial key.
+
+The 39 `MANUAL` tables are the ones whose own write path already calls
+`sims_private.audit_manual`. The write function audits them itself, so a
+change is still exactly one audit row - a trigger as well would have doubled
+the trail. Their action code is `INSERT` / `UPDATE` / `DELETE`, the codes
+`audit_manual` uses.
+
+### 11.3 What is verified
+
+- `supabase/migrations/067_admin_editing_expansion.sql` was applied to the live
+  project: `applied 067_admin_editing_expansion.sql (133 statement(s), 8339 ms)`.
+  The live database now carries 127 catalogue rows, 70 lookups and 88 audit
+  triggers, with **0** tables marked `TRIGGER` that have no trigger and **0**
+  marked `MANUAL` that have one.
+- The whole chain was exercised through PostgREST with the signed-in
+  administrator: `admin_table_list` returns 127 tables and 17 modules,
+  `admin_table_schema('employee')` returns the key `employee_id` and 23
+  columns, `admin_table_schema('course_prerequisite')` returns the composite
+  key `['course_id', 'prerequisite_course_id']`, and a create / delete round
+  trip on `gender` succeeded.
+- `tests/db/admin-editing.test.ts` - **18 tests** on embedded PostgreSQL -
+  passes. It covers the catalogue, the composite key, the employee and
+  institution scope kinds, the audit path of every one of the 127 tables, and
+  the refusal paths.
+- `tests/e2e/admin-editing.spec.ts` - 30 tests - passes: all 28 screens offer
+  the tables of their modules, the academic calendar round trip still works,
+  and the Employees screen reaches the employee master.
+- `tools/build_migrations.py --check` reports `OK - the 67 migration files are
+  up to date`. The builder strips the hand-written objects from the catalogue
+  before it builds, so a rebuild never creates one of them twice.
+- The catalogue contract was re-blessed: 433 functions, 190 triggers and 6256
+  grants. `tools/compare_catalogue.py` exits 0 with 0 differences.
+
+### 11.4 What is not verified
+
+- The browser round trip still covers `academic_year` only. The other 126
+  tables are covered by the database test and by the live database checks.
+- The three personas are still exercised through the database rather than
+  through the browser, because the Playwright suite signs in with one account.
+
+---
+
+## 12. Rules that came out of this
 
 1. **Never run `Remove-Item -Recurse -Force` on a path under `F:\sims`.** The
    original command used `-ErrorAction SilentlyContinue`, which suppressed the errors
@@ -697,7 +787,7 @@ together.
 
 ---
 
-## 12. Related documents
+## 13. Related documents
 
 - [README.md](README.md) - index of the documentation set.
 - [RTM.md](RTM.md) - module-by-module traceability, including the gaps.

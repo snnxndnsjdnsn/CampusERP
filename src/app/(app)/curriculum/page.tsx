@@ -145,7 +145,7 @@ export default async function CurriculumPage({ searchParams }: { searchParams: S
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
 
       <AdminTableEditor
-        tables={['curriculum_scheme', 'curriculum_course']}
+        modules={['CURRICULUM']}
         title="Manage the curriculum"
         description="Add, edit and remove the curriculum schemes and the subjects they place in each semester. Every change is written through the database and audited."
       />

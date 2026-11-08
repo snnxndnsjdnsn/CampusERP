@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { DetailFields, DetailStack, DetailTable } from '@/features/detail/detail-ui';
 import { safeSelectOne, safeSelectWhere } from '@/features/detail/detail-data';
 import { formatDate } from '@/lib/format';
@@ -78,6 +79,12 @@ export default async function EmployeeRecordsPage({ params }: { params: Promise<
             <Button variant="outline">Back to employees</Button>
           </Link>
         }
+      />
+
+      <AdminTableEditor
+        modules={['EMPLOYEE']}
+        title="Manage the employee record"
+        description="Add, edit and remove the employee records, their assignments and the HR details behind this screen. Every change is written through the database and audited."
       />
 
       <DetailStack>

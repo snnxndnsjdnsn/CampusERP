@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/page-header';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { DetailStack, DetailTable } from '@/features/detail/detail-ui';
 import { SensitivePanel, type SensitiveCan, type SensitiveRow } from '@/features/detail/sensitive-panel';
 import { safeRpc } from '@/features/shared/server-rpc';
@@ -66,6 +67,12 @@ export default async function EmployeeHrPage({ params }: { params: Promise<{ id:
             <Button variant="outline">Back to the record</Button>
           </Link>
         }
+      />
+
+      <AdminTableEditor
+        modules={['EMPLOYEE']}
+        title="Manage the HR file"
+        description="Add, edit and remove the employee records, their assignments and the HR details behind this screen. Every change is written through the database and audited."
       />
 
       <DetailStack>

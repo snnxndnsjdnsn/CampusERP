@@ -12,19 +12,19 @@ Source of truth: the live Supabase project `khqqfgqvwdxlqkncwtmh` (PostgreSQL 17
 | Tables | 222 |
 | Tables with row level security | 216 |
 | Views | 10 |
-| Functions | 431 |
-| Triggers | 142 |
+| Functions | 433 |
+| Triggers | 190 |
 | Policies | 594 |
 | Indexes | 365 |
 | Sequences | 199 |
 | Domains | 6 |
 | Enums | 0 |
 | Composite types | 233 |
-| Grants | 6253 |
+| Grants | 6256 |
 
 ## Schema `public`
 
-213 tables, 10 views, 280 functions, 142 triggers, 594 policies, 359 indexes.
+213 tables, 10 views, 280 functions, 190 triggers, 594 policies, 359 indexes.
 
 ### Tables (213)
 
@@ -5430,9 +5430,9 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | Function | Arguments |
 |---|---|
 | `public.admin_lookup_options` | `p_table text` |
-| `public.admin_table_delete` | `p_table text, p_id bigint` |
+| `public.admin_table_delete` | `p_table text, p_key jsonb` |
 | `public.admin_table_list` | - |
-| `public.admin_table_save` | `p_table text, p_id bigint, p jsonb` |
+| `public.admin_table_save` | `p_table text, p_key jsonb, p jsonb` |
 | `public.admin_table_schema` | `p_table text` |
 | `public.admission_admit` | `p_application_id bigint, p_student jsonb, p_enrolment jsonb` |
 | `public.admission_apply` | `p_applicant jsonb, p_application jsonb` |
@@ -5710,18 +5710,23 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `public.timetable_sections` | `p_pto bigint` |
 | `public.timetable_slots` | - |
 
-### Triggers (142)
+### Triggers (190)
 
 | Trigger | Table | Definition |
 |---|---|---|
 | `trg_academic_term_audit` | `academic_term` | `CREATE TRIGGER trg_academic_term_audit AFTER INSERT OR DELETE OR UPDATE ON academic_term FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'academic_term_id')` |
 | `trg_academic_year_audit` | `academic_year` | `CREATE TRIGGER trg_academic_year_audit AFTER INSERT OR DELETE OR UPDATE ON academic_year FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'academic_year_id')` |
+| `trg_activity_evidence_requirement_audit` | `activity_evidence_requirement` | `CREATE TRIGGER trg_activity_evidence_requirement_audit AFTER INSERT OR DELETE OR UPDATE ON activity_evidence_requirement FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'activity_evidence_requirement_id')` |
+| `trg_activity_type_audit` | `activity_type` | `CREATE TRIGGER trg_activity_type_audit AFTER INSERT OR DELETE OR UPDATE ON activity_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'activity_type_id')` |
 | `trg_admission_applicant_audit` | `admission_applicant` | `CREATE TRIGGER trg_admission_applicant_audit AFTER INSERT OR DELETE OR UPDATE ON admission_applicant FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ADMISSION', 'admission_applicant_id')` |
 | `trg_admission_applicant_touch_updated_at` | `admission_applicant` | `CREATE TRIGGER trg_admission_applicant_touch_updated_at BEFORE UPDATE ON admission_applicant FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_admission_application_audit` | `admission_application` | `CREATE TRIGGER trg_admission_application_audit AFTER INSERT OR DELETE OR UPDATE ON admission_application FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ADMISSION', 'application_id')` |
 | `trg_admission_application_touch_updated_at` | `admission_application` | `CREATE TRIGGER trg_admission_application_touch_updated_at BEFORE UPDATE ON admission_application FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_admission_category_audit` | `admission_category` | `CREATE TRIGGER trg_admission_category_audit AFTER INSERT OR DELETE OR UPDATE ON admission_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('IAM', 'admission_category_id')` |
 | `trg_announcement_audit` | `announcement` | `CREATE TRIGGER trg_announcement_audit AFTER INSERT OR DELETE OR UPDATE ON announcement FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('COMMUNICATION', 'announcement_id')` |
 | `trg_announcement_workflow_guard` | `announcement` | `CREATE TRIGGER trg_announcement_workflow_guard BEFORE INSERT OR UPDATE ON announcement FOR EACH ROW EXECUTE FUNCTION sims_guard_announcement()` |
+| `trg_announcement_type_audit` | `announcement_type` | `CREATE TRIGGER trg_announcement_type_audit AFTER INSERT OR DELETE OR UPDATE ON announcement_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('COMMUNICATION', 'announcement_type_id')` |
+| `trg_approval_status_audit` | `approval_status` | `CREATE TRIGGER trg_approval_status_audit AFTER INSERT OR DELETE OR UPDATE ON approval_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'approval_status_id')` |
 | `trg_assessment_component_audit` | `assessment_component` | `CREATE TRIGGER trg_assessment_component_audit AFTER INSERT OR DELETE OR UPDATE ON assessment_component FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ASSESSMENT', 'assessment_component_id')` |
 | `trg_assessment_event_audit` | `assessment_event` | `CREATE TRIGGER trg_assessment_event_audit AFTER INSERT OR DELETE OR UPDATE ON assessment_event FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ASSESSMENT', 'assessment_event_id')` |
 | `trg_assessment_event_guard` | `assessment_event` | `CREATE TRIGGER trg_assessment_event_guard BEFORE UPDATE ON assessment_event FOR EACH ROW EXECUTE FUNCTION sims_assessment_event_guard()` |
@@ -5730,44 +5735,69 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_attendance_correction_request_workflow_guard` | `attendance_correction_request` | `CREATE TRIGGER trg_attendance_correction_request_workflow_guard BEFORE INSERT OR UPDATE ON attendance_correction_request FOR EACH ROW EXECUTE FUNCTION sims_guard_attendance_correction_request()` |
 | `trg_attendance_status_audit` | `attendance_status` | `CREATE TRIGGER trg_attendance_status_audit AFTER INSERT OR DELETE OR UPDATE ON attendance_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ATTENDANCE', 'attendance_status_id')` |
 | `trg_awarding_body_touch_updated_at` | `awarding_body` | `CREATE TRIGGER trg_awarding_body_touch_updated_at BEFORE UPDATE ON awarding_body FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_awarding_body_type_audit` | `awarding_body_type` | `CREATE TRIGGER trg_awarding_body_type_audit AFTER INSERT OR DELETE OR UPDATE ON awarding_body_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'awarding_body_type_id')` |
+| `trg_building_audit` | `building` | `CREATE TRIGGER trg_building_audit AFTER INSERT OR DELETE OR UPDATE ON building FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'building_id')` |
 | `trg_campus_audit` | `campus` | `CREATE TRIGGER trg_campus_audit AFTER INSERT OR DELETE OR UPDATE ON campus FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'campus_id')` |
 | `trg_a_certificate_request_fee_hold` | `certificate_request` | `CREATE TRIGGER trg_a_certificate_request_fee_hold BEFORE UPDATE ON certificate_request FOR EACH ROW EXECUTE FUNCTION sims_guard_certificate_hold()` |
+| `trg_certificate_request_audit` | `certificate_request` | `CREATE TRIGGER trg_certificate_request_audit AFTER INSERT OR DELETE OR UPDATE ON certificate_request FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('DOCUMENT', 'certificate_request_id')` |
 | `trg_certificate_request_workflow_guard` | `certificate_request` | `CREATE TRIGGER trg_certificate_request_workflow_guard BEFORE INSERT OR UPDATE ON certificate_request FOR EACH ROW EXECUTE FUNCTION sims_guard_certificate_request()` |
 | `trg_class_batch_audit` | `class_batch` | `CREATE TRIGGER trg_class_batch_audit AFTER INSERT OR DELETE OR UPDATE ON class_batch FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('REGISTRATION', 'class_batch_id')` |
 | `trg_class_section_audit` | `class_section` | `CREATE TRIGGER trg_class_section_audit AFTER INSERT OR DELETE OR UPDATE ON class_section FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('REGISTRATION', 'class_section_id')` |
 | `trg_class_session_audit` | `class_session` | `CREATE TRIGGER trg_class_session_audit AFTER INSERT OR DELETE OR UPDATE ON class_session FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ATTENDANCE', 'class_session_id')` |
 | `trg_class_session_guard` | `class_session` | `CREATE TRIGGER trg_class_session_guard BEFORE INSERT OR UPDATE ON class_session FOR EACH ROW EXECUTE FUNCTION sims_attendance_session_guard()` |
+| `trg_cocurricular_category_audit` | `cocurricular_category` | `CREATE TRIGGER trg_cocurricular_category_audit AFTER INSERT OR DELETE OR UPDATE ON cocurricular_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'cocurricular_category_id')` |
 | `trg_conference_activity_indexing_workflow_guard` | `conference_activity_indexing` | `CREATE TRIGGER trg_conference_activity_indexing_workflow_guard BEFORE INSERT OR UPDATE ON conference_activity_indexing FOR EACH ROW EXECUTE FUNCTION sims_guard_conference_activity_indexing()` |
+| `trg_conference_contribution_type_audit` | `conference_contribution_type` | `CREATE TRIGGER trg_conference_contribution_type_audit AFTER INSERT OR DELETE OR UPDATE ON conference_contribution_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'conference_contribution_type_id')` |
+| `trg_conference_event_audit` | `conference_event` | `CREATE TRIGGER trg_conference_event_audit AFTER INSERT OR DELETE OR UPDATE ON conference_event FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'conference_event_id')` |
 | `trg_conference_event_touch_updated_at` | `conference_event` | `CREATE TRIGGER trg_conference_event_touch_updated_at BEFORE UPDATE ON conference_event FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_confidentiality_level_audit` | `confidentiality_level` | `CREATE TRIGGER trg_confidentiality_level_audit AFTER INSERT OR DELETE OR UPDATE ON confidentiality_level FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'confidentiality_level_id')` |
 | `trg_consultancy_project_workflow_guard` | `consultancy_project` | `CREATE TRIGGER trg_consultancy_project_workflow_guard BEFORE INSERT OR UPDATE ON consultancy_project FOR EACH ROW EXECUTE FUNCTION sims_guard_consultancy_project()` |
 | `trg_course_catalog_audit` | `course_catalog` | `CREATE TRIGGER trg_course_catalog_audit AFTER INSERT OR DELETE OR UPDATE ON course_catalog FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('CURRICULUM', 'course_id')` |
 | `trg_course_category_audit` | `course_category` | `CREATE TRIGGER trg_course_category_audit AFTER INSERT OR DELETE OR UPDATE ON course_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('CURRICULUM', 'course_category_id')` |
 | `trg_course_offering_audit` | `course_offering` | `CREATE TRIGGER trg_course_offering_audit AFTER INSERT OR DELETE OR UPDATE ON course_offering FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TEACHING', 'course_offering_id')` |
 | `trg_course_offering_section_audit` | `course_offering_section` | `CREATE TRIGGER trg_course_offering_section_audit AFTER INSERT OR DELETE OR UPDATE ON course_offering_section FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TEACHING', 'course_offering_section_id')` |
+| `trg_course_offering_section_student_audit` | `course_offering_section_student` | `CREATE TRIGGER trg_course_offering_section_student_audit AFTER INSERT OR DELETE OR UPDATE ON course_offering_section_student FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('REGISTRATION', 'course_offering_section_student_id')` |
 | `trg_course_prerequisite_audit` | `course_prerequisite` | `CREATE TRIGGER trg_course_prerequisite_audit AFTER INSERT OR DELETE OR UPDATE ON course_prerequisite FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('CURRICULUM', 'course_id')` |
 | `trg_curriculum_course_audit` | `curriculum_course` | `CREATE TRIGGER trg_curriculum_course_audit AFTER INSERT OR DELETE OR UPDATE ON curriculum_course FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('CURRICULUM', 'curriculum_course_id')` |
 | `trg_curriculum_scheme_audit` | `curriculum_scheme` | `CREATE TRIGGER trg_curriculum_scheme_audit AFTER INSERT OR DELETE OR UPDATE ON curriculum_scheme FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('CURRICULUM', 'curriculum_scheme_id')` |
 | `trg_department_audit` | `department` | `CREATE TRIGGER trg_department_audit AFTER INSERT OR DELETE OR UPDATE ON department FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'department_id')` |
 | `trg_education_institution_touch_updated_at` | `education_institution` | `CREATE TRIGGER trg_education_institution_touch_updated_at BEFORE UPDATE ON education_institution FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_education_institution_type_audit` | `education_institution_type` | `CREATE TRIGGER trg_education_institution_type_audit AFTER INSERT OR DELETE OR UPDATE ON education_institution_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'education_institution_type_id')` |
 | `trg_employee_audit` | `employee` | `CREATE TRIGGER trg_employee_audit AFTER INSERT OR DELETE OR UPDATE ON employee FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_id')` |
 | `trg_employee_institution_immutable` | `employee` | `CREATE TRIGGER trg_employee_institution_immutable BEFORE UPDATE ON employee FOR EACH ROW EXECUTE FUNCTION sims_private.employee_institution_immutable()` |
 | `trg_employee_touch_updated_at` | `employee` | `CREATE TRIGGER trg_employee_touch_updated_at BEFORE UPDATE ON employee FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_employee_aadhaar_audit` | `employee_aadhaar` | `CREATE TRIGGER trg_employee_aadhaar_audit AFTER INSERT OR DELETE OR UPDATE ON employee_aadhaar FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_aadhaar_id')` |
 | `trg_employee_aadhaar_touch_updated_at` | `employee_aadhaar` | `CREATE TRIGGER trg_employee_aadhaar_touch_updated_at BEFORE UPDATE ON employee_aadhaar FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_employee_aadhaar_workflow_guard` | `employee_aadhaar` | `CREATE TRIGGER trg_employee_aadhaar_workflow_guard BEFORE INSERT OR UPDATE ON employee_aadhaar FOR EACH ROW EXECUTE FUNCTION sims_guard_employee_aadhaar()` |
 | `trg_employee_assignment_audit` | `employee_assignment` | `CREATE TRIGGER trg_employee_assignment_audit AFTER INSERT OR DELETE OR UPDATE ON employee_assignment FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_assignment_id')` |
+| `trg_employee_bank_account_audit` | `employee_bank_account` | `CREATE TRIGGER trg_employee_bank_account_audit AFTER INSERT OR DELETE OR UPDATE ON employee_bank_account FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_bank_account_id')` |
 | `trg_employee_bank_account_touch_updated_at` | `employee_bank_account` | `CREATE TRIGGER trg_employee_bank_account_touch_updated_at BEFORE UPDATE ON employee_bank_account FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_employee_bank_account_workflow_guard` | `employee_bank_account` | `CREATE TRIGGER trg_employee_bank_account_workflow_guard BEFORE INSERT OR UPDATE ON employee_bank_account FOR EACH ROW EXECUTE FUNCTION sims_guard_employee_bank_account()` |
+| `trg_employee_document_audit` | `employee_document` | `CREATE TRIGGER trg_employee_document_audit AFTER INSERT OR DELETE OR UPDATE ON employee_document FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_document_id')` |
 | `trg_employee_document_touch_updated_at` | `employee_document` | `CREATE TRIGGER trg_employee_document_touch_updated_at BEFORE UPDATE ON employee_document FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_employee_document_workflow_guard` | `employee_document` | `CREATE TRIGGER trg_employee_document_workflow_guard BEFORE INSERT OR UPDATE ON employee_document FOR EACH ROW EXECUTE FUNCTION sims_guard_employee_document()` |
+| `trg_employee_document_access_rule_audit` | `employee_document_access_rule` | `CREATE TRIGGER trg_employee_document_access_rule_audit AFTER INSERT OR DELETE OR UPDATE ON employee_document_access_rule FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_document_access_rule_id')` |
+| `trg_employee_document_category_audit` | `employee_document_category` | `CREATE TRIGGER trg_employee_document_category_audit AFTER INSERT OR DELETE OR UPDATE ON employee_document_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_document_category_id')` |
+| `trg_employee_pan_audit` | `employee_pan` | `CREATE TRIGGER trg_employee_pan_audit AFTER INSERT OR DELETE OR UPDATE ON employee_pan FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employee_pan_id')` |
 | `trg_employee_pan_touch_updated_at` | `employee_pan` | `CREATE TRIGGER trg_employee_pan_touch_updated_at BEFORE UPDATE ON employee_pan FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_employee_pan_workflow_guard` | `employee_pan` | `CREATE TRIGGER trg_employee_pan_workflow_guard BEFORE INSERT OR UPDATE ON employee_pan FOR EACH ROW EXECUTE FUNCTION sims_guard_employee_pan()` |
 | `trg_employee_previous_employment_touch_updated_at` | `employee_previous_employment` | `CREATE TRIGGER trg_employee_previous_employment_touch_updated_at BEFORE UPDATE ON employee_previous_employment FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_employee_qualification_touch_updated_at` | `employee_qualification` | `CREATE TRIGGER trg_employee_qualification_touch_updated_at BEFORE UPDATE ON employee_qualification FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_employment_source_audit` | `employment_source` | `CREATE TRIGGER trg_employment_source_audit AFTER INSERT OR DELETE OR UPDATE ON employment_source FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'employment_source_id')` |
 | `trg_employment_source_touch_updated_at` | `employment_source` | `CREATE TRIGGER trg_employment_source_touch_updated_at BEFORE UPDATE ON employment_source FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_enrolment_status_history_audit` | `enrolment_status_history` | `CREATE TRIGGER trg_enrolment_status_history_audit AFTER INSERT OR DELETE OR UPDATE ON enrolment_status_history FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ADMISSION', 'enrolment_status_history_id')` |
+| `trg_event_mode_audit` | `event_mode` | `CREATE TRIGGER trg_event_mode_audit AFTER INSERT OR DELETE OR UPDATE ON event_mode FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'event_mode_id')` |
 | `trg_evidence_document_touch_updated_at` | `evidence_document` | `CREATE TRIGGER trg_evidence_document_touch_updated_at BEFORE UPDATE ON evidence_document FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_evidence_document_workflow_guard` | `evidence_document` | `CREATE TRIGGER trg_evidence_document_workflow_guard BEFORE INSERT OR UPDATE ON evidence_document FOR EACH ROW EXECUTE FUNCTION sims_guard_evidence_document()` |
+| `trg_evidence_document_tag_audit` | `evidence_document_tag` | `CREATE TRIGGER trg_evidence_document_tag_audit AFTER INSERT OR DELETE OR UPDATE ON evidence_document_tag FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'evidence_document_id')` |
+| `trg_evidence_tag_audit` | `evidence_tag` | `CREATE TRIGGER trg_evidence_tag_audit AFTER INSERT OR DELETE OR UPDATE ON evidence_tag FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'evidence_tag_id')` |
+| `trg_evidence_type_audit` | `evidence_type` | `CREATE TRIGGER trg_evidence_type_audit AFTER INSERT OR DELETE OR UPDATE ON evidence_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'evidence_type_id')` |
+| `trg_external_agency_audit` | `external_agency` | `CREATE TRIGGER trg_external_agency_audit AFTER INSERT OR DELETE OR UPDATE ON external_agency FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'external_agency_id')` |
 | `trg_external_agency_touch_updated_at` | `external_agency` | `CREATE TRIGGER trg_external_agency_touch_updated_at BEFORE UPDATE ON external_agency FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_external_organization_audit` | `external_organization` | `CREATE TRIGGER trg_external_organization_audit AFTER INSERT OR DELETE OR UPDATE ON external_organization FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organization_id')` |
 | `trg_external_organization_touch_updated_at` | `external_organization` | `CREATE TRIGGER trg_external_organization_touch_updated_at BEFORE UPDATE ON external_organization FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_external_organization_type_audit` | `external_organization_type` | `CREATE TRIGGER trg_external_organization_type_audit AFTER INSERT OR DELETE OR UPDATE ON external_organization_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organization_id')` |
+| `trg_extracurricular_category_audit` | `extracurricular_category` | `CREATE TRIGGER trg_extracurricular_category_audit AFTER INSERT OR DELETE OR UPDATE ON extracurricular_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'extracurricular_category_id')` |
 | `trg_faculty_course_assignment_audit` | `faculty_course_assignment` | `CREATE TRIGGER trg_faculty_course_assignment_audit AFTER INSERT OR DELETE OR UPDATE ON faculty_course_assignment FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TEACHING', 'faculty_assignment_id')` |
 | `trg_fee_benefit_bi` | `fee_assessment_benefit` | `CREATE TRIGGER trg_fee_benefit_bi BEFORE INSERT ON fee_assessment_benefit FOR EACH ROW EXECUTE FUNCTION sims_fee_benefit_guard()` |
 | `trg_fee_benefit_bu` | `fee_assessment_benefit` | `CREATE TRIGGER trg_fee_benefit_bu BEFORE UPDATE ON fee_assessment_benefit FOR EACH ROW EXECUTE FUNCTION sims_fee_benefit_guard()` |
@@ -5780,33 +5810,46 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_feedback_cycle_audit` | `feedback_cycle` | `CREATE TRIGGER trg_feedback_cycle_audit AFTER INSERT OR DELETE OR UPDATE ON feedback_cycle FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('FEEDBACK', 'feedback_cycle_id')` |
 | `trg_feedback_cycle_guard` | `feedback_cycle` | `CREATE TRIGGER trg_feedback_cycle_guard BEFORE INSERT OR UPDATE ON feedback_cycle FOR EACH ROW EXECUTE FUNCTION sims_feedback_cycle_guard()` |
 | `trg_feedback_question_audit` | `feedback_question` | `CREATE TRIGGER trg_feedback_question_audit AFTER INSERT OR DELETE OR UPDATE ON feedback_question FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('FEEDBACK', 'feedback_question_id')` |
+| `trg_feedback_question_category_audit` | `feedback_question_category` | `CREATE TRIGGER trg_feedback_question_category_audit AFTER INSERT OR DELETE OR UPDATE ON feedback_question_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('FEEDBACK', 'feedback_category_id')` |
 | `trg_feedback_questionnaire_audit` | `feedback_questionnaire` | `CREATE TRIGGER trg_feedback_questionnaire_audit AFTER INSERT OR DELETE OR UPDATE ON feedback_questionnaire FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('FEEDBACK', 'questionnaire_id')` |
 | `trg_feedback_questionnaire_guard` | `feedback_questionnaire` | `CREATE TRIGGER trg_feedback_questionnaire_guard BEFORE UPDATE ON feedback_questionnaire FOR EACH ROW EXECUTE FUNCTION sims_feedback_questionnaire_guard()` |
 | `trg_feedback_item_guard` | `feedback_questionnaire_item` | `CREATE TRIGGER trg_feedback_item_guard BEFORE INSERT OR DELETE OR UPDATE ON feedback_questionnaire_item FOR EACH ROW EXECUTE FUNCTION sims_feedback_item_guard()` |
 | `trg_feedback_questionnaire_item_audit` | `feedback_questionnaire_item` | `CREATE TRIGGER trg_feedback_questionnaire_item_audit AFTER INSERT OR DELETE OR UPDATE ON feedback_questionnaire_item FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('FEEDBACK', 'questionnaire_item_id')` |
 | `trg_file_object_audit` | `file_object` | `CREATE TRIGGER trg_file_object_audit AFTER INSERT OR DELETE OR UPDATE ON file_object FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('DOCUMENT', 'file_object_id')` |
 | `trg_file_object_touch_updated_at` | `file_object` | `CREATE TRIGGER trg_file_object_touch_updated_at BEFORE UPDATE ON file_object FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_funding_agency_audit` | `funding_agency` | `CREATE TRIGGER trg_funding_agency_audit AFTER INSERT OR DELETE OR UPDATE ON funding_agency FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'funding_agency_id')` |
 | `trg_grade_rule_audit` | `grade_rule` | `CREATE TRIGGER trg_grade_rule_audit AFTER INSERT OR DELETE OR UPDATE ON grade_rule FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('RESULT', 'grade_rule_id')` |
 | `trg_grade_scale_audit` | `grade_scale` | `CREATE TRIGGER trg_grade_scale_audit AFTER INSERT OR DELETE OR UPDATE ON grade_scale FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('RESULT', 'grade_scale_id')` |
 | `trg_grievance_audit` | `grievance` | `CREATE TRIGGER trg_grievance_audit AFTER INSERT OR DELETE OR UPDATE ON grievance FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('GRIEVANCE', 'grievance_id')` |
+| `trg_grievance_category_audit` | `grievance_category` | `CREATE TRIGGER trg_grievance_category_audit AFTER INSERT OR DELETE OR UPDATE ON grievance_category FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('GRIEVANCE', 'grievance_category_id')` |
+| `trg_industry_sector_audit` | `industry_sector` | `CREATE TRIGGER trg_industry_sector_audit AFTER INSERT OR DELETE OR UPDATE ON industry_sector FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'industry_sector_id')` |
 | `trg_institution_audit` | `institution` | `CREATE TRIGGER trg_institution_audit AFTER INSERT OR DELETE OR UPDATE ON institution FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'institution_id')` |
 | `trg_institution_touch_updated_at` | `institution` | `CREATE TRIGGER trg_institution_touch_updated_at BEFORE UPDATE ON institution FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_journal_audit` | `journal` | `CREATE TRIGGER trg_journal_audit AFTER INSERT OR DELETE OR UPDATE ON journal FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'journal_id')` |
 | `trg_journal_touch_updated_at` | `journal` | `CREATE TRIGGER trg_journal_touch_updated_at BEFORE UPDATE ON journal FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_journal_metric_workflow_guard` | `journal_metric` | `CREATE TRIGGER trg_journal_metric_workflow_guard BEFORE INSERT OR UPDATE ON journal_metric FOR EACH ROW EXECUTE FUNCTION sims_guard_journal_metric()` |
 | `trg_journal_publication_indexing_workflow_guard` | `journal_publication_indexing` | `CREATE TRIGGER trg_journal_publication_indexing_workflow_guard BEFORE INSERT OR UPDATE ON journal_publication_indexing FOR EACH ROW EXECUTE FUNCTION sims_guard_journal_publication_indexing()` |
 | `trg_mentor_assignment_audit` | `mentor_assignment` | `CREATE TRIGGER trg_mentor_assignment_audit AFTER INSERT OR DELETE OR UPDATE ON mentor_assignment FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('MENTORING', 'mentor_assignment_id')` |
+| `trg_organization_type_audit` | `organization_type` | `CREATE TRIGGER trg_organization_type_audit AFTER INSERT OR DELETE OR UPDATE ON organization_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organization_type_id')` |
+| `trg_organizer_audit` | `organizer` | `CREATE TRIGGER trg_organizer_audit AFTER INSERT OR DELETE OR UPDATE ON organizer FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'organizer_id')` |
+| `trg_participation_level_audit` | `participation_level` | `CREATE TRIGGER trg_participation_level_audit AFTER INSERT OR DELETE OR UPDATE ON participation_level FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'participation_level_id')` |
 | `trg_payment_allocation_ad` | `payment_allocation` | `CREATE TRIGGER trg_payment_allocation_ad AFTER DELETE ON payment_allocation FOR EACH ROW EXECUTE FUNCTION sims_payment_allocation_sync()` |
 | `trg_payment_allocation_ai` | `payment_allocation` | `CREATE TRIGGER trg_payment_allocation_ai AFTER INSERT ON payment_allocation FOR EACH ROW EXECUTE FUNCTION sims_payment_allocation_sync()` |
 | `trg_payment_allocation_au` | `payment_allocation` | `CREATE TRIGGER trg_payment_allocation_au AFTER UPDATE ON payment_allocation FOR EACH ROW EXECUTE FUNCTION sims_payment_allocation_sync()` |
 | `trg_payment_allocation_bi` | `payment_allocation` | `CREATE TRIGGER trg_payment_allocation_bi BEFORE INSERT ON payment_allocation FOR EACH ROW EXECUTE FUNCTION sims_payment_allocation_guard()` |
 | `trg_payment_allocation_bu` | `payment_allocation` | `CREATE TRIGGER trg_payment_allocation_bu BEFORE UPDATE ON payment_allocation FOR EACH ROW EXECUTE FUNCTION sims_payment_allocation_guard()` |
 | `trg_previous_organization_touch_updated_at` | `previous_organization` | `CREATE TRIGGER trg_previous_organization_touch_updated_at BEFORE UPDATE ON previous_organization FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_previous_organization_type_audit` | `previous_organization_type` | `CREATE TRIGGER trg_previous_organization_type_audit AFTER INSERT OR DELETE OR UPDATE ON previous_organization_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('EMPLOYEE', 'previous_organization_type_id')` |
+| `trg_professional_contribution_type_audit` | `professional_contribution_type` | `CREATE TRIGGER trg_professional_contribution_type_audit AFTER INSERT OR DELETE OR UPDATE ON professional_contribution_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'professional_contribution_type_id')` |
 | `trg_programme_audit` | `programme` | `CREATE TRIGGER trg_programme_audit AFTER INSERT OR DELETE OR UPDATE ON programme FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'programme_id')` |
 | `trg_programme_specialization_audit` | `programme_specialization` | `CREATE TRIGGER trg_programme_specialization_audit AFTER INSERT OR DELETE OR UPDATE ON programme_specialization FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'specialization_id')` |
 | `trg_programme_term_offering_audit` | `programme_term_offering` | `CREATE TRIGGER trg_programme_term_offering_audit AFTER INSERT OR DELETE OR UPDATE ON programme_term_offering FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('REGISTRATION', 'programme_term_offering_id')` |
 | `trg_publication_type_touch_updated_at` | `publication_type` | `CREATE TRIGGER trg_publication_type_touch_updated_at BEFORE UPDATE ON publication_type FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_publisher_audit` | `publisher` | `CREATE TRIGGER trg_publisher_audit AFTER INSERT OR DELETE OR UPDATE ON publisher FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'publisher_id')` |
 | `trg_qualification_level_touch_updated_at` | `qualification_level` | `CREATE TRIGGER trg_qualification_level_touch_updated_at BEFORE UPDATE ON qualification_level FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_research_status_audit` | `research_status` | `CREATE TRIGGER trg_research_status_audit AFTER INSERT OR DELETE OR UPDATE ON research_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'research_status_id')` |
 | `trg_role_touch_updated_at` | `role` | `CREATE TRIGGER trg_role_touch_updated_at BEFORE UPDATE ON role FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_role_type_audit` | `role_type` | `CREATE TRIGGER trg_role_type_audit AFTER INSERT OR DELETE OR UPDATE ON role_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'role_type_id')` |
 | `trg_room_audit` | `room` | `CREATE TRIGGER trg_room_audit AFTER INSERT OR DELETE OR UPDATE ON room FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TIMETABLE', 'room_id')` |
 | `trg_semester_audit` | `semester` | `CREATE TRIGGER trg_semester_audit AFTER INSERT OR DELETE OR UPDATE ON semester FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'semester_id')` |
 | `trg_staff_activity_audit` | `staff_activity` | `CREATE TRIGGER trg_staff_activity_audit AFTER INSERT OR DELETE OR UPDATE ON staff_activity FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'staff_activity_id')` |
@@ -5821,6 +5864,8 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_student_activity_workflow_guard` | `student_activity` | `CREATE TRIGGER trg_student_activity_workflow_guard BEFORE INSERT OR UPDATE ON student_activity FOR EACH ROW EXECUTE FUNCTION sims_guard_student_activity()` |
 | `trg_student_activity_evidence_touch_updated_at` | `student_activity_evidence` | `CREATE TRIGGER trg_student_activity_evidence_touch_updated_at BEFORE UPDATE ON student_activity_evidence FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_student_activity_evidence_workflow_guard` | `student_activity_evidence` | `CREATE TRIGGER trg_student_activity_evidence_workflow_guard BEFORE INSERT OR UPDATE ON student_activity_evidence FOR EACH ROW EXECUTE FUNCTION sims_guard_student_activity_evidence()` |
+| `trg_student_activity_evidence_requirement_audit` | `student_activity_evidence_requirement` | `CREATE TRIGGER trg_student_activity_evidence_requirement_audit AFTER INSERT OR DELETE OR UPDATE ON student_activity_evidence_requirement FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STUDENT', 'student_activity_evidence_requirement_id')` |
+| `trg_student_activity_type_audit` | `student_activity_type` | `CREATE TRIGGER trg_student_activity_type_audit AFTER INSERT OR DELETE OR UPDATE ON student_activity_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STUDENT', 'student_activity_type_id')` |
 | `trg_student_activity_type_touch_updated_at` | `student_activity_type` | `CREATE TRIGGER trg_student_activity_type_touch_updated_at BEFORE UPDATE ON student_activity_type FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_student_assessment_mark_audit` | `student_assessment_mark` | `CREATE TRIGGER trg_student_assessment_mark_audit AFTER INSERT OR DELETE OR UPDATE ON student_assessment_mark FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ASSESSMENT', 'student_assessment_mark_id')` |
 | `trg_student_assessment_mark_guard` | `student_assessment_mark` | `CREATE TRIGGER trg_student_assessment_mark_guard BEFORE INSERT OR DELETE OR UPDATE ON student_assessment_mark FOR EACH ROW EXECUTE FUNCTION sims_assessment_mark_guard()` |
@@ -5831,6 +5876,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_student_course_result_lock` | `student_course_result` | `CREATE TRIGGER trg_student_course_result_lock BEFORE INSERT OR DELETE OR UPDATE ON student_course_result FOR EACH ROW EXECUTE FUNCTION sims_course_result_lock()` |
 | `trg_student_document_audit` | `student_document` | `CREATE TRIGGER trg_student_document_audit AFTER INSERT OR DELETE OR UPDATE ON student_document FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('DOCUMENT', 'student_document_id')` |
 | `trg_student_document_workflow_guard` | `student_document` | `CREATE TRIGGER trg_student_document_workflow_guard BEFORE INSERT OR UPDATE ON student_document FOR EACH ROW EXECUTE FUNCTION sims_guard_student_document()` |
+| `trg_student_exit_audit` | `student_exit` | `CREATE TRIGGER trg_student_exit_audit AFTER INSERT OR DELETE OR UPDATE ON student_exit FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('DOCUMENT', 'student_exit_id')` |
 | `trg_student_fee_assessment_touch_updated_at` | `student_fee_assessment` | `CREATE TRIGGER trg_student_fee_assessment_touch_updated_at BEFORE UPDATE ON student_fee_assessment FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_fee_item_ad` | `student_fee_assessment_item` | `CREATE TRIGGER trg_fee_item_ad AFTER DELETE ON student_fee_assessment_item FOR EACH ROW EXECUTE FUNCTION sims_fee_item_sync()` |
 | `trg_fee_item_ai` | `student_fee_assessment_item` | `CREATE TRIGGER trg_fee_item_ai AFTER INSERT ON student_fee_assessment_item FOR EACH ROW EXECUTE FUNCTION sims_fee_item_sync()` |
@@ -5847,6 +5893,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_time_slot_audit` | `time_slot` | `CREATE TRIGGER trg_time_slot_audit AFTER INSERT OR DELETE OR UPDATE ON time_slot FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'time_slot_id')` |
 | `trg_timetable_session_audit` | `timetable_session` | `CREATE TRIGGER trg_timetable_session_audit AFTER INSERT OR DELETE OR UPDATE ON timetable_session FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TIMETABLE', 'timetable_session_id')` |
 | `trg_timetable_session_guard` | `timetable_session` | `CREATE TRIGGER trg_timetable_session_guard BEFORE INSERT OR UPDATE ON timetable_session FOR EACH ROW EXECUTE FUNCTION sims_timetable_guard()` |
+| `trg_training_program_type_audit` | `training_program_type` | `CREATE TRIGGER trg_training_program_type_audit AFTER INSERT OR DELETE OR UPDATE ON training_program_type FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'training_program_type_id')` |
 | `trg_university_audit` | `university` | `CREATE TRIGGER trg_university_audit AFTER INSERT OR DELETE OR UPDATE ON university FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'university_id')` |
 | `trg_university_touch_updated_at` | `university` | `CREATE TRIGGER trg_university_touch_updated_at BEFORE UPDATE ON university FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_user_account_touch_updated_at` | `user_account` | `CREATE TRIGGER trg_user_account_touch_updated_at BEFORE UPDATE ON user_account FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
@@ -5856,6 +5903,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_user_role_assignment_audit` | `user_role_assignment` | `CREATE TRIGGER trg_user_role_assignment_audit AFTER INSERT OR DELETE OR UPDATE ON user_role_assignment FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('IAM', 'user_role_assignment_id')` |
 | `trg_user_role_assignment_scope_bi` | `user_role_assignment` | `CREATE TRIGGER trg_user_role_assignment_scope_bi BEFORE INSERT ON user_role_assignment FOR EACH ROW EXECUTE FUNCTION sims_user_role_assignment_scope()` |
 | `trg_user_role_assignment_scope_bu` | `user_role_assignment` | `CREATE TRIGGER trg_user_role_assignment_scope_bu BEFORE UPDATE ON user_role_assignment FOR EACH ROW EXECUTE FUNCTION sims_user_role_assignment_scope()` |
+| `trg_verification_status_audit` | `verification_status` | `CREATE TRIGGER trg_verification_status_audit AFTER INSERT OR DELETE OR UPDATE ON verification_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'verification_status_id')` |
 
 ### Policies (594)
 
@@ -6458,7 +6506,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 
 ## Schema `sims_private`
 
-9 tables, 0 views, 151 functions, 0 triggers, 0 policies, 6 indexes.
+9 tables, 0 views, 153 functions, 0 triggers, 0 policies, 6 indexes.
 
 ### Tables (9)
 
@@ -6611,16 +6659,18 @@ Row level security: **disabled**. Columns: **14**. Indexes: **3**.
 
 _none_
 
-### Functions (151)
+### Functions (153)
 
 | Function | Arguments |
 |---|---|
 | `sims_private.activity_actor` | `p_student bigint, p_perm text` |
 | `sims_private.activity_child_ok` | `p_activity_id bigint, p_detail_table text, p_perm_prefix text, p_action text` |
-| `sims_private.admin_can` | `p_table text, p_action text, p_row_id bigint, p_payload jsonb` |
+| `sims_private.admin_can` | `p_table text, p_action text, p_key jsonb, p_payload jsonb` |
 | `sims_private.admin_holds` | `p_codes text[]` |
+| `sims_private.admin_key_where` | `p_table text, p_key jsonb` |
 | `sims_private.admin_lookup_def` | `p_table text` |
-| `sims_private.admin_scope_value` | `p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb` |
+| `sims_private.admin_pk_cols` | `p_table text` |
+| `sims_private.admin_scope_value` | `p_table text, p_scope_kind text, p_scope_path text[], p_key jsonb, p_payload jsonb` |
 | `sims_private.admin_table_def` | `p_table text` |
 | `sims_private.admission_action_for` | `p_to text` |
 | `sims_private.admission_authorize` | `p_application_id bigint, p_action text` |

@@ -169,10 +169,29 @@ permission check inside it is the gate.
 
 ## The editable screens
 
-Six of the groups above lead to a screen that can be **edited**, not only read:
-`calendar` (3), `curriculum` (4), `people` (5), `registration` (7) and
-`teaching` (8). Each of those screens carries a collapsible **Manage** panel
-that adds, edits and removes the rows behind it.
+**28 of the 50 routes** lead to a screen that can be **edited**, not only read.
+Each of those screens carries a collapsible **Manage** panel that adds, edits
+and removes the rows behind it:
+
+| Nav group | Routes with the panel |
+|---|---|
+| `institution` (2) | `/structure` |
+| `calendar` (3) | `/calendar` |
+| `curriculum` (4) | `/curriculum`, `/courses` |
+| `people` (5) | `/students`, `/students/[id]/records`, `/students/[id]/documents`, `/employees`, `/employees/[id]/records`, `/employees/[id]/hr` |
+| `admission` (6) | `/admissions` |
+| `registration` (7) | `/registration` |
+| `teaching` (8) | `/timetable` |
+| `attendance` (9) | `/attendance` |
+| `assessment` (10) | `/assessment`, `/results/grades`, `/my-results` |
+| `feedback` (11) | `/feedback` |
+| `support` (12) | `/grievances` |
+| `documents` (13) | `/certificates`, `/requests`, `/my-documents` |
+| `communication` (14) | `/announcements`, `/announcements/manage` |
+| `hr` (16) | `/my-hr` |
+| `schema` (18), `seed` (35), `rbac` (36), `staff-index` (38), `integrity` (39) | `/schema/[module]` |
+| `staff` (19) | `/staff-profile` |
+| `activities` (40) | `/activities` |
 
 The panel adds **no group and no route**. The sidebar is unchanged - the same
 27 groups and the same 50 routes. What changed is that a screen which used to

@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { safeRpcRows, safeSelect, shortTime } from '@/features/academic/data';
 import {
   EventPicker,
@@ -66,6 +67,12 @@ export default async function AssessmentPage({
       <PageHeader
         title="Assessment"
         description="Enter the marks of a continuous assessment event, then publish it."
+      />
+
+      <AdminTableEditor
+        modules={['ASSESSMENT', 'RESULT']}
+        title="Manage assessment"
+        description="Add, edit and remove the assessment components, assessment events, grade scales and grade rules behind this screen. Every change is written through the database and audited."
       />
 
       <Card>

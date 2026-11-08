@@ -45,13 +45,17 @@ import { createClient } from '@/lib/supabase/client';
 
 type Row = Record<string, unknown>;
 
-export type AdminTable = { tbl: string; label: string; module_code: string };
+/** One entry of the catalogue: a table the caller may write to. */
+export type AdminTable = { tbl: string; label: string; module_codes: string[] };
 
 export type AdminSchema = {
   table: string;
   label: string;
-  module_code: string;
-  pk: string;
+  module_codes: string[];
+  /** the single primary key column, or null when the table has a composite key */
+  pk: string | null;
+  /** every primary key column, in key order */
+  pk_cols: string[];
   columns: FormColumn[];
 };
 
@@ -71,16 +75,27 @@ function renderCell(column: FormColumn, raw: unknown) {
 /**
  * A collapsible "Manage" panel for one screen.
  *
- * `tables` is the list of tables the screen is built on. The panel only offers
- * the ones the signed-in user actually holds a write permission for, so a
- * student (or a user without the module permission) sees nothing at all.
+ * The panel offers the tables behind the screen.  There are two ways to say
+ * which ones those are:
+ *
+ *   `modules`  the module code(s) of the screen.  Every catalogue table that
+ *              belongs to one of them is offered, so a screen picks up a new
+ *              table automatically when the database adds one.
+ *   `tables`   an explicit list of table names, for the rare table that lives
+ *              outside the screen's own module.
+ *
+ * Either way the panel only offers the tables the signed-in user actually
+ * holds a write permission for, so a student (or a user without the module
+ * permission) sees nothing at all.
  */
 export function AdminTableEditor({
   tables,
+  modules,
   title = 'Manage',
   description = 'Add, edit and remove the rows behind this screen. Every change is written through the database and audited.',
 }: {
-  tables: string[];
+  tables?: string[];
+  modules?: string[];
   title?: string;
   description?: string;
 }) {
@@ -99,14 +114,14 @@ export function AdminTableEditor({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<{
-    id: number | null;
+    key: unknown;
     values: FormValues;
     original: FormValues | null;
   } | null>(null);
 
-  // The prop is an array, so it is compared by value - otherwise a parent that
-  // builds the array inline would restart the effect on every render.
-  const wanted = tables.join(',');
+  // The props are arrays, so they are compared by value - otherwise a parent
+  // that builds the array inline would restart the effect on every render.
+  const wanted = `${(tables ?? []).join(',')}|${(modules ?? []).join(',')}`;
 
   const load = useCallback(
     async (name: string) => {
@@ -141,8 +156,10 @@ export function AdminTableEditor({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const names = wanted.split(',').filter(Boolean);
-      if (names.length === 0) return;
+      const [tableNames = '', moduleNames = ''] = wanted.split('|');
+      const names = tableNames.split(',').filter(Boolean);
+      const mods = moduleNames.split(',').filter(Boolean);
+      if (names.length === 0 && mods.length === 0) return;
       const { data, error: listError } = await supabase.rpc('admin_table_list');
       if (cancelled) return;
       if (listError) {
@@ -150,9 +167,11 @@ export function AdminTableEditor({
         return;
       }
       const catalogue = (data ?? []) as AdminTable[];
-      const mine = names
-        .map((name) => catalogue.find((entry) => entry.tbl === name))
-        .filter((entry): entry is AdminTable => Boolean(entry));
+      const mine = catalogue.filter(
+        (entry) =>
+          names.includes(entry.tbl) ||
+          (entry.module_codes ?? []).some((code) => mods.includes(code)),
+      );
       setAvailable(mine);
       setTable((prev) => (prev && mine.some((entry) => entry.tbl === prev) ? prev : (mine[0]?.tbl ?? '')));
     })();
@@ -201,6 +220,20 @@ export function AdminTableEditor({
     );
   }, [rows, filter]);
 
+  /**
+   * The key of a row.  A table with a single primary key uses the value of
+   * that column; a table with a composite key uses an object of its key
+   * columns, so the row is addressed exactly.
+   */
+  function keyOf(row: Row): unknown {
+    if (!schema) return null;
+    const first = schema.pk_cols[0];
+    if (schema.pk_cols.length === 1) return first === undefined ? null : (row[first] ?? null);
+    const key: Record<string, unknown> = {};
+    for (const col of schema.pk_cols) key[col] = row[col] ?? null;
+    return key;
+  }
+
   async function save() {
     if (!schema || !editing) return;
     setSaving(true);
@@ -209,12 +242,12 @@ export function AdminTableEditor({
       const payload = buildPayload(schema.columns, editing.values, editing.original);
       const { error: saveError } = await supabase.rpc('admin_table_save', {
         p_table: schema.table,
-        p_id: editing.id,
+        p_key: editing.key,
         p: payload,
       });
       if (saveError) throw new Error(saveError.message);
       setEditing(null);
-      setNotice(editing.id === null ? 'Row added.' : 'Row updated.');
+      setNotice(editing.key === null ? 'Row added.' : 'Row updated.');
       await load(schema.table);
       router.refresh();
     } catch (e) {
@@ -224,12 +257,12 @@ export function AdminTableEditor({
     }
   }
 
-  async function remove(id: number) {
+  async function remove(key: unknown) {
     if (!schema) return;
     setError(null);
     const { error: deleteError } = await supabase.rpc('admin_table_delete', {
       p_table: schema.table,
-      p_id: id,
+      p_key: key,
     });
     if (deleteError) {
       setError(deleteError.message);
@@ -311,7 +344,7 @@ export function AdminTableEditor({
                   </div>
                   <Button
                     onClick={() => {
-                      setEditing({ id: null, values: valuesFromRow(schema.columns, null), original: null });
+                      setEditing({ key: null, values: valuesFromRow(schema.columns, null), original: null });
                       setError(null);
                     }}
                   >
@@ -333,7 +366,7 @@ export function AdminTableEditor({
                 <Table data-testid="admin-editor-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{schema.pk}</TableHead>
+                      <TableHead>{schema.pk_cols.join(' / ')}</TableHead>
                       {schema.columns.map((c) => (
                         <TableHead key={c.name}>{c.name.replace(/_/g, ' ')}</TableHead>
                       ))}
@@ -342,10 +375,11 @@ export function AdminTableEditor({
                   </TableHeader>
                   <TableBody>
                     {visibleRows.map((row) => {
-                      const id = Number(row[schema.pk]);
+                      const key = keyOf(row);
+                      const keyText = schema.pk_cols.map((c) => String(row[c] ?? '')).join(' / ');
                       return (
-                        <TableRow key={id}>
-                          <TableCell className="font-medium tabular-nums">{String(row[schema.pk] ?? '')}</TableCell>
+                        <TableRow key={keyText}>
+                          <TableCell className="font-medium tabular-nums">{keyText}</TableCell>
                           {schema.columns.map((c) => (
                             <TableCell key={c.name}>{renderCell(c, row[c.name])}</TableCell>
                           ))}
@@ -356,13 +390,13 @@ export function AdminTableEditor({
                                 variant="outline"
                                 onClick={() => {
                                   const values = valuesFromRow(schema.columns, row);
-                                  setEditing({ id, values, original: values });
+                                  setEditing({ key, values, original: values });
                                   setError(null);
                                 }}
                               >
                                 Edit
                               </Button>
-                              <Button size="sm" variant="destructive" onClick={() => void remove(id)}>
+                              <Button size="sm" variant="destructive" onClick={() => void remove(key)}>
                                 Delete
                               </Button>
                             </div>
@@ -380,7 +414,7 @@ export function AdminTableEditor({
             <div className="rounded-lg border border-border p-4" data-testid="admin-editor-form">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">
-                  {editing.id === null ? 'New row' : `Edit row ${editing.id}`}
+                  {editing.key === null ? 'New row' : 'Edit row'}
                 </h3>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
                   Cancel
@@ -390,7 +424,7 @@ export function AdminTableEditor({
                 columns={schema.columns}
                 values={editing.values}
                 lookups={lookups}
-                idPrefix={`admin-${editing.id ?? 'new'}`}
+                idPrefix={`admin-${editing.key === null ? 'new' : 'row'}`}
                 onChange={(name, value) =>
                   setEditing((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
                 }

@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { rpcSafe } from '@/lib/api';
 import { formatDate, formatNumber, formatPercent } from '@/lib/format';
 import { requireContext } from '@/lib/server-context';
@@ -49,6 +50,12 @@ export default async function MyResultsPage() {
       <PageHeader
         title="My results"
         description="Your published term results, course by course."
+      />
+
+      <AdminTableEditor
+        modules={['RESULT']}
+        title="Manage the grade book"
+        description="Add, edit and remove the grade scales and grade rules behind this screen. Every change is written through the database and audited."
       />
 
       {error && (

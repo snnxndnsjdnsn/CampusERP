@@ -105,11 +105,62 @@ HAND_WRITTEN_FUNCTIONS = {
     ("public", "admin_table_save"),
     ("public", "admin_table_delete"),
     ("public", "admin_lookup_options"),
+    ("sims_private", "admin_pk_cols"),  # 067_admin_editing_expansion.sql
+    ("sims_private", "admin_key_where"),
 }
 
 HAND_WRITTEN_TRIGGERS = {
     ("public", "trg_time_slot_audit"),  # 066_admin_editing.sql
     ("public", "trg_room_audit"),
+    # 067_admin_editing_expansion.sql - the 48 tables that had no audit trigger.
+    ("public", "trg_activity_evidence_requirement_audit"),
+    ("public", "trg_activity_type_audit"),
+    ("public", "trg_admission_category_audit"),
+    ("public", "trg_announcement_type_audit"),
+    ("public", "trg_approval_status_audit"),
+    ("public", "trg_awarding_body_type_audit"),
+    ("public", "trg_building_audit"),
+    ("public", "trg_certificate_request_audit"),
+    ("public", "trg_cocurricular_category_audit"),
+    ("public", "trg_conference_contribution_type_audit"),
+    ("public", "trg_conference_event_audit"),
+    ("public", "trg_confidentiality_level_audit"),
+    ("public", "trg_course_offering_section_student_audit"),
+    ("public", "trg_education_institution_type_audit"),
+    ("public", "trg_employee_aadhaar_audit"),
+    ("public", "trg_employee_bank_account_audit"),
+    ("public", "trg_employee_document_audit"),
+    ("public", "trg_employee_document_access_rule_audit"),
+    ("public", "trg_employee_document_category_audit"),
+    ("public", "trg_employee_pan_audit"),
+    ("public", "trg_employment_source_audit"),
+    ("public", "trg_enrolment_status_history_audit"),
+    ("public", "trg_event_mode_audit"),
+    ("public", "trg_evidence_document_tag_audit"),
+    ("public", "trg_evidence_tag_audit"),
+    ("public", "trg_evidence_type_audit"),
+    ("public", "trg_external_agency_audit"),
+    ("public", "trg_external_organization_audit"),
+    ("public", "trg_external_organization_type_audit"),
+    ("public", "trg_extracurricular_category_audit"),
+    ("public", "trg_feedback_question_category_audit"),
+    ("public", "trg_funding_agency_audit"),
+    ("public", "trg_grievance_category_audit"),
+    ("public", "trg_industry_sector_audit"),
+    ("public", "trg_journal_audit"),
+    ("public", "trg_organization_type_audit"),
+    ("public", "trg_organizer_audit"),
+    ("public", "trg_participation_level_audit"),
+    ("public", "trg_previous_organization_type_audit"),
+    ("public", "trg_professional_contribution_type_audit"),
+    ("public", "trg_publisher_audit"),
+    ("public", "trg_research_status_audit"),
+    ("public", "trg_role_type_audit"),
+    ("public", "trg_student_activity_evidence_requirement_audit"),
+    ("public", "trg_student_activity_type_audit"),
+    ("public", "trg_student_exit_audit"),
+    ("public", "trg_training_program_type_audit"),
+    ("public", "trg_verification_status_audit"),
 }
 
 CONSOLIDATED_FILES = {
@@ -1312,11 +1363,12 @@ def main() -> int:
             "or `node tools/validate/catalogue.mjs` and try again."
         )
 
-    # 064, 065 and 066 are hand written and must stay untouched
+    # 064, 065, 066 and 067 are hand written and must stay untouched
     for hand_written in (
         "064_required_reference_seeds.sql",
         "065_schema_indexes.sql",
         "066_admin_editing.sql",
+        "067_admin_editing_expansion.sql",
     ):
         if not (MIGRATIONS / hand_written).exists():
             raise SystemExit(f"{hand_written} is missing - refusing to continue")

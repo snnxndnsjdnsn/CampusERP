@@ -1,6 +1,7 @@
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorPanel } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { FeedbackResultsExplorer, FeedbackTaskList, type FeedbackCycleOption, type FeedbackTask } from '@/features/feedback/feedback-client';
 import { safeRows, safeSelect } from '@/features/shared/server-rpc';
 import { formatNumber } from '@/lib/format';
@@ -41,6 +42,12 @@ export default async function FeedbackPage() {
       <PageHeader
         title="Feedback"
         description="Feedback cycles you can respond to, and the results your role lets you see."
+      />
+
+      <AdminTableEditor
+        modules={['FEEDBACK']}
+        title="Manage feedback"
+        description="Add, edit and remove the feedback cycles, questions, question categories, choices and questionnaires behind this screen. Every change is written through the database and audited."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">

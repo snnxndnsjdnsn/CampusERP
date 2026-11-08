@@ -13,8 +13,8 @@
  "counts": {
   "tables": 222,
   "views": 10,
-  "functions": 431,
-  "triggers": 142,
+  "functions": 433,
+  "triggers": 190,
   "policies": 594,
   "rls_tables": 216,
   "indexes": 365,
@@ -22,13 +22,13 @@
   "domains": 6,
   "enums": 0,
   "composites": 233,
-  "grants": 6253
+  "grants": 6256
  },
  "public": {
   "tables": 213,
   "views": 10,
   "functions": 280,
-  "triggers": 142,
+  "triggers": 190,
   "policies": 594,
   "rls_tables": 213,
   "indexes": 359,
@@ -40,7 +40,7 @@
  "sims_private": {
   "tables": 9,
   "views": 0,
-  "functions": 151,
+  "functions": 153,
   "triggers": 0,
   "policies": 0,
   "rls_tables": 3,
@@ -24867,17 +24867,17 @@
    "public.admin_lookup_options(p_table text)": {
     "definition_sha256": "4fd670cd375a5556eba76a746031a64568e810c5b653e57ef51da3c28e05d843"
    },
-   "public.admin_table_delete(p_table text, p_id bigint)": {
-    "definition_sha256": "6640c9c6f3a8f2ed2e98998e643a79795ae39b3dda2261e53fa2ed847fdb2158"
+   "public.admin_table_delete(p_table text, p_key jsonb)": {
+    "definition_sha256": "015bacb9d0db24df218b3c000acdd67cf19fbdc0f4b1ead5ba34846824638ccb"
    },
    "public.admin_table_list()": {
-    "definition_sha256": "4b159a635e452ac54c5661c081811f996ef4fd9bc0c66e89b384e2c62a043351"
+    "definition_sha256": "b248e13c73c7aab3024825562dbf5a82f72a3ca4c8aa37210d7563fcca73fe07"
    },
-   "public.admin_table_save(p_table text, p_id bigint, p jsonb)": {
-    "definition_sha256": "aa43526b1386b2b5f01fbed8b0e92f51ff1165ad0be4a6cdaca1ba6cc22d2bc0"
+   "public.admin_table_save(p_table text, p_key jsonb, p jsonb)": {
+    "definition_sha256": "24711595e4e69bced5359945cee94b19e4ee63a35a034526c141ed1821d1c70f"
    },
    "public.admin_table_schema(p_table text)": {
-    "definition_sha256": "5ca89cddd59935a4746182c85cfb8dc44d35951b7e8857e01e9263a4d582ebbf"
+    "definition_sha256": "a5f163e87cb7ceefeb08d5771f6a23ff199106606d21b377852a70db2be1e1bd"
    },
    "public.admission_admit(p_application_id bigint, p_student jsonb, p_enrolment jsonb)": {
     "definition_sha256": "b10811741c7bd9ace5ab8842790489c147cb4a66349dea9dc35dc4b071930126"
@@ -25710,20 +25710,26 @@
    "sims_private.activity_child_ok(p_activity_id bigint, p_detail_table text, p_perm_prefix text, p_action text)": {
     "definition_sha256": "b8de93b08ee4f81c1d6cda8499b8d4de79f6a2859df3f269fece944c82bf6e47"
    },
-   "sims_private.admin_can(p_table text, p_action text, p_row_id bigint, p_payload jsonb)": {
-    "definition_sha256": "2366874debf29fe82b8e7f7b95c71ff04329af6beed7555e8cb1366b4cc29284"
+   "sims_private.admin_can(p_table text, p_action text, p_key jsonb, p_payload jsonb)": {
+    "definition_sha256": "cf9a695c680a595a9cb1d9c447c1327be358bb90a2c01a8c85ac4dfa57aa97a4"
    },
    "sims_private.admin_holds(p_codes text[])": {
     "definition_sha256": "ee2db35055311bd6e041fe57414f5537cc66141cfdf225982629c688197570a8"
    },
-   "sims_private.admin_lookup_def(p_table text)": {
-    "definition_sha256": "af9d47f3d75345ade8dd043b2767781d4339340645ef1827eb04d67775a196e9"
+   "sims_private.admin_key_where(p_table text, p_key jsonb)": {
+    "definition_sha256": "69322ba5fa59ead700290756b1fb93272cb27d3a03086027835985d6b1a5e540"
    },
-   "sims_private.admin_scope_value(p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb)": {
-    "definition_sha256": "734248437347bd71e1141c853fa3498299c1df0083a560f3e62f3853b8b045bf"
+   "sims_private.admin_lookup_def(p_table text)": {
+    "definition_sha256": "258ece5618211a14ed9ea7cac8772e4b0479d452a58c026509a738cc4e6ac108"
+   },
+   "sims_private.admin_pk_cols(p_table text)": {
+    "definition_sha256": "95d62427a870f1b0cfa98e37c8364af174feac6706858afbd33dd9bbb1d5b0c8"
+   },
+   "sims_private.admin_scope_value(p_table text, p_scope_kind text, p_scope_path text[], p_key jsonb, p_payload jsonb)": {
+    "definition_sha256": "892a0504622f084ca464e428b4c50040b4d91dd1f6edbbb47d9d3ad203a609ba"
    },
    "sims_private.admin_table_def(p_table text)": {
-    "definition_sha256": "19bc7c68cc07855fdcd29182ace9d724a05773401c169ad7e16e54300c98c623"
+    "definition_sha256": "26338cae58c42243d99ab35c79c0b3e677428b1348684a7085cce969566b597e"
    },
    "sims_private.admission_action_for(p_to text)": {
     "definition_sha256": "9377f20287fd885fcd04ce1644b937eaf9071e26995d83a6252a5e8bf5978310"
@@ -31513,6 +31519,12 @@
    "public.academic_year.trg_academic_year_audit": {
     "definition_sha256": "be6b767581145d1fcb4cc26519ff5a65c8bb58b3c0a7650c4e24ca33a5e6e96e"
    },
+   "public.activity_evidence_requirement.trg_activity_evidence_requirement_audit": {
+    "definition_sha256": "b19c295f898598db0ca7367508ce531134b0d0de6b434c586e9df2c25750cdb9"
+   },
+   "public.activity_type.trg_activity_type_audit": {
+    "definition_sha256": "47877d7c5e91f40a8f230fe1016162b30f2cb3be56dc7de0d6cf2c32f3407f19"
+   },
    "public.admission_applicant.trg_admission_applicant_audit": {
     "definition_sha256": "6a1dfcb7fbec662ec32097b48159a31f0db0c875d4d3decaa9954bf82ab072f6"
    },
@@ -31525,11 +31537,20 @@
    "public.admission_application.trg_admission_application_touch_updated_at": {
     "definition_sha256": "2c1edcf0c9952d5b25f78e05ce6e8efafcbab68a79695b892014fa704a7ae5ea"
    },
+   "public.admission_category.trg_admission_category_audit": {
+    "definition_sha256": "b931b399858e4fe6fd59be1985c6a0b573a416cd3b804dda2868e7bff403b030"
+   },
    "public.announcement.trg_announcement_audit": {
     "definition_sha256": "0f2da0b801882882b377a030d1c26a5896daf3cf3c2774f76f16e22494b2cf6d"
    },
    "public.announcement.trg_announcement_workflow_guard": {
     "definition_sha256": "cb5c1446c6ccee74b322da72e6b34a717a034a2b7af565052d4f9df2860818c5"
+   },
+   "public.announcement_type.trg_announcement_type_audit": {
+    "definition_sha256": "e0bbde271ac55edbdb55ca819aa30bbf70d760215fc373454e314803d8bfd596"
+   },
+   "public.approval_status.trg_approval_status_audit": {
+    "definition_sha256": "a3044822505dd8c6784d323809a321179ac543dbd87f402f49612d5f5e5ccd3a"
    },
    "public.assessment_component.trg_assessment_component_audit": {
     "definition_sha256": "5f25d1504bc9e4bdd3847afb49accfa97656707bc140452a39f54a46ddfcb457"
@@ -31555,11 +31576,20 @@
    "public.awarding_body.trg_awarding_body_touch_updated_at": {
     "definition_sha256": "bfa5cb7eca4eb18bbbd6a2700a49b67d67a676f2ecdd0fcfbef0dfc5789cb884"
    },
+   "public.awarding_body_type.trg_awarding_body_type_audit": {
+    "definition_sha256": "76f5992272ba07652b7c8b71aa1ea608b110043f015e0f08e61832e524b4de38"
+   },
+   "public.building.trg_building_audit": {
+    "definition_sha256": "43c5c09a413cb73c92bcbad394668c52da029bd40c4daf48773d2a8f013e44ff"
+   },
    "public.campus.trg_campus_audit": {
     "definition_sha256": "f397db1800a694f50cae4ebcaa57e12e30eb8ce05e5b962af654565463ae3a24"
    },
    "public.certificate_request.trg_a_certificate_request_fee_hold": {
     "definition_sha256": "85b0c322a3508afd8eb63d31f3d0665d21de7c4e4ab72f789f64173d9307bb4c"
+   },
+   "public.certificate_request.trg_certificate_request_audit": {
+    "definition_sha256": "91c2a40862519e6679616b176fd4b366da5ea288520088536cc740ee31c665d8"
    },
    "public.certificate_request.trg_certificate_request_workflow_guard": {
     "definition_sha256": "0d0ddb5386419037679d6ae766c63b61dcb28ca013e4125e98caaf4f049e2459"
@@ -31576,11 +31606,23 @@
    "public.class_session.trg_class_session_guard": {
     "definition_sha256": "bcd8928ff13b77f3f1896b9cc8a3a873b252aa64941467e8cac3425f07c3110a"
    },
+   "public.cocurricular_category.trg_cocurricular_category_audit": {
+    "definition_sha256": "327a04cd7c0bf61ddeb2632135dde4a17b964c91d11241c578003eecb2414030"
+   },
    "public.conference_activity_indexing.trg_conference_activity_indexing_workflow_guard": {
     "definition_sha256": "2349ef85179f74678f18520b6ba7ceb0d9a4739097760703eae6ecfe3306ca20"
    },
+   "public.conference_contribution_type.trg_conference_contribution_type_audit": {
+    "definition_sha256": "002dfb8b4b6c26f09fd1ba624a24a87d69e24b2e7d121ed26a5dc68eaad2831f"
+   },
+   "public.conference_event.trg_conference_event_audit": {
+    "definition_sha256": "c0b86c75616b02258e57933d37cfcbd62b5dd708007fed24b02601afcdee8b6b"
+   },
    "public.conference_event.trg_conference_event_touch_updated_at": {
     "definition_sha256": "6b234bd695b8d5d5682686eb3e7f693fa38836ae964b595b37260d24f2da04c2"
+   },
+   "public.confidentiality_level.trg_confidentiality_level_audit": {
+    "definition_sha256": "4cc1b5e7b0d91f556a2cd69665a345e1181233d05054f79ba604bc33397cbc06"
    },
    "public.consultancy_project.trg_consultancy_project_workflow_guard": {
     "definition_sha256": "b1baa327b5eb133bb7ff55bee9a5068e4f2539faeb3625289ba655d6ef957fbb"
@@ -31597,6 +31639,9 @@
    "public.course_offering_section.trg_course_offering_section_audit": {
     "definition_sha256": "56a8940cda402834ad61b0e34b34b4efdf29f1f5ad1747af2a6bd4a99fd743bc"
    },
+   "public.course_offering_section_student.trg_course_offering_section_student_audit": {
+    "definition_sha256": "36d1022d5a3d5ae71d8d262152641213146bef3c3fdfa9e5c682129a7817ed0f"
+   },
    "public.course_prerequisite.trg_course_prerequisite_audit": {
     "definition_sha256": "8ebac43bb682ac8a194fa8fc6d6f52b03707af1c052820cf5b516fc4448bb3bc"
    },
@@ -31612,6 +31657,9 @@
    "public.education_institution.trg_education_institution_touch_updated_at": {
     "definition_sha256": "409137462ae35d08576f3444c6e2019d930e7b2907fa18c806a7326f60a02b26"
    },
+   "public.education_institution_type.trg_education_institution_type_audit": {
+    "definition_sha256": "4da5a9a3b494e5e80afc7e408db55c1dcf7c10425fb7b7713f56fe97e56e5e63"
+   },
    "public.employee.trg_employee_audit": {
     "definition_sha256": "f56bd6a83c669ad065340d509ecfac81a4225002fe8dfeab3cc03a213e988c03"
    },
@@ -31620,6 +31668,9 @@
    },
    "public.employee.trg_employee_touch_updated_at": {
     "definition_sha256": "35eb9c0b9b189fb376b6e0e27884e1d4f61d16e7cdd775e21d5e4df4c65c3de9"
+   },
+   "public.employee_aadhaar.trg_employee_aadhaar_audit": {
+    "definition_sha256": "dc189f38bba964e2d34174e0569f63ba02b884e8623b83c44b8c4be7f9f51808"
    },
    "public.employee_aadhaar.trg_employee_aadhaar_touch_updated_at": {
     "definition_sha256": "b22735c1088469d077693d717a789d9222d79a450e6fe6e634b975c8747f49c5"
@@ -31630,17 +31681,32 @@
    "public.employee_assignment.trg_employee_assignment_audit": {
     "definition_sha256": "820cc149e2704e8104751810835e53fc413ee18f9d419d8eb082d1c88be96c11"
    },
+   "public.employee_bank_account.trg_employee_bank_account_audit": {
+    "definition_sha256": "68cff9173cd77c6a2437f35831719e359d79bac28e0665b7ccd28dda0a9b0119"
+   },
    "public.employee_bank_account.trg_employee_bank_account_touch_updated_at": {
     "definition_sha256": "83281a4579d031221f52685788d4683ea9ef230555f6fb03ff4aa5212c010253"
    },
    "public.employee_bank_account.trg_employee_bank_account_workflow_guard": {
     "definition_sha256": "3d698945cb3d03319c744b6dd8a6ba785567ad7c96a9daf0fb6aa5ca1c64956b"
    },
+   "public.employee_document.trg_employee_document_audit": {
+    "definition_sha256": "6a1102941ef9a88956f09b7f95652893a1a19cfeaebabc9817909fb3f36e4e47"
+   },
    "public.employee_document.trg_employee_document_touch_updated_at": {
     "definition_sha256": "704f2c1cc50a06acfaa5a6a8d44c443f7d5d30724d76a43a365ea1cc6123bfda"
    },
    "public.employee_document.trg_employee_document_workflow_guard": {
     "definition_sha256": "8fdf89e8ef4566d387c195b87fcca5d8e93b8866bae87ab9a321a9a0734e11b6"
+   },
+   "public.employee_document_access_rule.trg_employee_document_access_rule_audit": {
+    "definition_sha256": "04636a6ae1e53a2348962b4012336915d8a3b5445fb2f1f48b6e1651eed2dd5f"
+   },
+   "public.employee_document_category.trg_employee_document_category_audit": {
+    "definition_sha256": "c549f995e55143262870da3027b5073c1e6ba67d0cc011319224a4b69608a994"
+   },
+   "public.employee_pan.trg_employee_pan_audit": {
+    "definition_sha256": "ea2f22a4c667f2e91193d474445b353420b3380d3de30c0a1d64400e8f0a576c"
    },
    "public.employee_pan.trg_employee_pan_touch_updated_at": {
     "definition_sha256": "a79867c1fe2fc662b4e9a5992594a3bd2a294796351a2ab903b1a5ee9cc866e0"
@@ -31654,8 +31720,17 @@
    "public.employee_qualification.trg_employee_qualification_touch_updated_at": {
     "definition_sha256": "3142ae34d81de22dd6be6487d57f9207e6a426ac49e50ac8739cb6b2cd6e7228"
    },
+   "public.employment_source.trg_employment_source_audit": {
+    "definition_sha256": "bb1188ad86492d6c9089ba8d878e85c327169720da2b243a6714878a39227e58"
+   },
    "public.employment_source.trg_employment_source_touch_updated_at": {
     "definition_sha256": "13e6c0faadfb9c560fbfeb20c5f5a2953fb7a26ad6bda55ddc7cb0c43649b759"
+   },
+   "public.enrolment_status_history.trg_enrolment_status_history_audit": {
+    "definition_sha256": "4bcba0ad6e8f7f4d29cea7f294c4017938b8b5175288b5233d89212f373e9e19"
+   },
+   "public.event_mode.trg_event_mode_audit": {
+    "definition_sha256": "97f73740debc050d582e2b9b77ed008d37165fdd28dc19f16f00b60ac6d27bc2"
    },
    "public.evidence_document.trg_evidence_document_touch_updated_at": {
     "definition_sha256": "3cb5fba3c1815ff6817d60c00646ebf18d7b8ec318fbfdcbd9a8f6d477e50a2c"
@@ -31663,11 +31738,32 @@
    "public.evidence_document.trg_evidence_document_workflow_guard": {
     "definition_sha256": "79a9d1d261d777a06518aa40379ecafb6209bc1f3c775af2e7d491f4302bb96c"
    },
+   "public.evidence_document_tag.trg_evidence_document_tag_audit": {
+    "definition_sha256": "e5d064e643dd92e11fa67885461dbed4e3097d5d9b95c75d5866ba0dfd9133a0"
+   },
+   "public.evidence_tag.trg_evidence_tag_audit": {
+    "definition_sha256": "6962c819f2dbf9f6f5ad944b282636cc621e8bbf6ddacc7050c772c67b457f88"
+   },
+   "public.evidence_type.trg_evidence_type_audit": {
+    "definition_sha256": "b9e695ae478e9e049a0b6c640fbb56d888fa1ed2895c3da024e8c2ee108bc945"
+   },
+   "public.external_agency.trg_external_agency_audit": {
+    "definition_sha256": "12d663d84196ff393d1cb430f475a11f0d5a12e79779836d4854ead128aa967f"
+   },
    "public.external_agency.trg_external_agency_touch_updated_at": {
     "definition_sha256": "150c319bc2d3440f3d8c8982dd92c99d1d9852df1bb2d02a2079e944d8253c42"
    },
+   "public.external_organization.trg_external_organization_audit": {
+    "definition_sha256": "db58bc47b15cf3fe1275c7635120b0f53e06c80e26c761fc1973ab9ec507185f"
+   },
    "public.external_organization.trg_external_organization_touch_updated_at": {
     "definition_sha256": "7360f10e2e7fa1f7095be8f923f1095a309e9e62ec101ac00d1b114cc3f66cb9"
+   },
+   "public.external_organization_type.trg_external_organization_type_audit": {
+    "definition_sha256": "762d25b2d82f636de7155bdd4e16176290fdbb281a2d0f11465b8eedde984128"
+   },
+   "public.extracurricular_category.trg_extracurricular_category_audit": {
+    "definition_sha256": "9ce71a6c202e3e67b82e63039a00eab42f9bfeec9c20e252635d490c510ac7b6"
    },
    "public.faculty_course_assignment.trg_faculty_course_assignment_audit": {
     "definition_sha256": "30e6dc0cc2280bd74ff9d173866e94860418e4c4482952913eaf4a9fcebb0f54"
@@ -31705,6 +31801,9 @@
    "public.feedback_question.trg_feedback_question_audit": {
     "definition_sha256": "57d53ef4410b967f910a0bee56378ecff901a84066d811d946247c625438a605"
    },
+   "public.feedback_question_category.trg_feedback_question_category_audit": {
+    "definition_sha256": "3bb2e574cb0ee64e8c3cceb74200677bdefdcd24d7e2740014445863bdf1cc2f"
+   },
    "public.feedback_questionnaire.trg_feedback_questionnaire_audit": {
     "definition_sha256": "41a9ce0b4c01fb3f18adb09a2bed254c49fb9ce36572e8fedf020a16c273ed19"
    },
@@ -31723,6 +31822,9 @@
    "public.file_object.trg_file_object_touch_updated_at": {
     "definition_sha256": "66f785598d2ff843b8408f43ccca5aa82024b727126827695d57c834b8be9754"
    },
+   "public.funding_agency.trg_funding_agency_audit": {
+    "definition_sha256": "3ca1222864f6390c0ddffd7c91ed6746bc1dd0b547f5be062c9e999fec16e324"
+   },
    "public.grade_rule.trg_grade_rule_audit": {
     "definition_sha256": "5fbf067f285c8462ef9db86bf4809cc952ab5db1d6fa373991cc2669edcec6c2"
    },
@@ -31732,11 +31834,20 @@
    "public.grievance.trg_grievance_audit": {
     "definition_sha256": "04c6c4e5b5966f81aa2b7987ef3753982e31729e4dde3318606c41263e5b8ca6"
    },
+   "public.grievance_category.trg_grievance_category_audit": {
+    "definition_sha256": "5b2462dd0106d92ac674521c92d6f4f24586bd1668de87f51ba8c00c5ff008f6"
+   },
+   "public.industry_sector.trg_industry_sector_audit": {
+    "definition_sha256": "a418e36d1b19e054b7acc580e4b67f96cb0f1d9029a4431a3271be4f3690f90b"
+   },
    "public.institution.trg_institution_audit": {
     "definition_sha256": "3c3ab3ee4f9c2ef7c3ec843bb28f30ccc324316dbe891abd6fa1867c39f387e9"
    },
    "public.institution.trg_institution_touch_updated_at": {
     "definition_sha256": "0ecb472bf9341f11bcad20fc00a69c256f3dca5925c1dcdf9f7c2d4d18a36dd1"
+   },
+   "public.journal.trg_journal_audit": {
+    "definition_sha256": "3053d80ffc259345c279b70282b0c9150249e6e46ee6d33e08a6fa46bfda9369"
    },
    "public.journal.trg_journal_touch_updated_at": {
     "definition_sha256": "e7cd28ec8468879c74d7bfb4977ddd331df957d77bc81a4f590d3562cb77645c"
@@ -31749,6 +31860,15 @@
    },
    "public.mentor_assignment.trg_mentor_assignment_audit": {
     "definition_sha256": "3f99a2f8581a2333c550461356bbb4533de3a63352b33c21021f8a3db0567c98"
+   },
+   "public.organization_type.trg_organization_type_audit": {
+    "definition_sha256": "e2b6a1880e921bfe16c7cf201ceee49d34eccb5a8e1854d182831c931d205d51"
+   },
+   "public.organizer.trg_organizer_audit": {
+    "definition_sha256": "377c1af382144d43dbbe5c829ef67850109598e2f72a110b469cc03f74aec978"
+   },
+   "public.participation_level.trg_participation_level_audit": {
+    "definition_sha256": "2a25b5294db9a27020a3acd8efe20c12ac0419d7db60243fd542855ad5972cd2"
    },
    "public.payment_allocation.trg_payment_allocation_ad": {
     "definition_sha256": "340416df51f25456020bc9f0e691e80f06eccda1573233982a3f1cb32efa22e7"
@@ -31768,6 +31888,12 @@
    "public.previous_organization.trg_previous_organization_touch_updated_at": {
     "definition_sha256": "823ff5422b24661e7c7dce0b102c0be1d7025e153b7e9112159372496605dea3"
    },
+   "public.previous_organization_type.trg_previous_organization_type_audit": {
+    "definition_sha256": "325ba2811c44a71c0ce1a87e2d74aa4a5383f6ae645c6b3c59d0fcf8f3ebaed0"
+   },
+   "public.professional_contribution_type.trg_professional_contribution_type_audit": {
+    "definition_sha256": "f4c3f3eac8a42527ddd3f90e112cbd5b7087e6cb1a14e7e7c7c0de90ba1f9a92"
+   },
    "public.programme.trg_programme_audit": {
     "definition_sha256": "7a5db43032cadf0849567015a7e3660db2211d28d31a69eb40963f13d9924e7f"
    },
@@ -31780,11 +31906,20 @@
    "public.publication_type.trg_publication_type_touch_updated_at": {
     "definition_sha256": "3d36b9997a19f5217874dca8b9fe9a256331a8255e5c3730f4a244280744438e"
    },
+   "public.publisher.trg_publisher_audit": {
+    "definition_sha256": "1ce5dd288d06fc2edd4c5c5671516a649d3a42b4ce42dfaf98900e87b3d13778"
+   },
    "public.qualification_level.trg_qualification_level_touch_updated_at": {
     "definition_sha256": "2dfe5174bf767cb3feda1d21cb9c8ba26dfea6b346ee0e62ed14137b3ca9f9c3"
    },
+   "public.research_status.trg_research_status_audit": {
+    "definition_sha256": "d28b03d3a562f775d4d74eb37a044db3015949e35055251b2fe516ebc329bc20"
+   },
    "public.role.trg_role_touch_updated_at": {
     "definition_sha256": "42f836fa6e61a3f4d4078a7af26d24d57582bcfce57f704807ae3450e8d3faf2"
+   },
+   "public.role_type.trg_role_type_audit": {
+    "definition_sha256": "794147324f2c408cf849bb0fcaabd76be031f5d812a99d04159aac6ccf3e1b1a"
    },
    "public.room.trg_room_audit": {
     "definition_sha256": "ff477cc305a1e5284435726bc9c19d9dfa20d6edb01a060b0667bf0fb3c40edb"
@@ -31828,6 +31963,12 @@
    "public.student_activity_evidence.trg_student_activity_evidence_workflow_guard": {
     "definition_sha256": "787bc26f7256a5dbaaea74ba638b3eef849e409d5721733fd6c05876c0edfea6"
    },
+   "public.student_activity_evidence_requirement.trg_student_activity_evidence_requirement_audit": {
+    "definition_sha256": "51d53258beca7c255fabf9a959099bce71fe4b2b265f04e93474457c9f0c0c93"
+   },
+   "public.student_activity_type.trg_student_activity_type_audit": {
+    "definition_sha256": "5e813df71b96ec3e11fdd16c1748d75defce7c905284bb291ae025756aa1adbd"
+   },
    "public.student_activity_type.trg_student_activity_type_touch_updated_at": {
     "definition_sha256": "64794b718a24940eeed9e54c074b967ec5bcbbcc8aad383b54a18283830d269e"
    },
@@ -31857,6 +31998,9 @@
    },
    "public.student_document.trg_student_document_workflow_guard": {
     "definition_sha256": "3b298fbcd367f2b8c682e172820c784079a157d44cfd3092475761a423ee784b"
+   },
+   "public.student_exit.trg_student_exit_audit": {
+    "definition_sha256": "ad13f8a8b0aecbac0b597fe99c90d8058e36676e92cf79497af9fefc50704a11"
    },
    "public.student_fee_assessment.trg_student_fee_assessment_touch_updated_at": {
     "definition_sha256": "e81234b6ab7ad243d2b25bd2a2d5a8a26858d479155d65ab2b11cc9affc1a1b2"
@@ -31906,6 +32050,9 @@
    "public.timetable_session.trg_timetable_session_guard": {
     "definition_sha256": "f389c59a1ef77635907cd15618bf00c1d4e53855790e5bd0e629f886196e56a2"
    },
+   "public.training_program_type.trg_training_program_type_audit": {
+    "definition_sha256": "83d2d5cdba5ab377ed810bd0732c84ceb0ef0d707d45cd15224372196d977a32"
+   },
    "public.university.trg_university_audit": {
     "definition_sha256": "35b566ca6504e48f76091f2febee264d470990c2bde88d2f57eb33a26fb7cea9"
    },
@@ -31932,6 +32079,9 @@
    },
    "public.user_role_assignment.trg_user_role_assignment_scope_bu": {
     "definition_sha256": "05d2eed8c886ac99d2917a2f70231b7781a095872abc2926969ce95f32d35cbd"
+   },
+   "public.verification_status.trg_verification_status_audit": {
+    "definition_sha256": "c4268fb9bf44022e9fc0d5b287df5f6bf70cabff731d376d9fd685a2481a964e"
    }
   },
   "grants": {
@@ -32511,16 +32661,16 @@
    "public.admin_lookup_options(p_table text).service_role.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_delete(p_table text, p_id bigint).PUBLIC.EXECUTE": {
+   "public.admin_table_delete(p_table text, p_key jsonb).PUBLIC.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_delete(p_table text, p_id bigint).authenticated.EXECUTE": {
+   "public.admin_table_delete(p_table text, p_key jsonb).authenticated.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_delete(p_table text, p_id bigint).postgres.EXECUTE": {
+   "public.admin_table_delete(p_table text, p_key jsonb).postgres.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_delete(p_table text, p_id bigint).service_role.EXECUTE": {
+   "public.admin_table_delete(p_table text, p_key jsonb).service_role.EXECUTE": {
     "grantable": false
    },
    "public.admin_table_list().PUBLIC.EXECUTE": {
@@ -32535,16 +32685,16 @@
    "public.admin_table_list().service_role.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_save(p_table text, p_id bigint, p jsonb).PUBLIC.EXECUTE": {
+   "public.admin_table_save(p_table text, p_key jsonb, p jsonb).PUBLIC.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_save(p_table text, p_id bigint, p jsonb).authenticated.EXECUTE": {
+   "public.admin_table_save(p_table text, p_key jsonb, p jsonb).authenticated.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_save(p_table text, p_id bigint, p jsonb).postgres.EXECUTE": {
+   "public.admin_table_save(p_table text, p_key jsonb, p jsonb).postgres.EXECUTE": {
     "grantable": false
    },
-   "public.admin_table_save(p_table text, p_id bigint, p jsonb).service_role.EXECUTE": {
+   "public.admin_table_save(p_table text, p_key jsonb, p jsonb).service_role.EXECUTE": {
     "grantable": false
    },
    "public.admin_table_schema(p_table text).PUBLIC.EXECUTE": {
@@ -49675,6 +49825,15 @@
     "grantable": false
    },
    "sims_private.admin_lookup_def(p_table text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_pk_cols(p_table text).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_pk_cols(p_table text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_pk_cols(p_table text).postgres.EXECUTE": {
     "grantable": false
    },
    "sims_private.admin_table_def(p_table text).PUBLIC.EXECUTE": {

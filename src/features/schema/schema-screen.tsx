@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PageHeader, StatTile } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorPanel, EmptyState } from '@/components/ui/empty-state';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { FILE_OBJECT_COLUMNS, type FileObjectColumn } from '@/features/schema/file-object-columns';
 import { IndexCatalogue, type SchemaIndex } from '@/features/schema/index-catalogue';
 import { IntegrityNotes } from '@/features/schema/integrity-notes';
@@ -56,6 +57,12 @@ export async function SchemaScreen({ entry }: { entry: SchemaModule }) {
   return (
     <>
       <PageHeader title={`${entry.module} · ${entry.title}`} description={entry.description} />
+
+      <AdminTableEditor
+        modules={['IAM', 'STAFF_PROFILE']}
+        title="Manage the schema records"
+        description="Add, edit and remove the access and staff-profile records behind this screen. Every change is written through the database and audited."
+      />
 
       <p className="mb-4 text-xs text-muted-foreground">
         Gated by the <span className="font-mono">{entry.accessModules.join(' or ')}</span> access module.
