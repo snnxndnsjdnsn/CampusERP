@@ -22,6 +22,8 @@ import re
 import sys
 from pathlib import Path
 
+from hand_written import strip_hand_written_tables
+
 ROOT = Path(__file__).resolve().parent.parent
 MIGRATIONS = ROOT / "supabase" / "migrations"
 CATALOGUE = ROOT / "tools" / "catalogue" / "live_catalogue.json"
@@ -218,6 +220,7 @@ def main() -> int:
     args = ap.parse_args()
 
     cat = load_catalogue(Path(args.catalogue))
+    cat = strip_hand_written_tables(cat)
     derived = derive_table_modules(cat)
     stored = load_table_map(Path(args.map))
 

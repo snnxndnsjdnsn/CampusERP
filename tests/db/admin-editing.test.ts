@@ -34,7 +34,7 @@ import { asUser, createWorld, db, U } from './world';
 
 const TIMEOUT = 300_000;
 
-/** The 127 tables the catalogue offers, in the order the database returns them. */
+/** The 139 tables the catalogue offers, in the order the database returns them. */
 const ALL_TABLES = [
   'academic_term',
   'academic_year',
@@ -51,6 +51,11 @@ const ALL_TABLES = [
   'awarding_body_type',
   'blood_group',
   'building',
+  'building_document',
+  'calendar',
+  'calendar_term_schedule',
+  'calendar_week',
+  'calendar_week_day',
   'campus',
   'caste',
   'certificate_request',
@@ -99,6 +104,7 @@ const ALL_TABLES = [
   'external_organization',
   'external_organization_type',
   'extracurricular_category',
+  'facility_type',
   'faculty_course_assignment',
   'feedback_choice',
   'feedback_cycle',
@@ -106,18 +112,23 @@ const ALL_TABLES = [
   'feedback_question_category',
   'feedback_questionnaire',
   'feedback_questionnaire_item',
+  'floor',
+  'floor_facility',
   'funding_agency',
   'funding_type',
   'gender',
   'grade_rule',
   'grade_scale',
   'grievance_category',
+  'holiday',
   'indexing_agency',
   'industry_sector',
   'journal',
   'journal_metric',
   'journal_publication_indexing',
   'journal_type',
+  'land',
+  'land_document',
   'membership_type',
   'metric_type',
   'organization_type',
@@ -138,6 +149,7 @@ const ALL_TABLES = [
   'research_supervision',
   'role_type',
   'room',
+  'room_facility',
   'semester',
   'social_category',
   'staff_category',
@@ -543,7 +555,7 @@ describe('admin editing surface', () => {
          FROM sims_private.admin_table_def(NULL) d
         ORDER BY d.tbl`,
     );
-    expect(rows.rows.length).toBe(127);
+    expect(rows.rows.length).toBe(139);
 
     for (const row of rows.rows) {
       if (row.audit_mode === 'TRIGGER') {

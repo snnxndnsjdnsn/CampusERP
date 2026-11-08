@@ -96,6 +96,114 @@ SELECT b.building_id, 'DEMO-101', 'Lecture Hall 101', 'CLASSROOM', 60, true
 FROM building b WHERE b.building_code = 'DEMO-BLDG-A'
   AND NOT EXISTS (SELECT 1 FROM room x WHERE x.room_code = 'DEMO-101');
 
+
+-- ---------------------------------------------------------------------------------------------
+-- Module 2 - property hierarchy (land -> building -> floor -> room, facilities, documents)
+-- ---------------------------------------------------------------------------------------------
+INSERT INTO facility_type (facility_code, facility_name, applies_to, description)
+SELECT v.code, v.name, v.scope, v.descr
+FROM (VALUES
+  ('FIRE_EXTINGUISHER', 'Fire extinguisher',   'BOTH',  'Portable fire extinguisher'),
+  ('FIRE_ALARM',        'Fire alarm',          'FLOOR', 'Manual call points and sounders'),
+  ('SMOKE_DETECTOR',    'Smoke detector',      'FLOOR', 'Ceiling mounted smoke detectors'),
+  ('EMERGENCY_EXIT',    'Emergency exit',      'FLOOR', 'Marked emergency exit door'),
+  ('LIFT',              'Lift / elevator',     'FLOOR', 'Passenger or goods lift serving the floor'),
+  ('WATER_SPRINKLER',   'Water sprinkler',     'FLOOR', 'Ceiling sprinkler heads'),
+  ('CCTV',              'CCTV camera',         'BOTH',  'Surveillance camera'),
+  ('FIRST_AID_KIT',     'First aid kit',       'BOTH',  'Wall mounted first aid box'),
+  ('AIR_CONDITIONER',   'Air conditioner',     'ROOM',  'Split or window air conditioner'),
+  ('CEILING_FAN',       'Ceiling fan',         'ROOM',  'Ceiling mounted fan'),
+  ('WOODEN_BENCH',      'Wooden bench',        'ROOM',  'Long wooden bench seating'),
+  ('CHAIR',             'Chair',               'ROOM',  'Individual chair'),
+  ('PROJECTOR',         'Projector',           'ROOM',  'Ceiling mounted projector'),
+  ('WHITEBOARD',        'Whiteboard',          'ROOM',  'Wall whiteboard')
+) AS v(code, name, scope, descr)
+WHERE NOT EXISTS (SELECT 1 FROM facility_type x WHERE x.facility_code = v.code);
+
+INSERT INTO land (campus_id, land_name, survey_number, total_area_sqft, address)
+SELECT c.campus_id, v.name, v.survey, v.area, v.addr
+FROM (VALUES
+  ('Main Campus Plot',   'DEMO-SURVEY-001', 120000.00, 'Survey 114, Demonstration Road, Bengaluru 560064'),
+  ('Sports Ground Plot', 'DEMO-SURVEY-002', 45000.00,  'Survey 115, Demonstration Road, Bengaluru 560064')
+) AS v(name, survey, area, addr)
+JOIN campus c ON c.campus_code = 'DEMO-CAMPUS'
+WHERE NOT EXISTS (SELECT 1 FROM land x WHERE x.survey_number = v.survey);
+
+UPDATE building
+   SET land_id = (SELECT land_id FROM land WHERE survey_number = 'DEMO-SURVEY-001'),
+       total_floors = 3,
+       construction_year = 2015
+ WHERE building_code = 'DEMO-BLDG-A'
+   AND (land_id IS NULL OR total_floors IS NULL OR construction_year IS NULL);
+
+INSERT INTO floor (building_id, floor_number, floor_name)
+SELECT b.building_id, v.no, v.name
+FROM (VALUES (0, 'Ground Floor'), (1, 'First Floor'), (2, 'Second Floor')) AS v(no, name)
+JOIN building b ON b.building_code = 'DEMO-BLDG-A'
+WHERE NOT EXISTS (
+  SELECT 1 FROM floor x
+   WHERE x.building_id = b.building_id AND x.floor_number = v.no
+);
+
+INSERT INTO floor_facility (floor_id, facility_type_id, quantity)
+SELECT f.floor_id, ft.facility_type_id, v.qty
+FROM (VALUES
+  (0, 'FIRE_EXTINGUISHER', 4), (0, 'EMERGENCY_EXIT', 2), (0, 'CCTV', 6), (0, 'FIRST_AID_KIT', 1),
+  (1, 'FIRE_EXTINGUISHER', 4), (1, 'LIFT', 1), (1, 'FIRE_ALARM', 1),
+  (2, 'FIRE_EXTINGUISHER', 4), (2, 'LIFT', 1), (2, 'SMOKE_DETECTOR', 12)
+) AS v(floor_no, code, qty)
+JOIN building b ON b.building_code = 'DEMO-BLDG-A'
+JOIN floor f ON f.building_id = b.building_id AND f.floor_number = v.floor_no
+JOIN facility_type ft ON ft.facility_code = v.code
+WHERE NOT EXISTS (
+  SELECT 1 FROM floor_facility x
+   WHERE x.floor_id = f.floor_id AND x.facility_type_id = ft.facility_type_id
+);
+
+INSERT INTO room_facility (room_id, facility_type_id, quantity)
+SELECT r.room_id, ft.facility_type_id, v.qty
+FROM (VALUES
+  ('AIR_CONDITIONER', 2), ('WOODEN_BENCH', 30), ('PROJECTOR', 1),
+  ('WHITEBOARD', 1), ('CEILING_FAN', 4)
+) AS v(code, qty)
+JOIN room r ON r.room_code = 'DEMO-101'
+JOIN facility_type ft ON ft.facility_code = v.code
+WHERE NOT EXISTS (
+  SELECT 1 FROM room_facility x
+   WHERE x.room_id = r.room_id AND x.facility_type_id = ft.facility_type_id
+);
+
+UPDATE room
+   SET floor_id = (SELECT f.floor_id FROM floor f JOIN building b ON b.building_id = f.building_id
+                    WHERE b.building_code = 'DEMO-BLDG-A' AND f.floor_number = 0),
+       area_sqft = 920.50
+ WHERE room_code = 'DEMO-101'
+   AND (floor_id IS NULL OR area_sqft IS NULL);
+
+INSERT INTO land_document (land_id, document_type, document_name, document_number, issue_date, expiry_date, remarks)
+SELECT l.land_id, v.doc_type, v.name, v.number, v.issued::date, v.expires::date, v.remarks
+FROM (VALUES
+  ('SALE_DEED', 'Registered sale deed - Main Campus Plot', 'DEMO-DEED-1987-114', '1987-06-15', NULL,
+   'Registered before the sub-registrar, Bengaluru'),
+  ('SURVEY_RECORD', 'Land survey record - Main Campus Plot', 'DEMO-SURVEY-001/PH-2', '2018-02-10', NULL,
+   'Latest phodhi survey of the parcel')
+) AS v(doc_type, name, number, issued, expires, remarks)
+JOIN land l ON l.survey_number = 'DEMO-SURVEY-001'
+WHERE NOT EXISTS (SELECT 1 FROM land_document x WHERE x.document_number = v.number);
+
+INSERT INTO building_document (building_id, document_type, document_name, document_number, issue_date, expiry_date, remarks)
+SELECT b.building_id, v.doc_type, v.name, v.number, v.issued::date, v.expires::date, v.remarks
+FROM (VALUES
+  ('COMPLETION_CERTIFICATE', 'Completion certificate - Academic Block A', 'DEMO-CC-2015-0431', '2015-05-20', NULL,
+   'Issued by the city corporation on completion'),
+  ('OCCUPANCY_CERTIFICATE', 'Occupancy certificate - Academic Block A', 'DEMO-OC-2015-0388', '2015-06-30', NULL,
+   'Issued before the first academic year in the building'),
+  ('FIRE_NOC', 'Fire safety NOC - Academic Block A', 'DEMO-FNOC-2026-1177', '2026-04-01', '2027-03-31',
+   'Renewed every year with the fire officer''s inspection')
+) AS v(doc_type, name, number, issued, expires, remarks)
+JOIN building b ON b.building_code = 'DEMO-BLDG-A'
+WHERE NOT EXISTS (SELECT 1 FROM building_document x WHERE x.document_number = v.number);
+
 -- ---------------------------------------------------------------------------------------------
 -- Module 3 - academic calendar
 -- ---------------------------------------------------------------------------------------------
@@ -126,6 +234,128 @@ FROM (VALUES
 ) AS v(code, s, e)
 JOIN campus c ON c.campus_code = 'DEMO-CAMPUS'
 WHERE NOT EXISTS (SELECT 1 FROM time_slot x WHERE x.slot_code = v.code);
+
+
+-- ---------------------------------------------------------------------------------------------
+-- Module 3 - calendar of events (two calendars: ACADEMIC and TERM)
+--
+-- The academic calendar is the week by week calendar of events of the odd semester 2026-27:
+-- eighteen weeks from 3rd August to 30th November, the holidays named with their type, and the
+-- term calendar carries the commencement and examination schedule per course.
+-- ---------------------------------------------------------------------------------------------
+INSERT INTO academic_year (year_code, start_date, end_date, status)
+VALUES ('2026-27', '2026-06-01', '2027-05-31', 'PLANNED')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO calendar (calendar_type, academic_year_id, title, description, start_date, end_date, is_published)
+SELECT v.kind, y.academic_year_id, v.title, v.descr, v.starts::date, v.ends::date, v.published
+FROM (VALUES
+  ('ACADEMIC', 'Calendar of Events - Odd Semester 2026-27',
+   'Weekly calendar of events for the 3rd, 5th and 7th semester and the 1st semester, as published by the registrar''s office.',
+   '2026-08-03', '2026-11-30', true),
+  ('TERM', 'Term Schedule - 2026-27',
+   'Term commencement, end of term and examination dates per course.',
+   '2026-08-03', '2026-12-12', true)
+) AS v(kind, title, descr, starts, ends, published)
+JOIN academic_year y ON y.year_code = '2026-27'
+WHERE NOT EXISTS (
+  SELECT 1 FROM calendar x
+   WHERE x.academic_year_id = y.academic_year_id AND x.calendar_type = v.kind
+);
+
+INSERT INTO holiday (calendar_id, holiday_date, holiday_name, holiday_type, is_optional, description)
+SELECT c.calendar_id, v.d::date, v.name, v.type, v.opt, v.descr
+FROM (VALUES
+  ('2026-08-15', 'Independence Day',             'GAZETTED', false, 'National holiday'),
+  ('2026-08-26', 'Id-Milad / Prophet''s Birthday','GAZETTED', false, 'National holiday'),
+  ('2026-09-14', 'Ganesh Chaturthi',             'GAZETTED', false, 'State holiday'),
+  ('2026-10-02', 'Gandhi Jayanthi',              'GAZETTED', false, 'National holiday'),
+  ('2026-10-10', 'Mahalaya Amavasya',            'GAZETTED', false, 'State holiday'),
+  ('2026-10-19', 'Ayudhya Pooja',                'GAZETTED', false, 'State holiday'),
+  ('2026-10-20', 'Maharishi Valmiki Jayanthi',   'GAZETTED', false, 'State holiday'),
+  ('2026-10-21', 'Vijayadashami',                'GAZETTED', false, 'State holiday'),
+  ('2026-11-01', 'Kannada Rajyotsava',           'GAZETTED', false, 'State holiday'),
+  ('2026-11-09', 'Compensatory Holiday',         'INSTITUTIONAL', false, 'Compensating the Deepavali week'),
+  ('2026-11-10', 'Deepavali',                    'GAZETTED', false, 'Festival of lights')
+) AS v(d, name, type, opt, descr)
+JOIN calendar c ON c.calendar_type = 'ACADEMIC'
+JOIN academic_year y ON y.academic_year_id = c.academic_year_id AND y.year_code = '2026-27'
+WHERE NOT EXISTS (
+  SELECT 1 FROM holiday x WHERE x.calendar_id = c.calendar_id AND x.holiday_date = v.d::date
+);
+
+INSERT INTO calendar_week (calendar_id, week_no, month_label, week_start_date, week_end_date, no_of_working_days, events)
+SELECT c.calendar_id, v.no, v.mon, v.starts::date, v.starts::date + 6, v.working, v.events
+FROM (VALUES
+  (1,  'Aug', '2026-08-03', 6,  'Registration Day: 3rd Aug; Commencement of 3rd & 5th Sem: 3rd Aug; 1st Sem Student Induction Program: 3rd to 6th Aug'),
+  (2,  'Aug', '2026-08-10', 6,  'Last date for the registration: 10th Aug; Independence Day: 15th Aug'),
+  (3,  'Aug', '2026-08-17', 6,  NULL),
+  (4,  'Aug', '2026-08-24', 5,  'Id-Milad: 26th Aug'),
+  (5,  'Sept','2026-08-31', 6,  'Class Committee Meeting-1: 31st Aug & 1st Sept; Monthly attendance report: 1st Sept'),
+  (6,  'Sept','2026-09-07', 6,  'Formative Feedback: 7th to 9th Sept'),
+  (7,  'Sept','2026-09-14', 5,  'Ganesh Chathurthi: 14th Sept'),
+  (8,  'Sept','2026-09-21', 6,  'Minor - 1: 21st & 23rd Sept; Student Counselling: 24th to 30th Sept; Last date for Remedial/Make-up minor - 1: 25th Sept; Make-Up Minor - 1: 26th Sept'),
+  (9,  'Sept','2026-09-28', 5,  'Class Committee Meeting-2: 28th & 29th Sept; Minor - 1 Marks Display: 1st Oct; Monthly attendance report: 1st Oct; Gandhi Jayanthi: 2nd Oct'),
+  (10, 'Oct', '2026-10-05', 5,  'Working with Friday Time Table: 3rd Oct; Working with Saturday Time Table: 4th Oct; Last date for course (s) dropping: 6th Oct; Mahalaya Amavasya: 10th Oct'),
+  (11, 'Oct', '2026-10-12', 6,  NULL),
+  (12, 'Oct', '2026-10-19', 4,  'Ayudhya Pooja: 19th Oct; Maharishi Valmiki Jayanthi: 20th Oct; Vijayadashami: 21st Oct'),
+  (13, 'Oct', '2026-10-26', 5,  'Summative Feedback: 26th Oct; Class Committee Meeting-3: 30th & 31st Oct; Kannada Rajyotsava: 1st Nov'),
+  (14, 'Nov', '2026-11-02', 5,  'Monthly attendance report: 2nd Nov; Minor - 2: 5th, 6th & 7th Nov; Student Counselling - 2: 5th to 16th Nov'),
+  (15, 'Nov', '2026-11-09', 4,  'Compensatory Holiday: 9th Nov; Deepavali: 10th Nov; Last date for applying to Make-Up minor - 2: 11th Nov; Make-Up Minor - 2: 12th & 13th Nov'),
+  (16, 'Nov', '2026-11-16', 6,  'Minor - 2 Marks Display: 17th Nov; Last date for course (s) withdrawl: 21st Nov'),
+  (17, 'Nov', '2026-11-23', 6,  '3rd & 7th Sem Final attendance/Marks display: 24th Nov; End Term for 3rd & 5th Sem: 24th Nov'),
+  (18, 'Nov', '2026-11-30', 1,  '1st Sem Final attendance/Marks Display: 30th Nov; End of Term for 1st Sem: 30th Nov')
+) AS v(no, mon, starts, working, events)
+JOIN calendar c ON c.calendar_type = 'ACADEMIC'
+JOIN academic_year y ON y.academic_year_id = c.academic_year_id AND y.year_code = '2026-27'
+WHERE NOT EXISTS (
+  SELECT 1 FROM calendar_week x WHERE x.calendar_id = c.calendar_id AND x.week_no = v.no
+);
+
+INSERT INTO calendar_week_day (week_id, day_index, day_date, day_category, holiday_id)
+SELECT w.week_id,
+       d.idx::smallint,
+       w.week_start_date + d.idx,
+       COALESCE(cat.category,
+                CASE WHEN h.holiday_id IS NOT NULL THEN 'HOLIDAY' ELSE 'WORKING_DAY' END),
+       h.holiday_id
+FROM calendar_week w
+JOIN calendar c ON c.calendar_id = w.calendar_id AND c.calendar_type = 'ACADEMIC'
+JOIN academic_year y ON y.academic_year_id = c.academic_year_id AND y.year_code = '2026-27'
+CROSS JOIN generate_series(0, 6) AS d(idx)
+LEFT JOIN holiday h ON h.calendar_id = c.calendar_id AND h.holiday_date = w.week_start_date + d.idx
+LEFT JOIN (VALUES
+  (DATE '2026-09-07', 'MARKS_DISPLAY'),
+  (DATE '2026-09-08', 'MARKS_DISPLAY'),
+  (DATE '2026-09-09', 'MARKS_DISPLAY'),
+  (DATE '2026-09-21', 'REMEDIAL_CLASS'),
+  (DATE '2026-09-22', 'REMEDIAL_CLASS'),
+  (DATE '2026-09-30', 'MAKEUP_EXAM'),
+  (DATE '2026-10-01', 'MAKEUP_EXAM'),
+  (DATE '2026-11-05', 'MINOR_EXAM'),
+  (DATE '2026-11-06', 'MINOR_EXAM'),
+  (DATE '2026-11-07', 'MINOR_EXAM'),
+  (DATE '2026-11-12', 'MAKEUP_EXAM'),
+  (DATE '2026-11-13', 'MAKEUP_EXAM'),
+  (DATE '2026-11-17', 'MARKS_DISPLAY'),
+  (DATE '2026-11-24', 'MARKS_DISPLAY'),
+  (DATE '2026-11-30', 'MARKS_DISPLAY')
+) AS cat(day_date, category) ON cat.day_date = w.week_start_date + d.idx
+WHERE NOT EXISTS (
+  SELECT 1 FROM calendar_week_day x WHERE x.week_id = w.week_id AND x.day_index = d.idx
+);
+
+INSERT INTO calendar_term_schedule (calendar_id, course_label, term_commencement_date, end_of_term_date, practical_exam_start, practical_exam_end, theory_exam_start, theory_exam_end)
+SELECT c.calendar_id, v.course, v.commence::date, v.end_term::date, v.prac_start::date, v.prac_end::date, v.theory_start::date, v.theory_end::date
+FROM (VALUES
+  ('7th Sem B.E & 3rd Sem BBA, BCA, MCA (Int.) & B.Com', '2026-08-03', '2026-11-24', '2026-11-28', '2026-12-07', '2026-12-05', '2026-12-12'),
+  ('1st Sem BBA, BCA, MCA (Int.), B.Com & B.Sc (FAD)',   '2026-08-03', '2026-11-30', '2026-12-03', '2026-12-07', '2026-12-10', NULL)
+) AS v(course, commence, end_term, prac_start, prac_end, theory_start, theory_end)
+JOIN calendar c ON c.calendar_type = 'TERM'
+JOIN academic_year y ON y.academic_year_id = c.academic_year_id AND y.year_code = '2026-27'
+WHERE NOT EXISTS (
+  SELECT 1 FROM calendar_term_schedule x WHERE x.calendar_id = c.calendar_id AND x.course_label = v.course
+);
 
 -- ---------------------------------------------------------------------------------------------
 -- Module 4 - curriculum and course catalogue

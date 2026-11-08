@@ -8,6 +8,7 @@ import {
   type ParentOptions,
   type UniversityOption,
 } from '@/features/structure/structure-editor';
+import { PropertyHierarchy } from '@/features/structure/property-hierarchy';
 import { readTable } from '@/features/shared/reads';
 import { formatNumber } from '@/lib/format';
 import { requireContext } from '@/lib/server-context';
@@ -21,6 +22,10 @@ type ProgrammeRow = { programme_id: number };
 type StudentRow = { student_id: number; student_number: string; display_name: string };
 type EmployeeRow = { employee_id: number; employee_number: string; display_name: string };
 type ActivityRow = { staff_activity_id: number; activity_title: string; employee_id: number };
+type LandRow = { land_id: number; land_name: string; survey_number: string };
+type BuildingRow = { building_id: number; building_code: string; building_name: string; land_id: number | null; total_floors: number | null };
+type FloorRow = { floor_id: number; building_id: number; floor_number: number; floor_name: string | null };
+type RoomRow = { room_id: number; building_id: number; room_code: string };
 
 /**
  * Module 2 · Institution structure.
@@ -32,7 +37,7 @@ type ActivityRow = { staff_activity_id: number; activity_title: string; employee
 export default async function StructurePage() {
   const { supabase } = await requireContext();
 
-  const [institutions, universities, campuses, departments, programmes, students, employees, activities] =
+  const [institutions, universities, campuses, departments, programmes, students, employees, activities, lands, buildings, floors, rooms] =
     await Promise.all([
       readTable<InstitutionRow>(
         supabase,
@@ -61,6 +66,19 @@ export default async function StructurePage() {
         order: { column: 'staff_activity_id', ascending: false },
         limit: 500,
       }),
+      readTable<LandRow>(supabase, 'land', 'land_id, land_name, survey_number', {
+        order: { column: 'land_name' },
+      }),
+      readTable<BuildingRow>(
+        supabase,
+        'building',
+        'building_id, building_code, building_name, land_id, total_floors',
+        { order: { column: 'building_name' } },
+      ),
+      readTable<FloorRow>(supabase, 'floor', 'floor_id, building_id, floor_number, floor_name', {
+        order: { column: 'floor_number' },
+      }),
+      readTable<RoomRow>(supabase, 'room', 'room_id, building_id, room_code'),
     ]);
 
   const errors = [institutions, universities, campuses, departments, programmes, students, employees, activities]
@@ -102,7 +120,7 @@ export default async function StructurePage() {
       <AdminTableEditor
         modules={['INSTITUTION']}
         title="Manage the institution structure"
-        description="Add, edit and remove the universities, campuses, departments, programmes, specialisations, buildings and rooms behind this screen. Every change is written through the database and audited."
+        description="Add, edit and remove the universities, campuses, departments, programmes, specialisations, land parcels, buildings, floors, rooms, their facilities and documents behind this screen. Every change is written through the database and audited."
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -110,7 +128,18 @@ export default async function StructurePage() {
         <StatTile label="Campuses" value={formatNumber(campuses.data.length)} />
         <StatTile label="Departments" value={formatNumber(departments.data.length)} />
         <StatTile label="Programmes" value={formatNumber(programmes.data.length)} />
+        <StatTile label="Land parcels" value={formatNumber(lands.data.length)} />
+        <StatTile label="Buildings" value={formatNumber(buildings.data.length)} />
+        <StatTile label="Floors" value={formatNumber(floors.data.length)} />
+        <StatTile label="Rooms" value={formatNumber(rooms.data.length)} />
       </div>
+
+      <PropertyHierarchy
+        lands={lands.data}
+        buildings={buildings.data}
+        floors={floors.data}
+        rooms={rooms.data}
+      />
 
       <StructureEditor
         institutions={institutions.data}

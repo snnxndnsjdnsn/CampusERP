@@ -17,6 +17,11 @@ const MODULE_TABLES: Record<string, string[]> = {
   ACADEMIC_CALENDAR: [
     'academic_term',
     'academic_year',
+    'calendar',
+    'calendar_term_schedule',
+    'calendar_week',
+    'calendar_week_day',
+    'holiday',
     'semester',
     'time_slot'
   ],
@@ -103,11 +108,18 @@ const MODULE_TABLES: Record<string, string[]> = {
   ],
   INSTITUTION: [
     'building',
+    'building_document',
     'campus',
     'department',
+    'facility_type',
+    'floor',
+    'floor_facility',
+    'land',
+    'land_document',
     'programme',
     'programme_specialization',
     'room',
+    'room_facility',
     'university'
   ],
   REGISTRATION: [

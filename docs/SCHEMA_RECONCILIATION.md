@@ -8,24 +8,106 @@ The MySQL source is the functional specification, the PostgreSQL schema is what 
 
 | Object | MySQL source | PostgreSQL | Result |
 |---|---|---|---|
-| Tables | 213 | 213 | identical names |
-| Columns | 2099 | 2099 | same number |
-| Primary keys | 213 | 213 | same number |
-| Foreign keys | 500 | 500 | same number |
-| Unique constraints | 249 | 249 | same number |
-| Check constraints | 101 | 102 | different number |
-| Declared indexes | 104 | 359 | the source declares standalone `CREATE INDEX` statements; PostgreSQL creates the index of every primary and unique key on top |
-| Tables without a difference | - | 212 | 1 table(s) differ |
-
-Every table of the MySQL source exists in PostgreSQL and the other way round.
+| Tables | 213 | 225 | identical names |
+| Columns | 2099 | 2208 | different number |
+| Primary keys | 213 | 225 | different number |
+| Foreign keys | 500 | 518 | different number |
+| Unique constraints | 249 | 259 | different number |
+| Check constraints | 101 | 109 | different number |
+| Declared indexes | 104 | 369 | the source declares standalone `CREATE INDEX` statements; PostgreSQL creates the index of every primary and unique key on top |
+| Tables without a difference | - | 198 | 15 table(s) differ |
 
 ## Differences
+
+### `building`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `fk_building_land` | extra foreign key | - | `FOREIGN KEY (land_id) REFERENCES land(land_id) ON DELETE SET NULL` |
+
+### `room`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `fk_room_floor` | extra foreign key | - | `FOREIGN KEY (floor_id) REFERENCES floor(floor_id) ON DELETE SET NULL` |
 
 ### `research_project_financial_utilization`
 
 | Column | Kind | MySQL source | PostgreSQL |
 |---|---|---|---|
 | `chk_project_utilization_balance` | extra check constraint | - | `CHECK (closing_balance = (opening_balance + amount_received - expenditure_amount)) NOT VALID` |
+
+### `building_document`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `11 columns` |
+
+### `calendar`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `10 columns` |
+
+### `calendar_term_schedule`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `11 columns` |
+
+### `calendar_week`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `10 columns` |
+
+### `calendar_week_day`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `8 columns` |
+
+### `facility_type`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `6 columns` |
+
+### `floor`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `6 columns` |
+
+### `floor_facility`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `7 columns` |
+
+### `holiday`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `9 columns` |
+
+### `land`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `8 columns` |
+
+### `land_document`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `11 columns` |
+
+### `room_facility`
+
+| Column | Kind | MySQL source | PostgreSQL |
+|---|---|---|---|
+| `-` | extra table | - | `7 columns` |
 
 ## Source defects
 

@@ -51,6 +51,8 @@ import re
 import sys
 from pathlib import Path
 
+from hand_written import strip_hand_written_tables
+
 ROOT = Path(__file__).resolve().parent.parent
 MIGRATIONS = ROOT / "supabase" / "migrations"
 CATALOGUE = ROOT / "tools" / "catalogue" / "live_catalogue.json"
@@ -161,6 +163,31 @@ HAND_WRITTEN_TRIGGERS = {
     ("public", "trg_student_exit_audit"),
     ("public", "trg_training_program_type_audit"),
     ("public", "trg_verification_status_audit"),
+    # 068_property_and_calendar.sql - the property hierarchy and the calendar.
+    ("public", "trg_building_document_audit"),
+    ("public", "trg_building_document_touch_updated_at"),
+    ("public", "trg_calendar_audit"),
+    ("public", "trg_calendar_term_schedule_audit"),
+    ("public", "trg_calendar_term_schedule_touch_updated_at"),
+    ("public", "trg_calendar_touch_updated_at"),
+    ("public", "trg_calendar_week_audit"),
+    ("public", "trg_calendar_week_day_audit"),
+    ("public", "trg_calendar_week_day_touch_updated_at"),
+    ("public", "trg_calendar_week_touch_updated_at"),
+    ("public", "trg_facility_type_audit"),
+    ("public", "trg_facility_type_touch_updated_at"),
+    ("public", "trg_floor_audit"),
+    ("public", "trg_floor_facility_audit"),
+    ("public", "trg_floor_facility_touch_updated_at"),
+    ("public", "trg_floor_touch_updated_at"),
+    ("public", "trg_holiday_audit"),
+    ("public", "trg_holiday_touch_updated_at"),
+    ("public", "trg_land_audit"),
+    ("public", "trg_land_document_audit"),
+    ("public", "trg_land_document_touch_updated_at"),
+    ("public", "trg_land_touch_updated_at"),
+    ("public", "trg_room_facility_audit"),
+    ("public", "trg_room_facility_touch_updated_at"),
 }
 
 CONSOLIDATED_FILES = {
@@ -515,7 +542,7 @@ def strip_hand_written(cat: dict) -> dict:
             and g["object"].split("(", 1)[0] in fn_names
         )
     ]
-    return cat
+    return strip_hand_written_tables(cat)
 
 
 def table_map(cat: dict) -> dict[tuple[str, str], dict]:

@@ -11,31 +11,31 @@
  "source": "live:khqqfgqvwdxlqkncwtmh",
  "server_version": "17.11",
  "counts": {
-  "tables": 222,
+  "tables": 234,
   "views": 10,
   "functions": 433,
-  "triggers": 190,
-  "policies": 594,
-  "rls_tables": 216,
-  "indexes": 365,
-  "sequences": 199,
+  "triggers": 214,
+  "policies": 642,
+  "rls_tables": 228,
+  "indexes": 375,
+  "sequences": 211,
   "domains": 6,
   "enums": 0,
-  "composites": 233,
-  "grants": 6256
+  "composites": 245,
+  "grants": 6556
  },
  "public": {
-  "tables": 213,
+  "tables": 225,
   "views": 10,
   "functions": 280,
-  "triggers": 190,
-  "policies": 594,
-  "rls_tables": 213,
-  "indexes": 359,
-  "sequences": 190,
+  "triggers": 214,
+  "policies": 642,
+  "rls_tables": 225,
+  "indexes": 369,
+  "sequences": 202,
   "domains": 6,
   "enums": 0,
-  "composites": 223
+  "composites": 235
  },
  "sims_private": {
   "tables": 9,
@@ -243,8 +243,38 @@
    "public.building": {
     "rls": true,
     "force_rls": false,
-    "columns": 5,
+    "columns": 8,
+    "constraints": 4
+   },
+   "public.building_document": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 11,
+    "constraints": 4
+   },
+   "public.calendar": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 10,
+    "constraints": 5
+   },
+   "public.calendar_term_schedule": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 11,
     "constraints": 3
+   },
+   "public.calendar_week": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 10,
+    "constraints": 5
+   },
+   "public.calendar_week_day": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 8,
+    "constraints": 6
    },
    "public.campus": {
     "rls": true,
@@ -600,6 +630,12 @@
     "columns": 4,
     "constraints": 3
    },
+   "public.facility_type": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 6,
+    "constraints": 3
+   },
    "public.faculty_course_assignment": {
     "rls": true,
     "force_rls": false,
@@ -732,6 +768,18 @@
     "columns": 6,
     "constraints": 4
    },
+   "public.floor": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 6,
+    "constraints": 4
+   },
+   "public.floor_facility": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 7,
+    "constraints": 5
+   },
    "public.funded_research_project": {
     "rls": true,
     "force_rls": false,
@@ -786,6 +834,12 @@
     "columns": 4,
     "constraints": 3
    },
+   "public.holiday": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 9,
+    "constraints": 4
+   },
    "public.indexing_agency": {
     "rls": true,
     "force_rls": false,
@@ -839,6 +893,18 @@
     "force_rls": false,
     "columns": 5,
     "constraints": 3
+   },
+   "public.land": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 8,
+    "constraints": 3
+   },
+   "public.land_document": {
+    "rls": true,
+    "force_rls": false,
+    "columns": 11,
+    "constraints": 4
    },
    "public.late_fee_rule": {
     "rls": true,
@@ -1047,8 +1113,14 @@
    "public.room": {
     "rls": true,
     "force_rls": false,
+    "columns": 9,
+    "constraints": 5
+   },
+   "public.room_facility": {
+    "rls": true,
+    "force_rls": false,
     "columns": 7,
-    "constraints": 4
+    "constraints": 5
    },
    "public.scholarship_scheme": {
     "rls": true,
@@ -3417,6 +3489,589 @@
     "identity": "",
     "generated": "",
     "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building.land_id": {
+    "type": "bigint",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building.total_floors": {
+    "type": "smallint",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building.construction_year": {
+    "type": "smallint",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.building_document_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.building_id": {
+    "type": "u16",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.document_type": {
+    "type": "text",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.document_name": {
+    "type": "character varying(200)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.document_number": {
+    "type": "character varying(100)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.issue_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.expiry_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.file_object_id": {
+    "type": "bigint",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.remarks": {
+    "type": "character varying(500)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 9,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 10,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.building_document.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 11,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.calendar_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.calendar_type": {
+    "type": "text",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.academic_year_id": {
+    "type": "integer",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.title": {
+    "type": "character varying(150)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.description": {
+    "type": "text",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.start_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.end_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.is_published": {
+    "type": "boolean",
+    "not_null": true,
+    "default": "false",
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 9,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 10,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.term_schedule_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.calendar_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.course_label": {
+    "type": "character varying(200)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.term_commencement_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.end_of_term_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.practical_exam_start": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.practical_exam_end": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.theory_exam_start": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.theory_exam_end": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 9,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 10,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_term_schedule.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 11,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.week_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.calendar_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.week_no": {
+    "type": "smallint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.month_label": {
+    "type": "character varying(20)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.week_start_date": {
+    "type": "date",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.week_end_date": {
+    "type": "date",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.no_of_working_days": {
+    "type": "smallint",
+    "not_null": true,
+    "default": "0",
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.events": {
+    "type": "text",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 9,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 10,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.week_day_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.week_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.day_index": {
+    "type": "smallint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.day_date": {
+    "type": "date",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.day_category": {
+    "type": "text",
+    "not_null": true,
+    "default": "'WORKING_DAY'::text",
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.holiday_id": {
+    "type": "bigint",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.calendar_week_day.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 8,
     "privileges": [
      "authenticated:SELECT:False"
     ]
@@ -10406,6 +11061,72 @@
      "authenticated:SELECT:False"
     ]
    },
+   "public.facility_type.facility_type_id": {
+    "type": "integer",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.facility_type.facility_code": {
+    "type": "character varying(30)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.facility_type.facility_name": {
+    "type": "character varying(100)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.facility_type.applies_to": {
+    "type": "text",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.facility_type.description": {
+    "type": "character varying(500)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.facility_type.is_active": {
+    "type": "boolean",
+    "not_null": true,
+    "default": "true",
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
    "public.faculty_course_assignment.faculty_assignment_id": {
     "type": "bigint",
     "not_null": true,
@@ -12716,6 +13437,149 @@
      "authenticated:SELECT:False"
     ]
    },
+   "public.floor.floor_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor.building_id": {
+    "type": "u16",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor.floor_number": {
+    "type": "smallint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor.floor_name": {
+    "type": "character varying(50)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor_facility.floor_facility_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor_facility.floor_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor_facility.facility_type_id": {
+    "type": "integer",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor_facility.quantity": {
+    "type": "integer",
+    "not_null": true,
+    "default": "1",
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor_facility.notes": {
+    "type": "character varying(500)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor_facility.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.floor_facility.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
    "public.funded_research_project.staff_activity_id": {
     "type": "u64",
     "not_null": true,
@@ -13559,6 +14423,105 @@
     "identity": "",
     "generated": "",
     "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.holiday_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.calendar_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.holiday_date": {
+    "type": "date",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.holiday_name": {
+    "type": "character varying(150)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.holiday_type": {
+    "type": "text",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.is_optional": {
+    "type": "boolean",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.description": {
+    "type": "character varying(500)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.holiday.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 9,
     "privileges": [
      "authenticated:SELECT:False"
     ]
@@ -14472,6 +15435,215 @@
     "identity": "",
     "generated": "",
     "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.land_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.campus_id": {
+    "type": "u16",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.land_name": {
+    "type": "character varying(100)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.survey_number": {
+    "type": "character varying(50)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.total_area_sqft": {
+    "type": "numeric(12,2)",
+    "not_null": true,
+    "default": "0",
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.address": {
+    "type": "text",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.land_document_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.land_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.document_type": {
+    "type": "text",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.document_name": {
+    "type": "character varying(200)",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.document_number": {
+    "type": "character varying(100)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.issue_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.expiry_date": {
+    "type": "date",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.file_object_id": {
+    "type": "bigint",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.remarks": {
+    "type": "character varying(500)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 9,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 10,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.land_document.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 11,
     "privileges": [
      "authenticated:SELECT:False"
     ]
@@ -17569,6 +18741,105 @@
     "type": "boolean",
     "not_null": true,
     "default": "true",
+    "identity": "",
+    "generated": "",
+    "position": 7,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room.floor_id": {
+    "type": "bigint",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 8,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room.area_sqft": {
+    "type": "numeric(10,2)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 9,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room_facility.room_facility_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "d",
+    "generated": "",
+    "position": 1,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room_facility.room_id": {
+    "type": "bigint",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 2,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room_facility.facility_type_id": {
+    "type": "integer",
+    "not_null": true,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 3,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room_facility.quantity": {
+    "type": "integer",
+    "not_null": true,
+    "default": "1",
+    "identity": "",
+    "generated": "",
+    "position": 4,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room_facility.notes": {
+    "type": "character varying(500)",
+    "not_null": false,
+    "default": null,
+    "identity": "",
+    "generated": "",
+    "position": 5,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room_facility.created_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
+    "identity": "",
+    "generated": "",
+    "position": 6,
+    "privileges": [
+     "authenticated:SELECT:False"
+    ]
+   },
+   "public.room_facility.updated_at": {
+    "type": "timestamp with time zone",
+    "not_null": true,
+    "default": "now()",
     "identity": "",
     "generated": "",
     "position": 7,
@@ -25720,7 +26991,7 @@
     "definition_sha256": "69322ba5fa59ead700290756b1fb93272cb27d3a03086027835985d6b1a5e540"
    },
    "sims_private.admin_lookup_def(p_table text)": {
-    "definition_sha256": "258ece5618211a14ed9ea7cac8772e4b0479d452a58c026509a738cc4e6ac108"
+    "definition_sha256": "c89ef4ca7249396110408d9a7cfa0cb548316bb0fb4c7c087a2012e8f51450d2"
    },
    "sims_private.admin_pk_cols(p_table text)": {
     "definition_sha256": "95d62427a870f1b0cfa98e37c8364af174feac6706858afbd33dd9bbb1d5b0c8"
@@ -25729,7 +27000,7 @@
     "definition_sha256": "892a0504622f084ca464e428b4c50040b4d91dd1f6edbbb47d9d3ad203a609ba"
    },
    "sims_private.admin_table_def(p_table text)": {
-    "definition_sha256": "26338cae58c42243d99ab35c79c0b3e677428b1348684a7085cce969566b597e"
+    "definition_sha256": "983adbb770938c02d9da97b8e2977f609f9a2149db612f4f61e29c95289ad71d"
    },
    "sims_private.admission_action_for(p_to text)": {
     "definition_sha256": "9377f20287fd885fcd04ce1644b937eaf9071e26995d83a6252a5e8bf5978310"
@@ -26794,6 +28065,186 @@
     ],
     "using_sha256": "698a511577af7359c0146ceb1419a49fc7bc8a8a7a3c9e0e56463ca61d8ba89b",
     "with_check_sha256": "698a511577af7359c0146ceb1419a49fc7bc8a8a7a3c9e0e56463ca61d8ba89b"
+   },
+   "public.building_document.building_document_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "b015e86bbf824d44c4e1d1b672ab1d4d0c2607b3bf24d1a3dcd31ff01d363527",
+    "with_check_sha256": ""
+   },
+   "public.building_document.building_document_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "195a5cbe70d36c3b5b26582c03103531bb260158175165093567ebbd08b14e30"
+   },
+   "public.building_document.building_document_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "2fbf683a00b18816512aad32bc01f918ba12c9d33f539ba91e35e701707f6eb3",
+    "with_check_sha256": ""
+   },
+   "public.building_document.building_document_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "13eeb836df4e9deb13e311cef270d80048f5072caeeca32416a659c72e3a6ac8",
+    "with_check_sha256": "13eeb836df4e9deb13e311cef270d80048f5072caeeca32416a659c72e3a6ac8"
+   },
+   "public.calendar.calendar_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": ""
+   },
+   "public.calendar.calendar_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.calendar.calendar_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "a595106dba8693ed0aaad5ec4b8676eb4567b70546958ab49ff40c014b156648",
+    "with_check_sha256": ""
+   },
+   "public.calendar.calendar_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.calendar_term_schedule.calendar_term_schedule_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": ""
+   },
+   "public.calendar_term_schedule.calendar_term_schedule_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.calendar_term_schedule.calendar_term_schedule_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "a595106dba8693ed0aaad5ec4b8676eb4567b70546958ab49ff40c014b156648",
+    "with_check_sha256": ""
+   },
+   "public.calendar_term_schedule.calendar_term_schedule_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.calendar_week.calendar_week_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": ""
+   },
+   "public.calendar_week.calendar_week_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.calendar_week.calendar_week_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "a595106dba8693ed0aaad5ec4b8676eb4567b70546958ab49ff40c014b156648",
+    "with_check_sha256": ""
+   },
+   "public.calendar_week.calendar_week_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.calendar_week_day.calendar_week_day_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": ""
+   },
+   "public.calendar_week_day.calendar_week_day_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.calendar_week_day.calendar_week_day_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "a595106dba8693ed0aaad5ec4b8676eb4567b70546958ab49ff40c014b156648",
+    "with_check_sha256": ""
+   },
+   "public.calendar_week_day.calendar_week_day_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
    },
    "public.campus.campus_delete": {
     "command": "DELETE",
@@ -28622,6 +30073,42 @@
     "using_sha256": "99db6a40729ee39b3ba4d750b3981f7cf01b158d2473707133a4de53c6011464",
     "with_check_sha256": "99db6a40729ee39b3ba4d750b3981f7cf01b158d2473707133a4de53c6011464"
    },
+   "public.facility_type.facility_type_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "18f5b98e75fbe8a3cbde67f4d02740ebe60e9c7c2f15764be7f00522b4759de2",
+    "with_check_sha256": ""
+   },
+   "public.facility_type.facility_type_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "18f5b98e75fbe8a3cbde67f4d02740ebe60e9c7c2f15764be7f00522b4759de2"
+   },
+   "public.facility_type.facility_type_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "a595106dba8693ed0aaad5ec4b8676eb4567b70546958ab49ff40c014b156648",
+    "with_check_sha256": ""
+   },
+   "public.facility_type.facility_type_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "18f5b98e75fbe8a3cbde67f4d02740ebe60e9c7c2f15764be7f00522b4759de2",
+    "with_check_sha256": "18f5b98e75fbe8a3cbde67f4d02740ebe60e9c7c2f15764be7f00522b4759de2"
+   },
    "public.faculty_course_assignment.faculty_course_assignment_delete": {
     "command": "DELETE",
     "permissive": true,
@@ -29009,6 +30496,78 @@
     "using_sha256": "31a31d1a30e3cee38a0a86ce4b59ead0f1646b7031cdc2c3c03e24ba08bef480",
     "with_check_sha256": ""
    },
+   "public.floor.floor_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "b015e86bbf824d44c4e1d1b672ab1d4d0c2607b3bf24d1a3dcd31ff01d363527",
+    "with_check_sha256": ""
+   },
+   "public.floor.floor_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "195a5cbe70d36c3b5b26582c03103531bb260158175165093567ebbd08b14e30"
+   },
+   "public.floor.floor_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "2fbf683a00b18816512aad32bc01f918ba12c9d33f539ba91e35e701707f6eb3",
+    "with_check_sha256": ""
+   },
+   "public.floor.floor_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "13eeb836df4e9deb13e311cef270d80048f5072caeeca32416a659c72e3a6ac8",
+    "with_check_sha256": "13eeb836df4e9deb13e311cef270d80048f5072caeeca32416a659c72e3a6ac8"
+   },
+   "public.floor_facility.floor_facility_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "5499ecd9284bc901490bc0b084dee1443b9501799333b1b0ee2883364bdcd9b9",
+    "with_check_sha256": ""
+   },
+   "public.floor_facility.floor_facility_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "9ca87af9be53438a041894944399f35f4706f7e0a90e069648dade857e8ee121"
+   },
+   "public.floor_facility.floor_facility_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "fae967d86f9a4d901facffa01aefba84cc261fd8c3cc498f77f511c12cd19384",
+    "with_check_sha256": ""
+   },
+   "public.floor_facility.floor_facility_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "e929ab2f65e6d7aa9915a5a85b401ceff6c76096ed31d28c94e3e470812da25d",
+    "with_check_sha256": "e929ab2f65e6d7aa9915a5a85b401ceff6c76096ed31d28c94e3e470812da25d"
+   },
    "public.funded_research_project.funded_research_project_select": {
     "command": "SELECT",
     "permissive": true,
@@ -29252,6 +30811,42 @@
     "using_sha256": "b6db22f218a21832feb77c11d71092d66eaac42cc12ae9009eec5f50e3161897",
     "with_check_sha256": "b6db22f218a21832feb77c11d71092d66eaac42cc12ae9009eec5f50e3161897"
    },
+   "public.holiday.holiday_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": ""
+   },
+   "public.holiday.holiday_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
+   "public.holiday.holiday_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "a595106dba8693ed0aaad5ec4b8676eb4567b70546958ab49ff40c014b156648",
+    "with_check_sha256": ""
+   },
+   "public.holiday.holiday_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954",
+    "with_check_sha256": "1608817b01c8b73bf73e7f423d78a55ab7d49483291685f42d99826d6304b954"
+   },
    "public.indexing_agency.indexing_agency_delete": {
     "command": "DELETE",
     "permissive": true,
@@ -29494,6 +31089,78 @@
     ],
     "using_sha256": "99db6a40729ee39b3ba4d750b3981f7cf01b158d2473707133a4de53c6011464",
     "with_check_sha256": "99db6a40729ee39b3ba4d750b3981f7cf01b158d2473707133a4de53c6011464"
+   },
+   "public.land.land_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "4522ced90ab53828b64a7fc34c21dfa2032fac780c23e16c9b653713072dae3b",
+    "with_check_sha256": ""
+   },
+   "public.land.land_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "45f5c0c2e0c9c5117c1be5fe25a38698d5e863c4c3abb383a7203a9ac2421ba4"
+   },
+   "public.land.land_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "e726915fc79c38fc67fb206c45128e12bd014ae5e9da3af8e4b95a627b248bc4",
+    "with_check_sha256": ""
+   },
+   "public.land.land_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "698a511577af7359c0146ceb1419a49fc7bc8a8a7a3c9e0e56463ca61d8ba89b",
+    "with_check_sha256": "698a511577af7359c0146ceb1419a49fc7bc8a8a7a3c9e0e56463ca61d8ba89b"
+   },
+   "public.land_document.land_document_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "1a1bf6c239d79e197ff0ca3d6e21d0c813e7f452a1f45149eef69a2140e11822",
+    "with_check_sha256": ""
+   },
+   "public.land_document.land_document_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "8d42d8f37e69f68ad52c20e54292599f60562956510bf21df51553da538f7091"
+   },
+   "public.land_document.land_document_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "db85c1658d81a129bb760fe28950a01bb738c54167e4b8bfc15e286c4bcf0ecf",
+    "with_check_sha256": ""
+   },
+   "public.land_document.land_document_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "02f151a5d634040ea6d5080a5cc19831f71fc12de45d3df2d4bc73ccb0342da7",
+    "with_check_sha256": "02f151a5d634040ea6d5080a5cc19831f71fc12de45d3df2d4bc73ccb0342da7"
    },
    "public.late_fee_rule.late_fee_rule_select": {
     "command": "SELECT",
@@ -30349,6 +32016,42 @@
     ],
     "using_sha256": "13eeb836df4e9deb13e311cef270d80048f5072caeeca32416a659c72e3a6ac8",
     "with_check_sha256": "13eeb836df4e9deb13e311cef270d80048f5072caeeca32416a659c72e3a6ac8"
+   },
+   "public.room_facility.room_facility_delete": {
+    "command": "DELETE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "e1cad3964907bbd910558833489918f791df0c6571b985fbe7069c7305807084",
+    "with_check_sha256": ""
+   },
+   "public.room_facility.room_facility_insert": {
+    "command": "INSERT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "",
+    "with_check_sha256": "83461e32bd56e3347513e3f305fa6abcae8e000e5bbc79d686857b3b550cd69b"
+   },
+   "public.room_facility.room_facility_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "e7f25f7b6d1bf1e11834a20ddbcc4febda936ebee7d4935a0505e6e14b9cb5e9",
+    "with_check_sha256": ""
+   },
+   "public.room_facility.room_facility_update": {
+    "command": "UPDATE",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "78ebf5f6ba15256e02897a27730d0d0e235f77eedb8dbf39aacb2297f2a47e2a",
+    "with_check_sha256": "78ebf5f6ba15256e02897a27730d0d0e235f77eedb8dbf39aacb2297f2a47e2a"
    },
    "public.scholarship_scheme.scholarship_scheme_select": {
     "command": "SELECT",
@@ -31582,6 +33285,36 @@
    "public.building.trg_building_audit": {
     "definition_sha256": "43c5c09a413cb73c92bcbad394668c52da029bd40c4daf48773d2a8f013e44ff"
    },
+   "public.building_document.trg_building_document_audit": {
+    "definition_sha256": "4b428b92fa6976b7f2c26bc311ecfd1fb178c02c79a424aeb6fac4bee7089716"
+   },
+   "public.building_document.trg_building_document_touch_updated_at": {
+    "definition_sha256": "7194f1d82269c446e3607d0f6f1f3c02589afc6f72aa4704e417b9c414e64ef5"
+   },
+   "public.calendar.trg_calendar_audit": {
+    "definition_sha256": "0d1171da807bd440f29dd6c44732d329b0c0c6f7e660e1f7c3a58eb5e6e1e3d4"
+   },
+   "public.calendar.trg_calendar_touch_updated_at": {
+    "definition_sha256": "af096e11fd4d582be83e9e6f20da5a9255c89f6c939402040a83369b9ce9e2bc"
+   },
+   "public.calendar_term_schedule.trg_calendar_term_schedule_audit": {
+    "definition_sha256": "59419765a401b0ca696c514a4cf0bbba569f8fbb98540c3afb21e83b488155cc"
+   },
+   "public.calendar_term_schedule.trg_calendar_term_schedule_touch_updated_at": {
+    "definition_sha256": "786d412bccfd88eb23c74fdc62ed0e14fdac32c2dc59e33c7b5aaaa9b09cef1d"
+   },
+   "public.calendar_week.trg_calendar_week_audit": {
+    "definition_sha256": "e1751707acebd0c9fdf177d8f750e1a684cc8bc4ada640ce74ae42e2119aeb54"
+   },
+   "public.calendar_week.trg_calendar_week_touch_updated_at": {
+    "definition_sha256": "5a7717be9a526e87f3d06e9e15a9d1cd5210b79aa317aa2a63c9b599ad3d37cf"
+   },
+   "public.calendar_week_day.trg_calendar_week_day_audit": {
+    "definition_sha256": "c5b41316cea1e8affba9be4a071de10616e5860496c88720bf057e239664a004"
+   },
+   "public.calendar_week_day.trg_calendar_week_day_touch_updated_at": {
+    "definition_sha256": "a6ff0ed78a88491d1fdacd13b0f81ecf82444548e5a05690fefd934090291e44"
+   },
    "public.campus.trg_campus_audit": {
     "definition_sha256": "f397db1800a694f50cae4ebcaa57e12e30eb8ce05e5b962af654565463ae3a24"
    },
@@ -31765,6 +33498,12 @@
    "public.extracurricular_category.trg_extracurricular_category_audit": {
     "definition_sha256": "9ce71a6c202e3e67b82e63039a00eab42f9bfeec9c20e252635d490c510ac7b6"
    },
+   "public.facility_type.trg_facility_type_audit": {
+    "definition_sha256": "54b8951e2c8ee835f03b509b9d63f8d3f2b24604a15b8a3d8af887a48f4099c4"
+   },
+   "public.facility_type.trg_facility_type_touch_updated_at": {
+    "definition_sha256": "b8ff3f720df2a3a9dc12343a24c362e989f38c39ae4fd4ff9b3cf10defd3290c"
+   },
    "public.faculty_course_assignment.trg_faculty_course_assignment_audit": {
     "definition_sha256": "30e6dc0cc2280bd74ff9d173866e94860418e4c4482952913eaf4a9fcebb0f54"
    },
@@ -31822,6 +33561,18 @@
    "public.file_object.trg_file_object_touch_updated_at": {
     "definition_sha256": "66f785598d2ff843b8408f43ccca5aa82024b727126827695d57c834b8be9754"
    },
+   "public.floor.trg_floor_audit": {
+    "definition_sha256": "dd043e3dab152548eee217a666339e0cbfbdc1e2b6bc94e4c6cd9fbda322fe4c"
+   },
+   "public.floor.trg_floor_touch_updated_at": {
+    "definition_sha256": "bcdeff4093806172a1a1fefd8e9c689a1209858ffdd48ad78797610d0fd46a56"
+   },
+   "public.floor_facility.trg_floor_facility_audit": {
+    "definition_sha256": "39c56e078a31f2dccc5b981b0f017810f0ad72dd4752b4d49cb380c579b7e42a"
+   },
+   "public.floor_facility.trg_floor_facility_touch_updated_at": {
+    "definition_sha256": "ac48c44e2bbcb7ee7d3e98ac315aa013fb651076acd604acfdede55d1788dad9"
+   },
    "public.funding_agency.trg_funding_agency_audit": {
     "definition_sha256": "3ca1222864f6390c0ddffd7c91ed6746bc1dd0b547f5be062c9e999fec16e324"
    },
@@ -31836,6 +33587,12 @@
    },
    "public.grievance_category.trg_grievance_category_audit": {
     "definition_sha256": "5b2462dd0106d92ac674521c92d6f4f24586bd1668de87f51ba8c00c5ff008f6"
+   },
+   "public.holiday.trg_holiday_audit": {
+    "definition_sha256": "03aa32b4fde8d22ae141ee18efd02ea3502a269f52e89df2189e6051cd41bac8"
+   },
+   "public.holiday.trg_holiday_touch_updated_at": {
+    "definition_sha256": "6da3d53fba5b40a1c273c0afe36dc21ef0743f1e0d33eb4096317596021c6c6d"
    },
    "public.industry_sector.trg_industry_sector_audit": {
     "definition_sha256": "a418e36d1b19e054b7acc580e4b67f96cb0f1d9029a4431a3271be4f3690f90b"
@@ -31857,6 +33614,18 @@
    },
    "public.journal_publication_indexing.trg_journal_publication_indexing_workflow_guard": {
     "definition_sha256": "8ba42eecdee13ac894b3255018b33cdad416e68f475144cb3d82032fe95e6365"
+   },
+   "public.land.trg_land_audit": {
+    "definition_sha256": "bd5b9d483b04498506a7f0aeb2fa4bdd26d90894d7fa95973173428a7b0108dd"
+   },
+   "public.land.trg_land_touch_updated_at": {
+    "definition_sha256": "7adf04a3af37e76c82cefe06e26bf9e68d32a59b70b6becd4a997e1bcaca787d"
+   },
+   "public.land_document.trg_land_document_audit": {
+    "definition_sha256": "d66aab92d83651b8b6ba7df8fb2aee1675a863e7c8ca414a5d3512a2e2e1a019"
+   },
+   "public.land_document.trg_land_document_touch_updated_at": {
+    "definition_sha256": "81910ba091b4fff6c56e922f05ed43e9a1b08ce9cf408cff2e762fc5230688e8"
    },
    "public.mentor_assignment.trg_mentor_assignment_audit": {
     "definition_sha256": "3f99a2f8581a2333c550461356bbb4533de3a63352b33c21021f8a3db0567c98"
@@ -31923,6 +33692,12 @@
    },
    "public.room.trg_room_audit": {
     "definition_sha256": "ff477cc305a1e5284435726bc9c19d9dfa20d6edb01a060b0667bf0fb3c40edb"
+   },
+   "public.room_facility.trg_room_facility_audit": {
+    "definition_sha256": "b002ab680f6879ceb52b1141ac6a663f6d0a0daad492e30727ad2909e2bf9cf7"
+   },
+   "public.room_facility.trg_room_facility_touch_updated_at": {
+    "definition_sha256": "51052dd382f045101ccc8f82ffd5215e903f5a389c365618909496c78b1050f8"
    },
    "public.semester.trg_semester_audit": {
     "definition_sha256": "d3f1869e06ed0fb5f80bef0c90c8c23c158cca41ef7a2e83ad47129c67b6f4e8"
@@ -34210,6 +35985,381 @@
     "grantable": false
    },
    "public.building_building_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.building_document.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.building_document.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.building_document.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.building_document.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.building_document.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.building_document.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.building_document.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.building_document.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.building_document.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.building_document.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.building_document.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.building_document.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.building_document.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.building_document.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.building_document.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.building_document.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.building_document.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.building_document.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.building_document.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.building_document_building_document_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.building_document_building_document_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.building_document_building_document_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.building_document_building_document_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.building_document_building_document_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.building_document_building_document_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.calendar.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.calendar.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.calendar.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.calendar.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.calendar.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.calendar.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.calendar.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_calendar_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_calendar_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_calendar_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.calendar_calendar_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_calendar_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_calendar_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule_term_schedule_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule_term_schedule_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule_term_schedule_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule_term_schedule_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule_term_schedule_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_term_schedule_term_schedule_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.calendar_week.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_week.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_week.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar_week.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar_week.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_week_day.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day_week_day_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week_day_week_day_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day_week_day_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.calendar_week_day_week_day_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week_day_week_day_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_day_week_day_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.calendar_week_week_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week_week_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_week_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.calendar_week_week_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.calendar_week_week_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.calendar_week_week_id_seq.service_role.USAGE": {
     "grantable": false
    },
    "public.campus.authenticated.DELETE": {
@@ -38664,6 +40814,81 @@
    "public.extracurricular_category_extracurricular_category_id_seq.service_role.USAGE": {
     "grantable": false
    },
+   "public.facility_type.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.facility_type.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.facility_type.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.facility_type.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.facility_type.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.facility_type_facility_type_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.facility_type_facility_type_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.facility_type_facility_type_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.facility_type_facility_type_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.facility_type_facility_type_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.facility_type_facility_type_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
    "public.faculty_course_assignment.authenticated.DELETE": {
     "grantable": false
    },
@@ -40548,6 +42773,156 @@
    "public.financial_ledger_account_ledger_account_id_seq.service_role.USAGE": {
     "grantable": false
    },
+   "public.floor.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.floor.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.floor.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.floor.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.floor.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.floor.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.floor.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.floor.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.floor.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.floor.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.floor.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.floor.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.floor.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.floor.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.floor.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.floor.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.floor.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.floor.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.floor.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_facility.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.floor_facility.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.floor_facility.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.floor_facility.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.floor_facility.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_facility_floor_facility_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.floor_facility_floor_facility_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_facility_floor_facility_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.floor_facility_floor_facility_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.floor_facility_floor_facility_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_facility_floor_facility_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.floor_floor_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.floor_floor_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_floor_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.floor_floor_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.floor_floor_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.floor_floor_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
    "public.funded_research_project.postgres.DELETE": {
     "grantable": false
    },
@@ -41239,6 +43614,81 @@
     "grantable": false
    },
    "public.grievance_submit(p_category_id integer, p_department_id integer, p_subject text, p_description text, p_priority text).service_role.EXECUTE": {
+    "grantable": false
+   },
+   "public.holiday.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.holiday.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.holiday.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.holiday.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.holiday.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.holiday.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.holiday.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.holiday.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.holiday.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.holiday.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.holiday.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.holiday.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.holiday.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.holiday.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.holiday.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.holiday.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.holiday.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.holiday.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.holiday.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.holiday_holiday_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.holiday_holiday_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.holiday_holiday_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.holiday_holiday_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.holiday_holiday_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.holiday_holiday_id_seq.service_role.USAGE": {
     "grantable": false
    },
    "public.iam_assign_role(p_user_id bigint, p_role_id integer, p_scope_type text, p_scope_entity_id integer, p_reason text).authenticated.EXECUTE": {
@@ -42019,6 +44469,156 @@
     "grantable": false
    },
    "public.journal_type_journal_type_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.land.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.land.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.land.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.land.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.land.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.land.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.land.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.land.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.land.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.land.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.land.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.land.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.land.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.land.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.land.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.land.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.land.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.land.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.land.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.land_document.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.land_document.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.land_document.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.land_document.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.land_document.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.land_document.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.land_document.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.land_document.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.land_document.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.land_document.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.land_document.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.land_document.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.land_document.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.land_document.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.land_document.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.land_document.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.land_document.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.land_document.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.land_document.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.land_document_land_document_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.land_document_land_document_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.land_document_land_document_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.land_document_land_document_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.land_document_land_document_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.land_document_land_document_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.land_land_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.land_land_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.land_land_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.land_land_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.land_land_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.land_land_id_seq.service_role.USAGE": {
     "grantable": false
    },
    "public.late_fee_rule.postgres.DELETE": {
@@ -44791,6 +47391,81 @@
     "grantable": false
    },
    "public.room.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.room_facility.authenticated.DELETE": {
+    "grantable": false
+   },
+   "public.room_facility.authenticated.INSERT": {
+    "grantable": false
+   },
+   "public.room_facility.authenticated.UPDATE": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.DELETE": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.INSERT": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.MAINTAIN": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.REFERENCES": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.TRIGGER": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.TRUNCATE": {
+    "grantable": false
+   },
+   "public.room_facility.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.DELETE": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.INSERT": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.MAINTAIN": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.REFERENCES": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.TRIGGER": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.TRUNCATE": {
+    "grantable": false
+   },
+   "public.room_facility.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.room_facility_room_facility_id_seq.postgres.SELECT": {
+    "grantable": false
+   },
+   "public.room_facility_room_facility_id_seq.postgres.UPDATE": {
+    "grantable": false
+   },
+   "public.room_facility_room_facility_id_seq.postgres.USAGE": {
+    "grantable": false
+   },
+   "public.room_facility_room_facility_id_seq.service_role.SELECT": {
+    "grantable": false
+   },
+   "public.room_facility_room_facility_id_seq.service_role.UPDATE": {
+    "grantable": false
+   },
+   "public.room_facility_room_facility_id_seq.service_role.USAGE": {
     "grantable": false
    },
    "public.room_room_id_seq.postgres.SELECT": {
@@ -51095,6 +53770,56 @@
     "cache": 1,
     "owned_by": "public.building.building_id"
    },
+   "public.building_document_building_document_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.building_document.building_document_id"
+   },
+   "public.calendar_calendar_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.calendar.calendar_id"
+   },
+   "public.calendar_term_schedule_term_schedule_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.calendar_term_schedule.term_schedule_id"
+   },
+   "public.calendar_week_day_week_day_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.calendar_week_day.week_day_id"
+   },
+   "public.calendar_week_week_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.calendar_week.week_id"
+   },
    "public.campus_campus_id_seq": {
     "type": "integer",
     "start": 1,
@@ -51585,6 +54310,16 @@
     "cache": 1,
     "owned_by": "public.extracurricular_category.extracurricular_category_id"
    },
+   "public.facility_type_facility_type_id_seq": {
+    "type": "integer",
+    "start": 1,
+    "min": 1,
+    "max": 2147483647,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.facility_type.facility_type_id"
+   },
    "public.faculty_course_assignment_faculty_assignment_id_seq": {
     "type": "bigint",
     "start": 1,
@@ -51795,6 +54530,26 @@
     "cache": 1,
     "owned_by": "public.financial_ledger_account.ledger_account_id"
    },
+   "public.floor_facility_floor_facility_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.floor_facility.floor_facility_id"
+   },
+   "public.floor_floor_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.floor.floor_id"
+   },
    "public.funding_agency_funding_agency_id_seq": {
     "type": "bigint",
     "start": 1,
@@ -51875,6 +54630,16 @@
     "cache": 1,
     "owned_by": "public.grievance.grievance_id"
    },
+   "public.holiday_holiday_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.holiday.holiday_id"
+   },
    "public.indexing_agency_indexing_agency_id_seq": {
     "type": "integer",
     "start": 1,
@@ -51944,6 +54709,26 @@
     "cycle": false,
     "cache": 1,
     "owned_by": "public.journal_type.journal_type_id"
+   },
+   "public.land_document_land_document_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.land_document.land_document_id"
+   },
+   "public.land_land_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.land.land_id"
    },
    "public.late_fee_rule_late_fee_rule_id_seq": {
     "type": "bigint",
@@ -52254,6 +55039,16 @@
     "cycle": false,
     "cache": 1,
     "owned_by": "public.role_type.role_type_id"
+   },
+   "public.room_facility_room_facility_id_seq": {
+    "type": "bigint",
+    "start": 1,
+    "min": 1,
+    "max": 9223372036854775807,
+    "increment": 1,
+    "cycle": false,
+    "cache": 1,
+    "owned_by": "public.room_facility.room_facility_id"
    },
    "public.room_room_id_seq": {
     "type": "bigint",

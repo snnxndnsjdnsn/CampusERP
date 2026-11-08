@@ -89,11 +89,11 @@ describe('row level security', () => {
     `);
     const c = rows[0]!;
 
-    // Observed against the live catalogue dump as well: public: 213, policies: 594.
-    expect(c.tables).toBe(213);
+    // Observed against the live catalogue dump as well: public: 225, policies: 642.
+    expect(c.tables).toBe(225);
     expect(c.with_rls).toBe(c.tables);
     expect(c.with_policy).toBe(c.tables);
-    expect(c.policies).toBe(594);
+    expect(c.policies).toBe(642);
     expect(c.anon_policies).toBe(0);
 
     // No public table may be left without RLS, and none may be left without a policy.
@@ -595,10 +595,10 @@ describe('column level privileges', () => {
             AND a.attacl::text NOT LIKE '%authenticated=r%') AS other_grantees
     `);
 
-    // 2086 columns across 212 of the 213 public tables.  `counselling_session`
+    // 2195 columns across 224 of the 225 public tables.  `counselling_session`
     // is the one table the authenticated role cannot read at all.
-    expect(rows[0]!.columns_with_grant).toBe(2086);
-    expect(rows[0]!.tables_with_grant).toBe(212);
+    expect(rows[0]!.columns_with_grant).toBe(2195);
+    expect(rows[0]!.tables_with_grant).toBe(224);
     // No other role receives a column grant, and `anon` receives none.
     expect(rows[0]!.other_grantees).toBe(0);
 

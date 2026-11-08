@@ -22,6 +22,15 @@ export const dynamic = 'force-dynamic';
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 type CampusRow = { campus_id: number; campus_name: string };
+type CalendarRow = {
+  calendar_id: number;
+  calendar_type: string;
+  academic_year_id: number;
+  title: string;
+  start_date: string | null;
+  end_date: string | null;
+  is_published: boolean;
+};
 
 function first(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? '';
@@ -40,19 +49,33 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const q = first(sp.q);
   const status = first(sp.status).toUpperCase();
 
-  const [years, terms, semesters, slots, holidays, campuses] = await Promise.all([
+  const [years, terms, semesters, slots, holidays, campuses, calendars] = await Promise.all([
     loadAcademicYears(supabase),
     loadAcademicTerms(supabase),
     loadSemesters(supabase),
     loadTimeSlots(supabase),
     loadHolidays(supabase),
     readTable<CampusRow>(supabase, 'campus', 'campus_id, campus_name', { order: { column: 'campus_name' } }),
+    readTable<CalendarRow>(
+      supabase,
+      'calendar',
+      'calendar_id, calendar_type, academic_year_id, title, start_date, end_date, is_published',
+      { order: { column: 'calendar_type' } },
+    ),
   ]);
 
-  const errors = [years, terms, semesters, slots, campuses].map((r) => r.error).filter((e): e is string => Boolean(e));
+  const errors = [years, terms, semesters, slots, campuses, calendars]
+    .map((r) => r.error)
+    .filter((e): e is string => Boolean(e));
 
   const yearLabel = (id: number) => years.data.find((y) => y.academic_year_id === id)?.year_code ?? `#${id}`;
   const campusLabel = (id: number) => campuses.data.find((c) => c.campus_id === id)?.campus_name ?? `#${id}`;
+
+  const visibleCalendars = filterByQuery(calendars.data, q, (c) => [
+    c.title,
+    c.calendar_type,
+    yearLabel(c.academic_year_id),
+  ]);
 
   const visibleYears = filterByQuery(
     years.data.filter((y) => !status || y.status.toUpperCase() === status),
@@ -77,7 +100,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
     <>
       <PageHeader
         title="Academic calendar"
-        description="Academic years, terms, semesters and the daily teaching slots that the timetable is built from."
+        description="The two calendars of an academic year - the calendar of events and the term schedule - plus years, terms, semesters, teaching slots and holidays."
       />
 
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
@@ -85,13 +108,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       <AdminTableEditor
         modules={['ACADEMIC_CALENDAR']}
         title="Manage the calendar"
-        description="Add, edit and remove the academic years, terms, semesters and teaching slots behind this screen. Every change is written through the database and audited."
+        description="Add, edit and remove the calendars, their weeks, days and holidays, the term schedules and the academic years, terms, semesters and teaching slots behind this screen. Every change is written through the database and audited."
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile label="Calendars" value={formatNumber(calendars.data.length)} />
         <StatTile label="Academic years" value={formatNumber(years.data.length)} />
         <StatTile label="Terms" value={formatNumber(terms.data.length)} />
-        <StatTile label="Semesters" value={formatNumber(semesters.data.length)} />
         <StatTile label="Teaching slots" value={formatNumber(slots.data.length)} />
       </div>
 
@@ -105,6 +128,57 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       </div>
 
       <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Calendars</CardTitle>
+            <CardDescription>
+              Every academic year carries two calendars: the ACADEMIC calendar of events (the week by week
+              grid) and the TERM calendar with the commencement and examination schedule per course.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {visibleCalendars.length === 0 ? (
+              <EmptyState
+                title="No calendars to show"
+                description="Create the academic and term calendars of a year through the Manage panel above."
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Year</TableHead>
+                    <TableHead>Runs</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleCalendars.map((c) => (
+                    <TableRow key={c.calendar_id}>
+                      <TableCell>
+                        <Badge variant={c.calendar_type === 'ACADEMIC' ? 'default' : 'info'}>
+                          {c.calendar_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{c.title}</TableCell>
+                      <TableCell>{yearLabel(c.academic_year_id)}</TableCell>
+                      <TableCell>
+                        {c.start_date ? `${formatDate(c.start_date)} – ${formatDate(c.end_date)}` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={c.is_published ? statusVariant('ACTIVE') : 'muted'}>
+                          {c.is_published ? 'PUBLISHED' : 'DRAFT'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Academic years</CardTitle>
