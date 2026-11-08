@@ -22,6 +22,27 @@ export const STUB = path.join(ROOT, 'tests', 'db', 'supabase-stub.ts');
 
 const SCHEMAS = "('public','sims_private')";
 
+/**
+ * The append-only audit logs.
+ *
+ * Their row count is a function of what the application has done, not of the
+ * schema, so it changes every time anything is written - the end-to-end suite
+ * alone adds three rows to `activity_audit` per run.  Recording their counts
+ * would make `catalogue.mjs --check` fail after every test run, and the
+ * failure would say nothing about the schema.
+ *
+ * The tables are still in the dump - they are schema, and `docs/SCHEMA.md`
+ * documents them.  Only their row count is left out.
+ */
+export const ACTIVITY_TABLES = new Set([
+  'activity_audit',
+  'employee_sensitive_access_audit',
+  'evidence_document_audit',
+  'fee_activity_audit',
+  'login_audit',
+  'student_activity_evidence_audit',
+]);
+
 /** The SQL of the Supabase stub, extracted the same way seed_counts.mjs does it. */
 export function stubSql() {
   return fs.readFileSync(STUB, 'utf8').split('`')[1];
@@ -258,6 +279,9 @@ export async function dumpCatalogue(db) {
   const rowCounts = {};
   for (const key of tableNames) {
     const [schema, table] = key.split('.');
+    // The append-only audit logs grow with use, not with the schema - see
+    // ACTIVITY_TABLES.
+    if (ACTIVITY_TABLES.has(table)) continue;
     const res = await db.query(`SELECT count(*)::int AS n FROM "${schema}"."${table}"`);
     rowCounts[key] = res.rows[0].n;
   }

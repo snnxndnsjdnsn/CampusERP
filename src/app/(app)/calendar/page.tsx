@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import {
   loadAcademicTerms,
   loadAcademicYears,
@@ -80,6 +81,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       />
 
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
+
+      <AdminTableEditor
+        tables={['academic_year', 'academic_term', 'semester', 'time_slot']}
+        title="Manage the calendar"
+        description="Add, edit and remove the academic years, terms, semesters and teaching slots behind this screen. Every change is written through the database and audited."
+      />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Academic years" value={formatNumber(years.data.length)} />

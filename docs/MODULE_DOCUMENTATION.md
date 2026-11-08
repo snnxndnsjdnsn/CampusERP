@@ -13,6 +13,7 @@ One section per application area: what it does, where it lives, the database obj
 ## How every module is built
 - **Screens** are server components that load data (`src/features/<module>-data.ts`) plus client forms (`<module>-forms.tsx`) validated with Zod (`src/lib/<module>-validation.ts`).
 - **Writes** that matter go through one `SECURITY DEFINER` RPC = one transaction, which authorises the caller at the row's scope, validates, writes and audits. Where a module has no RPC the table's own row level security policy decides.
+- **The generic write surface** (`public.admin_table_save`, `admin_table_delete`, `admin_table_schema`, `admin_table_list`, `admin_lookup_options`, migration 066) gives the six module screens that used to be read-only a Manage panel. The catalogue `sims_private.admin_table_def` names, per table, the permission prefix and the scope column, so the panel and the row level policy cannot disagree.
 - **Authorisation** is `sims_private.can_global / can_institution / can_department / can_programme / can_student / can_employee` against permission codes such as `STUDENT.ALL.READ`. Owners (a student, an employee) act on their own records by identity because the seed gives them SELF-scope grants only.
 - **Tests**: a database test per migration on embedded PostgreSQL, unit tests for validation and for "drift" between application tables and the migrations, Playwright for route protection.
 
@@ -28,18 +29,18 @@ One section per application area: what it does, where it lives, the database obj
 | Module | Screens | Database | Notes |
 |---|---|---|---|
 | University and institution (3) | `/structure` | M025 | Tree of university, institution, campus, department, programme |
-| Academic calendar (4) | `/calendar` | M024 | Years, terms, semesters |
-| Curriculum and courses (5) | `/curriculum`, `/courses` | M026 | Schemes, courses, prerequisites |
+| Academic calendar (4) | `/calendar` | M024 | Years, terms, semesters; editable through the Manage panel |
+| Curriculum and courses (5) | `/curriculum`, `/courses` | M026 | Schemes, courses, prerequisites; editable through the Manage panel |
 | Admissions (11) | `/admissions` | M027 | Applications through to admit-to-student |
-| Student registration (12) | `/registration` | M028-M030 | Term offerings, sections, course registration with capacity |
-| Attendance (13), Timetable (14) | `/attendance`, `/timetable` | M031, M035 | Rosters, sessions, marking, corrections, clash-guarded timetable |
+| Student registration (12) | `/registration` | M028-M030 | Term offerings, sections, course registration with capacity; editable through the Manage panel |
+| Attendance (13), Timetable (14) | `/attendance`, `/timetable` | M031, M035 | Rosters, sessions, marking, corrections, clash-guarded timetable; the teaching slots and rooms are editable through the Manage panel |
 | Assessment and results (15) | `/assessment`, `/results/grades`, `/my-results` | M032, M033 | Marks, SGPA/CGPA, publication |
 | Feedback (16), Mentoring (17), Grievance (20) | `/feedback`, `/mentoring`, `/grievances` | M037, M038, M039 | Anonymous feedback, confidential counselling, grievance workflow |
 
 ## People
 | Module | Screens | Database | Notes |
 |---|---|---|---|
-| Students (6) | `/students`, `/students/[id]/records`, `/students/[id]/documents` | M022, M042, M046 | Registration, edit, status, sub-records, documents |
+| Students (6) | `/students`, `/students/[id]/records`, `/students/[id]/documents` | M022, M042, M046 | Registration, edit, status, sub-records, documents; the student register and the programme enrolments are editable through the Manage panel |
 | Employees (7) | `/employees`, `/employees/[id]/records`, `/employees/[id]/hr`, `/my-hr` | M023, M046, M054, M063 | Registration, assignments, qualifications, previous employment; PAN, Aadhaar and bank accounts (encrypted, masked, reveal logged) and HR documents; employees see and correct their own until HR verifies |
 | Student documents (8) | `/my-documents`, `/certificates` | M042, M060 | Private bucket, signed URLs, verification; certificate requests with approval and an issued PDF |
 | Student activities and evidence (23) | `/activities` | M043 | Draft, evidence with versions, verification, approval, team |
@@ -56,6 +57,7 @@ One section per application area: what it does, where it lives, the database obj
 
 ## Cross-cutting mechanisms worth knowing
 - **Generic catalogue-driven forms** (`sims_private.describe_columns`, `form_columns`, `write_row`, `write_detail`): used for staff record details (M044), student and employee sub-records and reference data (M046). Only whitelisted tables are reachable, only catalogue columns can be written, keys, audit columns and user references are rejected, and constraint violations become readable messages.
+- **The generic write surface** (`public.admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` - migration 066): one collapsible **Manage** panel on the academic calendar, curriculum, courses, students, registration and timetable screens. The panel lists only the tables the signed-in user holds a write permission for, the form is generated from the column description the database hands out, and the write functions mirror the row level policy - they check the row as it exists now *and* the row as it is afterwards, so a scoped caller cannot move a row out of its scope. Every change is audited by the table's own trigger.
 - **Workflow lifecycle** (DRAFT -> SUBMITTED -> UNDER_REVIEW -> APPROVED / REJECTED, NEEDS_CORRECTION back to DRAFT, nobody reviews their own record): student activities (M043) and staff records (M044), sharing `workflow-actions.tsx` and `evidence-panel.tsx`.
 - **Private Storage**: one bucket, `student/<id>/...` and `employee/<id>/...` prefixes, 60-second signed URLs after an RPC has authorised and logged the download. The rules live in `can_use_student_doc_path` and `can_use_employee_doc_path`; `STORAGE_DOCUMENTATION.md` is **not present in this tree**.
 
@@ -144,12 +146,12 @@ lists are the key ones; [RTM.md](RTM.md) has the full table count per module.
 |---|---|---|---|---|---|---|
 | 1 | Common reference | The lookup lists every other module joins to: geography, demographics, categories and document types. | `country`, `state`, `gender`, `blood_group`, `religion`, `social_category`, `caste`, `sub_caste`, `admission_category`, `document_type` | `ref_list`, `ref_rows`, `ref_save`, `ref_delete`, `ref_schema` | IAM | `/admin/reference` |
 | 2 | University and institution structure | The organisational tree everything else is scoped by: university → institution → campus → department → programme, plus buildings and rooms. | `university`, `institution`, `campus`, `department`, `programme`, `programme_specialization`, `building`, `room` | `institution_create`, `institution_update`, `record_sections`, `section_save`, `section_delete` | INSTITUTION | `/structure` |
-| 3 | Academic calendar | Years, terms, semesters and the time slots that the timetable is built on. | `academic_year`, `academic_term`, `semester`, `time_slot` | — (RLS only) | ACADEMIC_CALENDAR | `/calendar` |
-| 4 | Curriculum and course catalog | Schemes, the course catalogue, which courses sit in a scheme, and prerequisites. | `course_category`, `course_catalog`, `curriculum_scheme`, `curriculum_course`, `course_prerequisite` | — (RLS only) | CURRICULUM | `/curriculum`, `/courses` |
-| 5 | Student and staff master | The two root entities and their immediate sub-records: a student with addresses, guardians, residence and prior education; an employee with designation, assignment and competencies. | `student`, `student_address`, `student_parent_guardian`, `student_residence`, `student_previous_education`, `student_entrance_exam`, `employee`, `employee_address`, `employee_assignment`, `employee_competency`, `staff_type`, `staff_category`, `employment_source`, `external_agency`, `designation` | `student_register`, `employee_register`, `employee_assign`, `emp_competency_save`, `emp_competency_list`, `emp_competency_delete` | STUDENT, EMPLOYEE | `/students`, `/employees` |
+| 3 | Academic calendar | Years, terms, semesters and the time slots that the timetable is built on. | `academic_year`, `academic_term`, `semester`, `time_slot` | `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | ACADEMIC_CALENDAR | `/calendar` |
+| 4 | Curriculum and course catalog | Schemes, the course catalogue, which courses sit in a scheme, and prerequisites. | `course_category`, `course_catalog`, `curriculum_scheme`, `curriculum_course`, `course_prerequisite` | `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | CURRICULUM | `/curriculum`, `/courses` |
+| 5 | Student and staff master | The two root entities and their immediate sub-records: a student with addresses, guardians, residence and prior education; an employee with designation, assignment and competencies. | `student`, `student_address`, `student_parent_guardian`, `student_residence`, `student_previous_education`, `student_entrance_exam`, `employee`, `employee_address`, `employee_assignment`, `employee_competency`, `staff_type`, `staff_category`, `employment_source`, `external_agency`, `designation` | `student_register`, `employee_register`, `employee_assign`, `emp_competency_save`, `emp_competency_list`, `emp_competency_delete`, `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | STUDENT, EMPLOYEE | `/students`, `/employees` |
 | 6 | Admission and enrolment | An application becomes an applicant, then an admitted student, then a programme enrolment, with the status history kept. | `admission_applicant`, `admission_application`, `student_programme_enrolment`, `enrolment_status_history` | `admission_apply`, `admission_update_applicant`, `admission_update_application`, `admission_set_status`, `admission_admit` | ADMISSION | `/admissions` |
-| 7 | Term registration, section and course registration | What is being taught this term: offerings, sections, batches, and which student is registered for which course. | `programme_term_offering`, `class_section`, `class_batch`, `student_term_registration`, `course_offering`, `course_offering_section`, `student_course_registration`, `course_offering_section_student` | `registration_term_info`, `registration_candidates`, `registration_roster`, `offering_generate_courses`, `teaching_populate_roster` | REGISTRATION, TEACHING | `/registration` |
-| 8 | Teaching allocation and timetable | Who teaches what, and when and where it happens. | `faculty_course_assignment`, `timetable_session` | `timetable_offerings`, `timetable_offering_info`, `timetable_sections`, `timetable_slots`, `timetable_rooms`, `timetable_entries`, `timetable_assignments`, `timetable_generate_sessions` | TEACHING, TIMETABLE | `/timetable` |
+| 7 | Term registration, section and course registration | What is being taught this term: offerings, sections, batches, and which student is registered for which course. | `programme_term_offering`, `class_section`, `class_batch`, `student_term_registration`, `course_offering`, `course_offering_section`, `student_course_registration`, `course_offering_section_student` | `registration_term_info`, `registration_candidates`, `registration_roster`, `offering_generate_courses`, `teaching_populate_roster`, `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | REGISTRATION, TEACHING | `/registration` |
+| 8 | Teaching allocation and timetable | Who teaches what, and when and where it happens. | `faculty_course_assignment`, `timetable_session` | `timetable_offerings`, `timetable_offering_info`, `timetable_sections`, `timetable_slots`, `timetable_rooms`, `timetable_entries`, `timetable_assignments`, `timetable_generate_sessions`, `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | TEACHING, TIMETABLE | `/timetable` |
 | 9 | Attendance and lesson plan | Sessions, the roster, marking, and the correction request workflow. | `class_session`, `attendance_status`, `student_attendance`, `attendance_correction_request` | `attendance_sheet`, `attendance_mark`, `attendance_summary`, `attendance_request_correction`, `attendance_decide_correction` | ATTENDANCE | `/attendance` |
 | 10 | Continuous assessment and result | Assessment components and events, marks, the grade scale and rules, and the course/term results that are computed and published. | `assessment_component`, `assessment_event`, `student_assessment_mark`, `grade_scale`, `grade_rule`, `student_course_result`, `student_term_result` | `assessment_offerings`, `assessment_offering_info`, `assessment_sheet`, `assessment_enter_marks`, `result_compute_term`, `result_record_course`, `result_term_sheet`, `result_course_sheet`, `result_publish_term` | ASSESSMENT, RESULT | `/assessment`, `/results`, `/my-results` |
 | 11 | Feedback | Questionnaires, cycles, responses and per-response answers. | `feedback_question_category`, `feedback_question`, `feedback_choice`, `feedback_questionnaire`, `feedback_questionnaire_item`, `feedback_cycle`, `feedback_response`, `feedback_response_item` | `feedback_cycle_offerings`, `feedback_form`, `feedback_my_tasks`, `feedback_submit`, `feedback_results` | FEEDBACK | `/feedback` |
@@ -231,12 +233,15 @@ Full rules: [NAVIGATION.md](NAVIGATION.md).
 | Shell | `src/components/app-shell.tsx` | `ICONS` (one entry per nav href), the breadcrumb resolver, the sidebar renderer. |
 | Identity | `src/lib/context.ts`, `src/lib/server-context.ts` | `SimsContext` comes from `public.my_context()` and nowhere else. |
 
-The current feature folders are `academic`, `account`, `activities`, `admissions`,
-`announcements`, `assessment`, `attendance`, `audit`, `calendar`, `certificates`,
-`detail`, `finance`, `feedback`, `grievances`, `hr`, `iam`, `mentoring`,
-`my-documents`, `reference`, `registration`, `reporting`, `requests`, `results`,
-`schema`, `shared`, `staff-profile`, `structure`, `timetable`, plus the loose
-`dashboard-stats.ts` and `students-lookups.ts`.
+The current feature folders are `academic`, `account`, `activities`, `admin`,
+`admissions`, `announcements`, `assessment`, `attendance`, `audit`, `calendar`,
+`certificates`, `detail`, `finance`, `feedback`, `grievances`, `hr`, `iam`,
+`mentoring`, `my-documents`, `reference`, `registration`, `reporting`,
+`requests`, `results`, `schema`, `shared`, `staff-profile`, `structure`,
+`timetable`, plus the loose `dashboard-stats.ts` and `students-lookups.ts`.
+
+`src/features/admin/` holds the one component the six editable screens share:
+`admin-table-editor.tsx`.
 
 # Module gaps
 
@@ -246,6 +251,7 @@ The honest list. Each of these is a live fact, not a plan.
 |---|---|
 | `/staff-profile` and `/activities` had no page | **Closed.** `src/app/(app)/staff-profile/page.tsx` and `src/app/(app)/activities/page.tsx` now exist, backed by `src/features/staff-profile/` and `src/features/activities/`. The staff-profile screen was later split into `src/features/staff-profile/staff-profile-screen.tsx` so that the fifteen sub-module addresses under `/staff-profile/<section>` can serve it. Schema modules 19–34 and 40 are reachable from the UI and the `staff` and `activities` nav groups no longer render dead links. |
 | Schema modules 18, 35, 36, 37, 38 and 39 had no screen | **Closed.** Modules 18, 35, 36, 38 and 39 are served by `src/app/(app)/schema/[module]/page.tsx` and module 37 by `src/app/(app)/reporting/page.tsx`. The sidebar carries six groups for them: `schema`, `seed`, `rbac`, `reporting`, `staff-index` and `integrity`. `supabase/migrations/065_schema_indexes.sql` adds `public.schema_indexes(p_scope text DEFAULT NULL)`, the only door to `pg_indexes`. |
+| Six module screens were read-only | **Closed.** The academic calendar, curriculum, courses, students, registration and timetable had no write RPC at all, so their rows could be read but not added, edited or removed. `supabase/migrations/066_admin_editing.sql` adds the generic write surface (`admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options`) and `src/features/admin/admin-table-editor.tsx` renders a Manage panel on all six screens. The panel only offers the tables the signed-in user holds a write permission for, and the write functions mirror the row level policy - `USING` and `WITH CHECK` - so a scoped caller cannot move a row out of its scope. |
 | `REPORTING` is unenforced | 11 permissions, 0 RLS policies, 0 functions that check them. `global_search` is `LANGUAGE sql, STABLE` — not `SECURITY DEFINER` — and checks no permission code. Schema module 37 now has a screen at `/reporting`, and the ten reporting views are `security_invoker` views, so they inherit the RLS of their base tables — but `global_search` is still the hole. |
 | `TEACHING` has no screen of its own | Its screens live inside the registration and attendance flows. The code is seeded and allowlisted in the nav test. |
 | `COMMUNICATION` is ungated in the sidebar | Intentional: the announcement feed is visible to every signed-in user. The rows are still filtered by `announcement_visible`. |

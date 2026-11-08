@@ -4,6 +4,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { safeRpcRows, safeSelect } from '@/features/academic/data';
 import { CandidateSearch, GenerateCoursesButton, OfferingPicker } from '@/features/registration/registration-client';
 import type {
@@ -133,6 +134,12 @@ export default async function RegistrationPage({
       <PageHeader
         title="Registration"
         description="Term registrations, rosters and course registrations for each programme term offering."
+      />
+
+      <AdminTableEditor
+        tables={['programme_term_offering', 'course_offering', 'class_section', 'student_term_registration']}
+        title="Manage registration"
+        description="Add, edit and remove the programme term offerings, the course offerings and class sections they carry, and the term registrations themselves. Every change is written through the database and audited."
       />
 
       <Card>

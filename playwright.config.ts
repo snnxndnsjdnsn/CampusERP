@@ -43,10 +43,11 @@ const WORKERS = Number(process.env.PLAYWRIGHT_WORKERS ?? 4);
  * lands on the page they asked for after signing in.
  *
  * It also covers the signed-in application: `smoke.spec.ts` opens every route
- * with a real session. That session is created **once** in the global setup
- * and handed to the tests as a storage state, because Supabase throttles the
- * password grant endpoint and a suite that signs in per test runs into
- * `Request rate limit reached`.
+ * with a real session and `admin-editing.spec.ts` drives the Manage panel of
+ * the six module screens that gained an editing surface. That session is
+ * created **once** in the global setup and handed to the tests as a storage
+ * state, because Supabase throttles the password grant endpoint and a suite
+ * that signs in per test runs into `Request rate limit reached`.
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -64,16 +65,16 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      // The route sweep runs in its own project so that the anonymous tests
-      // keep starting without a session.
-      testIgnore: signedIn ? '**/smoke.spec.ts' : undefined,
+      // The signed-in suites run in their own project so that the anonymous
+      // tests keep starting without a session.
+      testIgnore: signedIn ? '**/{smoke,admin-editing}.spec.ts' : undefined,
     },
     ...(signedIn
       ? [
           {
             name: 'chromium-signed-in',
             use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
-            testMatch: '**/smoke.spec.ts',
+            testMatch: '**/{smoke,admin-editing}.spec.ts',
           },
         ]
       : []),

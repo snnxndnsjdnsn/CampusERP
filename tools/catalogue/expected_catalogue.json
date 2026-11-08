@@ -13,8 +13,8 @@
  "counts": {
   "tables": 222,
   "views": 10,
-  "functions": 421,
-  "triggers": 140,
+  "functions": 431,
+  "triggers": 142,
   "policies": 594,
   "rls_tables": 216,
   "indexes": 365,
@@ -22,13 +22,13 @@
   "domains": 6,
   "enums": 0,
   "composites": 233,
-  "grants": 6227
+  "grants": 6253
  },
  "public": {
   "tables": 213,
   "views": 10,
-  "functions": 275,
-  "triggers": 140,
+  "functions": 280,
+  "triggers": 142,
   "policies": 594,
   "rls_tables": 213,
   "indexes": 359,
@@ -40,7 +40,7 @@
  "sims_private": {
   "tables": 9,
   "views": 0,
-  "functions": 146,
+  "functions": 151,
   "triggers": 0,
   "policies": 0,
   "rls_tables": 3,
@@ -24864,6 +24864,21 @@
    }
   },
   "functions": {
+   "public.admin_lookup_options(p_table text)": {
+    "definition_sha256": "4fd670cd375a5556eba76a746031a64568e810c5b653e57ef51da3c28e05d843"
+   },
+   "public.admin_table_delete(p_table text, p_id bigint)": {
+    "definition_sha256": "6640c9c6f3a8f2ed2e98998e643a79795ae39b3dda2261e53fa2ed847fdb2158"
+   },
+   "public.admin_table_list()": {
+    "definition_sha256": "4b159a635e452ac54c5661c081811f996ef4fd9bc0c66e89b384e2c62a043351"
+   },
+   "public.admin_table_save(p_table text, p_id bigint, p jsonb)": {
+    "definition_sha256": "aa43526b1386b2b5f01fbed8b0e92f51ff1165ad0be4a6cdaca1ba6cc22d2bc0"
+   },
+   "public.admin_table_schema(p_table text)": {
+    "definition_sha256": "5ca89cddd59935a4746182c85cfb8dc44d35951b7e8857e01e9263a4d582ebbf"
+   },
    "public.admission_admit(p_application_id bigint, p_student jsonb, p_enrolment jsonb)": {
     "definition_sha256": "b10811741c7bd9ace5ab8842790489c147cb4a66349dea9dc35dc4b071930126"
    },
@@ -25694,6 +25709,21 @@
    },
    "sims_private.activity_child_ok(p_activity_id bigint, p_detail_table text, p_perm_prefix text, p_action text)": {
     "definition_sha256": "b8de93b08ee4f81c1d6cda8499b8d4de79f6a2859df3f269fece944c82bf6e47"
+   },
+   "sims_private.admin_can(p_table text, p_action text, p_row_id bigint, p_payload jsonb)": {
+    "definition_sha256": "2366874debf29fe82b8e7f7b95c71ff04329af6beed7555e8cb1366b4cc29284"
+   },
+   "sims_private.admin_holds(p_codes text[])": {
+    "definition_sha256": "ee2db35055311bd6e041fe57414f5537cc66141cfdf225982629c688197570a8"
+   },
+   "sims_private.admin_lookup_def(p_table text)": {
+    "definition_sha256": "af9d47f3d75345ade8dd043b2767781d4339340645ef1827eb04d67775a196e9"
+   },
+   "sims_private.admin_scope_value(p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb)": {
+    "definition_sha256": "734248437347bd71e1141c853fa3498299c1df0083a560f3e62f3853b8b045bf"
+   },
+   "sims_private.admin_table_def(p_table text)": {
+    "definition_sha256": "19bc7c68cc07855fdcd29182ace9d724a05773401c169ad7e16e54300c98c623"
    },
    "sims_private.admission_action_for(p_to text)": {
     "definition_sha256": "9377f20287fd885fcd04ce1644b937eaf9071e26995d83a6252a5e8bf5978310"
@@ -31756,6 +31786,9 @@
    "public.role.trg_role_touch_updated_at": {
     "definition_sha256": "42f836fa6e61a3f4d4078a7af26d24d57582bcfce57f704807ae3450e8d3faf2"
    },
+   "public.room.trg_room_audit": {
+    "definition_sha256": "ff477cc305a1e5284435726bc9c19d9dfa20d6edb01a060b0667bf0fb3c40edb"
+   },
    "public.semester.trg_semester_audit": {
     "definition_sha256": "d3f1869e06ed0fb5f80bef0c90c8c23c158cca41ef7a2e83ad47129c67b6f4e8"
    },
@@ -31863,6 +31896,9 @@
    },
    "public.student_term_result.trg_student_term_result_workflow_guard": {
     "definition_sha256": "a37b2bcb8c09ee6207ec9de62d696cf6990c519ab7c8c1ad909fec87b86c52b3"
+   },
+   "public.time_slot.trg_time_slot_audit": {
+    "definition_sha256": "484553fda53414be005a27bc333b589e5ca2ff5b91d825e0154d86a3407c9c8b"
    },
    "public.timetable_session.trg_timetable_session_audit": {
     "definition_sha256": "3064366f0d37f5784503bfe8d308b961194e98952623e67ddb3bbff8cce0bbed"
@@ -32461,6 +32497,66 @@
     "grantable": false
    },
    "public.activity_type_activity_type_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.admin_lookup_options(p_table text).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_lookup_options(p_table text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_lookup_options(p_table text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_lookup_options(p_table text).service_role.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_delete(p_table text, p_id bigint).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_delete(p_table text, p_id bigint).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_delete(p_table text, p_id bigint).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_delete(p_table text, p_id bigint).service_role.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_list().PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_list().authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_list().postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_list().service_role.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_save(p_table text, p_id bigint, p jsonb).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_save(p_table text, p_id bigint, p jsonb).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_save(p_table text, p_id bigint, p jsonb).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_save(p_table text, p_id bigint, p jsonb).service_role.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_schema(p_table text).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_schema(p_table text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_schema(p_table text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.admin_table_schema(p_table text).service_role.EXECUTE": {
     "grantable": false
    },
    "public.admission_admit(p_application_id bigint, p_student jsonb, p_enrolment jsonb).authenticated.EXECUTE": {
@@ -49570,6 +49666,24 @@
     "grantable": false
    },
    "sims_private.activity_child_ok(p_activity_id bigint, p_detail_table text, p_perm_prefix text, p_action text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_lookup_def(p_table text).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_lookup_def(p_table text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_lookup_def(p_table text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_table_def(p_table text).PUBLIC.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_table_def(p_table text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.admin_table_def(p_table text).postgres.EXECUTE": {
     "grantable": false
    },
    "sims_private.admission_action_for(p_to text).postgres.EXECUTE": {

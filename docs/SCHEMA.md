@@ -12,19 +12,19 @@ Source of truth: the live Supabase project `khqqfgqvwdxlqkncwtmh` (PostgreSQL 17
 | Tables | 222 |
 | Tables with row level security | 216 |
 | Views | 10 |
-| Functions | 421 |
-| Triggers | 140 |
+| Functions | 431 |
+| Triggers | 142 |
 | Policies | 594 |
 | Indexes | 365 |
 | Sequences | 199 |
 | Domains | 6 |
 | Enums | 0 |
 | Composite types | 233 |
-| Grants | 6227 |
+| Grants | 6253 |
 
 ## Schema `public`
 
-213 tables, 10 views, 275 functions, 140 triggers, 594 policies, 359 indexes.
+213 tables, 10 views, 280 functions, 142 triggers, 594 policies, 359 indexes.
 
 ### Tables (213)
 
@@ -5425,10 +5425,15 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `v_student_activity_profile` | v | `SELECT sa.student_activity_id, sa.student_id, s.student_number, s.display_name AS student_name, sat.type_code AS activity_type_code, sat.type_name AS activity_type_name, sat.activity_group, sa.activity_title, sa.event_name, ay.year_code AS academic_year, i.institution_name, c.campus_name, d.department_name, p.programme_name, pl.level_name AS participation_level, em.mode_name AS event_mode, sa.start_date, sa.end_date, sa.achievement_type, sa.position_rank, sa.award_name, sa.cash_prize_amount, vs.status_name AS verification_status, aps.status_name AS approval_status, sa.created_at, sa.updated_at, sa.deleted_at FROM student_activity sa JOIN student s ON s.student_id = sa.student_id::bigint JOIN student_activity_type sat ON sat.student_activity_type_id = sa.student_activity_type_id::integer LEFT JOIN academic_year ay ON ay.academic_year_id = sa.academic_year_id::integer JOIN institution i ON i.institution_id = sa.institution_id::integer LEFT JOIN campus c ON c.campus_id = sa.campus_id::integer LEFT JOIN department d ON d.department_id = sa.department_id::integer LEFT JOIN programme p ON p.programme_id = sa.programme_id::integer LEFT JOIN participation_level pl ON pl.participation_level_id = sa.participation_level_id::smallint LEFT JOIN event_mode em ON em.event_mode_id = sa.event_mode_id::smallint JOIN verification_status vs ON vs.verification_status_id = sa.verification_status_id::smallint JOIN approval_status aps ON aps.approval_status_id = sa.approval_status_id::smallint;` |
 | `v_student_fee_balance` | v | `SELECT sfa.student_account_id, sfa.student_id, sfa.account_number, COALESCE(sum(sfa2.net_payable_amount), 0.00) AS total_assessed, COALESCE(sum(sfa2.amount_paid), 0.00) AS total_paid, COALESCE(sum(sfa2.balance_amount), 0.00) AS total_outstanding, sfa.credit_balance FROM student_financial_account sfa LEFT JOIN student_fee_assessment sfa2 ON sfa2.student_account_id::bigint = sfa.student_account_id AND (sfa2.assessment_status <> ALL (ARRAY['CANCELLED'::text, 'WAIVED'::text])) GROUP BY sfa.student_account_id, sfa.student_id, sfa.account_number, sfa.credit_balance;` |
 
-### Functions (275)
+### Functions (280)
 
 | Function | Arguments |
 |---|---|
+| `public.admin_lookup_options` | `p_table text` |
+| `public.admin_table_delete` | `p_table text, p_id bigint` |
+| `public.admin_table_list` | - |
+| `public.admin_table_save` | `p_table text, p_id bigint, p jsonb` |
+| `public.admin_table_schema` | `p_table text` |
 | `public.admission_admit` | `p_application_id bigint, p_student jsonb, p_enrolment jsonb` |
 | `public.admission_apply` | `p_applicant jsonb, p_application jsonb` |
 | `public.admission_set_status` | `p_application_id bigint, p_new_status text, p_remarks text` |
@@ -5705,7 +5710,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `public.timetable_sections` | `p_pto bigint` |
 | `public.timetable_slots` | - |
 
-### Triggers (140)
+### Triggers (142)
 
 | Trigger | Table | Definition |
 |---|---|---|
@@ -5802,6 +5807,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_publication_type_touch_updated_at` | `publication_type` | `CREATE TRIGGER trg_publication_type_touch_updated_at BEFORE UPDATE ON publication_type FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_qualification_level_touch_updated_at` | `qualification_level` | `CREATE TRIGGER trg_qualification_level_touch_updated_at BEFORE UPDATE ON qualification_level FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
 | `trg_role_touch_updated_at` | `role` | `CREATE TRIGGER trg_role_touch_updated_at BEFORE UPDATE ON role FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
+| `trg_room_audit` | `room` | `CREATE TRIGGER trg_room_audit AFTER INSERT OR DELETE OR UPDATE ON room FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TIMETABLE', 'room_id')` |
 | `trg_semester_audit` | `semester` | `CREATE TRIGGER trg_semester_audit AFTER INSERT OR DELETE OR UPDATE ON semester FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'semester_id')` |
 | `trg_staff_activity_audit` | `staff_activity` | `CREATE TRIGGER trg_staff_activity_audit AFTER INSERT OR DELETE OR UPDATE ON staff_activity FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'staff_activity_id')` |
 | `trg_staff_activity_touch_updated_at` | `staff_activity` | `CREATE TRIGGER trg_staff_activity_touch_updated_at BEFORE UPDATE ON staff_activity FOR EACH ROW EXECUTE FUNCTION sims_touch_updated_at()` |
@@ -5838,6 +5844,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_student_term_result_audit` | `student_term_result` | `CREATE TRIGGER trg_student_term_result_audit AFTER INSERT OR DELETE OR UPDATE ON student_term_result FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('RESULT', 'student_term_result_id')` |
 | `trg_student_term_result_lock` | `student_term_result` | `CREATE TRIGGER trg_student_term_result_lock BEFORE INSERT OR DELETE OR UPDATE ON student_term_result FOR EACH ROW EXECUTE FUNCTION sims_term_result_lock()` |
 | `trg_student_term_result_workflow_guard` | `student_term_result` | `CREATE TRIGGER trg_student_term_result_workflow_guard BEFORE INSERT OR UPDATE ON student_term_result FOR EACH ROW EXECUTE FUNCTION sims_guard_student_term_result()` |
+| `trg_time_slot_audit` | `time_slot` | `CREATE TRIGGER trg_time_slot_audit AFTER INSERT OR DELETE OR UPDATE ON time_slot FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'time_slot_id')` |
 | `trg_timetable_session_audit` | `timetable_session` | `CREATE TRIGGER trg_timetable_session_audit AFTER INSERT OR DELETE OR UPDATE ON timetable_session FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TIMETABLE', 'timetable_session_id')` |
 | `trg_timetable_session_guard` | `timetable_session` | `CREATE TRIGGER trg_timetable_session_guard BEFORE INSERT OR UPDATE ON timetable_session FOR EACH ROW EXECUTE FUNCTION sims_timetable_guard()` |
 | `trg_university_audit` | `university` | `CREATE TRIGGER trg_university_audit AFTER INSERT OR DELETE OR UPDATE ON university FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('INSTITUTION', 'university_id')` |
@@ -6451,7 +6458,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 
 ## Schema `sims_private`
 
-9 tables, 0 views, 146 functions, 0 triggers, 0 policies, 6 indexes.
+9 tables, 0 views, 151 functions, 0 triggers, 0 policies, 6 indexes.
 
 ### Tables (9)
 
@@ -6604,12 +6611,17 @@ Row level security: **disabled**. Columns: **14**. Indexes: **3**.
 
 _none_
 
-### Functions (146)
+### Functions (151)
 
 | Function | Arguments |
 |---|---|
 | `sims_private.activity_actor` | `p_student bigint, p_perm text` |
 | `sims_private.activity_child_ok` | `p_activity_id bigint, p_detail_table text, p_perm_prefix text, p_action text` |
+| `sims_private.admin_can` | `p_table text, p_action text, p_row_id bigint, p_payload jsonb` |
+| `sims_private.admin_holds` | `p_codes text[]` |
+| `sims_private.admin_lookup_def` | `p_table text` |
+| `sims_private.admin_scope_value` | `p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb` |
+| `sims_private.admin_table_def` | `p_table text` |
 | `sims_private.admission_action_for` | `p_to text` |
 | `sims_private.admission_authorize` | `p_application_id bigint, p_action text` |
 | `sims_private.admission_transition_ok` | `p_from text, p_to text` |

@@ -34,7 +34,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
-import { applyMigrations, dumpCatalogue, ROOT } from './pg_catalogue.mjs';
+import { applyMigrations, dumpCatalogue, ACTIVITY_TABLES, ROOT } from './pg_catalogue.mjs';
 
 export const DEFAULT_OUT = path.join(ROOT, 'tools', 'catalogue', 'live_catalogue.json');
 
@@ -677,6 +677,10 @@ export async function dumpLiveCatalogue(client) {
 
   const rowCounts = {};
   for (const table of tableList) {
+    // The append-only audit logs grow with use, not with the schema - see
+    // ACTIVITY_TABLES.  Their count would make the dump stale after every
+    // test run.
+    if (ACTIVITY_TABLES.has(table.name)) continue;
     const res = await client.query(
       `SELECT count(*) FROM "${table.schema}"."${table.name}"`,
     );

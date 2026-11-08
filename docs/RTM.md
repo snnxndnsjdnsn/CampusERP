@@ -17,7 +17,7 @@ this document is inferred.
 | **Module #** | The section number in `SIMS-DatabaseWithoutLessonPlan.sql`. Two headers are numbered `18`; both are listed. |
 | **Module name** | The header text, verbatim. |
 | **Key tables** | The tables that carry the module's contract. The bracketed number is the module's **total** table count. |
-| **Key RPCs** | The `public.*` functions that implement the module's writes and reads. `—` means the module has no dedicated RPC and is authorised by table RLS alone. |
+| **Key RPCs** | The `public.*` functions that implement the module's writes and reads. `—` means the module has no dedicated RPC and is authorised by table RLS alone. Modules 3, 4, 5, 7 and 8 also carry the generic `admin_*` write surface described in [The editable module screens](#the-editable-module-screens). |
 | **UI route(s)** | The routes in `src/lib/nav.ts` that expose the module. Detail routes that exist but are not sidebar entries are shown in brackets. |
 | **Access module code** | The `access_module.module_code` value(s) that gate the module. `—` means the module owns no tables and has no code of its own. |
 | **Status** | See the legend below. |
@@ -38,12 +38,12 @@ this document is inferred.
 |---|---|---|---|---|---|---|
 | 1 | COMMON REFERENCE MODULE | `country`, `state`, `gender`, `blood_group`, `religion`, `social_category`, `caste`, `sub_caste`, `admission_category`, `document_type` [10] | `ref_list`, `ref_rows`, `ref_save`, `ref_delete`, `ref_schema` | `/admin/reference` | IAM | Complete |
 | 2 | UNIVERSITY AND INSTITUTION STRUCTURE MODULE | `university`, `institution`, `campus`, `department`, `programme`, `programme_specialization`, `building`, `room` [8] | `institution_create`, `institution_update`, `record_sections`, `section_save`, `section_delete`, `section_rows`, `section_schema`, `section_lookup_options` | `/structure` | INSTITUTION | Complete |
-| 3 | ACADEMIC CALENDAR MODULE | `academic_year`, `academic_term`, `semester`, `time_slot` [4] | — (RLS only) | `/calendar` | ACADEMIC_CALENDAR | Complete |
-| 4 | CURRICULUM AND COURSE CATALOG MODULE | `course_category`, `course_catalog`, `curriculum_scheme`, `curriculum_course`, `course_prerequisite` [5] | — (RLS only) | `/curriculum`, `/courses` | CURRICULUM | Complete |
-| 5 | STUDENT AND STAFF MASTER MODULES (INDEPENDENT ROOT ENTITIES) | `student`, `student_address`, `student_parent_guardian`, `student_residence`, `student_previous_education`, `student_entrance_exam`, `staff_type`, `staff_category`, `employment_source`, `external_agency`, `designation`, `employee`, `employee_address`, `employee_assignment`, `employee_competency` [15] | `student_register`, `employee_register`, `employee_assign`, `emp_competency_save`, `emp_competency_list`, `emp_competency_delete` | `/students`, `/employees` | STUDENT, EMPLOYEE | Complete |
+| 3 | ACADEMIC CALENDAR MODULE | `academic_year`, `academic_term`, `semester`, `time_slot` [4] | `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | `/calendar` | ACADEMIC_CALENDAR | Complete |
+| 4 | CURRICULUM AND COURSE CATALOG MODULE | `course_category`, `course_catalog`, `curriculum_scheme`, `curriculum_course`, `course_prerequisite` [5] | `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | `/curriculum`, `/courses` | CURRICULUM | Complete |
+| 5 | STUDENT AND STAFF MASTER MODULES (INDEPENDENT ROOT ENTITIES) | `student`, `student_address`, `student_parent_guardian`, `student_residence`, `student_previous_education`, `student_entrance_exam`, `staff_type`, `staff_category`, `employment_source`, `external_agency`, `designation`, `employee`, `employee_address`, `employee_assignment`, `employee_competency` [15] | `student_register`, `employee_register`, `employee_assign`, `emp_competency_save`, `emp_competency_list`, `emp_competency_delete`, `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | `/students`, `/employees` | STUDENT, EMPLOYEE | Complete |
 | 6 | ADMISSION AND ENROLMENT TRANSACTION MODULE | `admission_applicant`, `admission_application`, `student_programme_enrolment`, `enrolment_status_history` [4] | `admission_apply`, `admission_update_applicant`, `admission_update_application`, `admission_set_status`, `admission_admit` | `/admissions` | ADMISSION | Complete |
-| 7 | TERM REGISTRATION, SECTION AND COURSE REGISTRATION MODULE | `programme_term_offering`, `class_section`, `class_batch`, `student_term_registration`, `course_offering`, `course_offering_section`, `student_course_registration`, `course_offering_section_student` [8] | `registration_term_info`, `registration_candidates`, `registration_roster`, `offering_generate_courses`, `teaching_populate_roster` | `/registration` | REGISTRATION, TEACHING | Complete |
-| 8 | TEACHING ALLOCATION AND TIMETABLE MODULE | `faculty_course_assignment`, `timetable_session` [2] | `timetable_offerings`, `timetable_offering_info`, `timetable_sections`, `timetable_slots`, `timetable_rooms`, `timetable_entries`, `timetable_assignments`, `timetable_generate_sessions` | `/timetable` | TEACHING, TIMETABLE | Complete |
+| 7 | TERM REGISTRATION, SECTION AND COURSE REGISTRATION MODULE | `programme_term_offering`, `class_section`, `class_batch`, `student_term_registration`, `course_offering`, `course_offering_section`, `student_course_registration`, `course_offering_section_student` [8] | `registration_term_info`, `registration_candidates`, `registration_roster`, `offering_generate_courses`, `teaching_populate_roster`, `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | `/registration` | REGISTRATION, TEACHING | Complete |
+| 8 | TEACHING ALLOCATION AND TIMETABLE MODULE | `faculty_course_assignment`, `timetable_session` [2] | `timetable_offerings`, `timetable_offering_info`, `timetable_sections`, `timetable_slots`, `timetable_rooms`, `timetable_entries`, `timetable_assignments`, `timetable_generate_sessions`, `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete`, `admin_lookup_options` | `/timetable` | TEACHING, TIMETABLE | Complete |
 | 9 | ATTENDANCE AND LESSON PLAN MODULE | `class_session`, `attendance_status`, `student_attendance`, `attendance_correction_request` [4] | `attendance_sheet`, `attendance_mark`, `attendance_summary`, `attendance_request_correction`, `attendance_decide_correction` | `/attendance` | ATTENDANCE | Complete |
 | 10 | CONTINUOUS ASSESSMENT AND RESULT MODULE | `assessment_component`, `assessment_event`, `student_assessment_mark`, `grade_scale`, `grade_rule`, `student_course_result`, `student_term_result` [7] | `assessment_offerings`, `assessment_offering_info`, `assessment_sheet`, `assessment_enter_marks`, `result_compute_term`, `result_record_course`, `result_term_sheet`, `result_course_sheet`, `result_publish_term` | `/assessment`, `/results`, `/my-results` | ASSESSMENT, RESULT | Complete |
 | 11 | FEEDBACK MODULE | `feedback_question_category`, `feedback_question`, `feedback_choice`, `feedback_questionnaire`, `feedback_questionnaire_item`, `feedback_cycle`, `feedback_response`, `feedback_response_item` [8] | `feedback_cycle_offerings`, `feedback_form`, `feedback_my_tasks`, `feedback_submit`, `feedback_results` | `/feedback` | FEEDBACK | Complete |
@@ -92,13 +92,13 @@ full visibility rules.
 | # | Group id | Label | Module(s) | Route(s) | Visibility rule | Enforcement |
 |---|---|---|---|---|---|---|
 | 1 | `overview` | Overview | — | `/dashboard` | ungated (any signed-in, provisioned user) | `my_dashboard` / `dash_*` |
-| 2 | `reference` | 1 · Common reference | IAM | `/admin/reference` | `readable_modules` contains `IAM` | 25 tables via RLS; 16 RPCs check `IAM.*` |
-| 3 | `institution` | 2 · Institution structure | INSTITUTION | `/structure` | `readable_modules` contains `INSTITUTION` | 7 tables via RLS; 2 RPCs check `INSTITUTION.*` |
-| 4 | `calendar` | 3 · Academic calendar | ACADEMIC_CALENDAR | `/calendar` | `readable_modules` contains `ACADEMIC_CALENDAR` | 4 tables via RLS; 0 RPCs |
-| 5 | `curriculum` | 4 · Curriculum & courses | CURRICULUM | `/curriculum`, `/courses` | `readable_modules` contains `CURRICULUM` | 5 tables via RLS; 0 RPCs |
-| 6 | `people` | 5 · Students & staff | STUDENT, EMPLOYEE | `/students`, `/employees` | `readable_modules` contains `STUDENT` / `EMPLOYEE` | 13 + 26 tables via RLS; 16 + 6 RPCs |
-| 7 | `admission` | 6 · Admissions | ADMISSION | `/admissions` | `readable_modules` contains `ADMISSION` | 3 tables via RLS; 3 RPCs |
-| 8 | `registration` | 7 · Registration | REGISTRATION | `/registration` | `readable_modules` contains `REGISTRATION` | 6 tables via RLS; 5 RPCs |
+| 2 | `reference` | 1 · Common reference | IAM | `/admin/reference` | `readable_modules` contains `IAM` | 25 tables via RLS; 17 RPCs check `IAM.*` |
+| 3 | `institution` | 2 · Institution structure | INSTITUTION | `/structure` | `readable_modules` contains `INSTITUTION` | 7 tables via RLS; 7 RPCs check `INSTITUTION.*` |
+| 4 | `calendar` | 3 · Academic calendar | ACADEMIC_CALENDAR | `/calendar` | `readable_modules` contains `ACADEMIC_CALENDAR` | 4 tables via RLS; 5 RPCs check it |
+| 5 | `curriculum` | 4 · Curriculum & courses | CURRICULUM | `/curriculum`, `/courses` | `readable_modules` contains `CURRICULUM` | 5 tables via RLS; 5 RPCs check it |
+| 6 | `people` | 5 · Students & staff | STUDENT, EMPLOYEE | `/students`, `/employees` | `readable_modules` contains `STUDENT` / `EMPLOYEE` | 13 + 26 tables via RLS; 21 + 6 RPCs |
+| 7 | `admission` | 6 · Admissions | ADMISSION | `/admissions` | `readable_modules` contains `ADMISSION` | 3 tables via RLS; 8 RPCs |
+| 8 | `registration` | 7 · Registration | REGISTRATION | `/registration` | `readable_modules` contains `REGISTRATION` | 6 tables via RLS; 10 RPCs |
 | 9 | `teaching` | 8 · Teaching & timetable | TIMETABLE | `/timetable` | `readable_modules` contains `TIMETABLE` | 1 table via RLS; 3 RPCs |
 | 10 | `attendance` | 9 · Attendance | ATTENDANCE | `/attendance` | `readable_modules` contains `ATTENDANCE` | 4 tables via RLS; 2 RPCs |
 | 11 | `assessment` | 10 · Assessment & results | ASSESSMENT, RESULT | `/assessment`, `/results`, `/my-results` | `/assessment` needs `ASSESSMENT` **or** `RESULT`; `/results` needs `RESULT`; `/my-results` is `studentOnly` | 3 + 4 tables via RLS; 4 + 7 RPCs |
@@ -106,17 +106,17 @@ full visibility rules.
 | 13 | `support` | 12 · Mentoring & grievance | MENTORING, GRIEVANCE | `/mentoring`, `/grievances` | `/mentoring` needs `MENTORING`; `/grievances` needs `GRIEVANCE` **or** a linked student (`alsoStudent`) | 1 + 3 tables via RLS; 7 + 3 RPCs |
 | 14 | `documents` | 13 · Documents & certificates | DOCUMENT | `/certificates`, `/requests`, `/my-documents` | `/certificates` and `/requests` need `DOCUMENT` **or** a linked student (`alsoStudent`); `/my-documents` is `studentOnly` | 5 tables via RLS; 17 RPCs |
 | 15 | `communication` | 14 · Communication | — | `/announcements` | ungated (intentional) | `announcements_feed` and friends |
-| 16 | `iam` | 15 · Access & audit | IAM, AUDIT | `/admin/users`, `/audit` | `/admin/users` needs `IAM`; `/audit` needs `AUDIT` | 25 + 0 tables via RLS; 16 + 4 RPCs |
+| 16 | `iam` | 15 · Access & audit | IAM, AUDIT | `/admin/users`, `/audit` | `/admin/users` needs `IAM`; `/audit` needs `AUDIT` | 25 + 0 tables via RLS; 17 + 4 RPCs |
 | 17 | `hr` | 16 · Employee HR | — | `/my-hr` | `employeeOnly` (linked employee record) | `emp_*` / `employee_document_*` RPCs |
 | 18 | `finance` | 17 · Fees & finance | FEES | `/finance` | `readable_modules` contains `FEES` | 23 tables via RLS; 7 RPCs |
 | 19 | `schema` | 18 · Performance indexes & storage | IAM | `/schema/18` | `readable_modules` contains `IAM` | 572 public indexes via `schema_indexes`; `file_object` (20 columns) via RLS |
-| 20 | `staff` | 19 · Staff profile & research | STAFF_PROFILE | `/staff-profile` + 15 sub-module children (modules 20–34) | `readable_modules` contains `STAFF_PROFILE` | 55 tables via RLS; 20 RPCs |
+| 20 | `staff` | 19 · Staff profile & research | STAFF_PROFILE | `/staff-profile` + 15 sub-module children (modules 20–34) | `readable_modules` contains `STAFF_PROFILE` | 55 tables via RLS; 21 RPCs |
 | 21 | `seed` | 35 · Seed reference data | IAM, STAFF_PROFILE | `/schema/35` | `readable_modules` contains `IAM` **or** `STAFF_PROFILE` | 27 seeded lookup tables via RLS |
 | 22 | `rbac` | 36 · Staff profile RBAC registration | IAM | `/schema/36` | `readable_modules` contains `IAM` | 1 access module, 5 resources, 44 permissions and 144 role grants via RLS |
 | 23 | `reporting` | 37 · Reporting & search views | REPORTING | `/reporting` | `readable_modules` contains `REPORTING` | 10 `security_invoker` views via RLS; `global_search` checks no permission code (G-1) |
 | 24 | `staff-index` | 38 · Staff profile performance indexes | STAFF_PROFILE, IAM | `/schema/38` | `readable_modules` contains `STAFF_PROFILE` **or** `IAM` | 146 indexes on 55 tables via `schema_indexes` |
 | 25 | `integrity` | 39 · Data-integrity notes | IAM, AUDIT | `/schema/39` | `readable_modules` contains `IAM` **or** `AUDIT` | 14 notes, transcribed in `src/features/schema/integrity-notes.tsx` |
-| 26 | `activities` | 40 · Student activities | STUDENT | `/activities` | `readable_modules` contains `STUDENT` **or** a linked student (`alsoStudent`) | 13 tables via RLS; 16 RPCs |
+| 26 | `activities` | 40 · Student activities | STUDENT | `/activities` | `readable_modules` contains `STUDENT` **or** a linked student (`alsoStudent`) | 13 tables via RLS; 21 RPCs |
 | 27 | `account` | Account | — | `/settings` | ungated | own-account RPCs |
 
 ## Access module catalogue
@@ -173,6 +173,52 @@ The register is kept whole: gaps that have since been closed are marked
 | G-13 | Six `sims_private` tables have no RLS enabled. | `mfa_recovery_attempt`, `mfa_recovery_code`, `mfa_required_role`, `notification_dismissal`, `receipt_counter`, `student_service_request` (9 tables in the schema, 3 with RLS). Reproduced identically in the live catalogue dump. | The schema is not exposed through the Data API (`api.schemas = ["public", "graphql_public"]`), so the exposure is limited, but the tables are not deny-by-default. | Open - pre-existing in the live database |
 | G-14 | The RPC error contract is inconsistent. | `audit_get`, `ref_schema` and `ref_rows` raise `Not authorised (...)`; `audit_list`, `audit_modules` and `ref_list` silently return `[]` for the same unauthorised caller (`tests/db/rls.test.ts`, "authorises the SECURITY DEFINER RPCs inside the function"). | A caller cannot distinguish "not allowed" from "no data". | Open - pre-existing in the live database |
 | G-15 | Schema modules 18, 35, 36, 37, 38 and 39 had **no screen of their own**. | Modules 18, 35, 36, 38 and 39 are served by `src/app/(app)/schema/[module]/page.tsx`; module 37 has a screen of its own at `src/app/(app)/reporting/page.tsx`. `supabase/migrations/065_schema_indexes.sql` adds `public.schema_indexes(p_scope text DEFAULT NULL)`, the only door to `pg_indexes`. | Six sidebar groups carry the module numbers: `schema` (18), `seed` (35), `rbac` (36), `reporting` (37), `staff-index` (38) and `integrity` (39). Every module number from 1 to 40 is now reachable from the sidebar. | **Resolved** |
+| G-16 | Six module screens were **read-only**: the academic calendar, curriculum, courses, students, registration and timetable showed their rows but offered no way to add, edit or remove one. | The cause was not a permission but a missing write surface: none of the six screens had a write RPC, and `sims_private.ref_tables()` / `sims_private.section_def()` do not list their tables, so the generic reference editors could not reach them either. `supabase/migrations/066_admin_editing.sql` adds `public.admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete` and `admin_lookup_options`, and `src/features/admin/admin-table-editor.tsx` renders the "Manage" panel on all six screens. | Each screen now carries a collapsible Manage panel that lists only the tables the signed-in user holds a write permission for. The permission check is the one the row level policy already makes, mirrored into the `SECURITY DEFINER` write function, and the scope of the row being written decides the outcome - a scoped caller cannot move a row out of its scope. | **Resolved** |
+
+## The editable module screens
+
+Six screens carry a collapsible **Manage** panel that adds, edits and removes the
+rows behind them. The panel is one component - `src/features/admin/admin-table-editor.tsx`
+- and the database owns everything it does:
+
+| Screen | Module | Editable tables | Permission prefix |
+|---|---|---|---|
+| `/calendar` | 3 · Academic calendar | `academic_year`, `academic_term`, `semester`, `time_slot` | `ACADEMIC_CALENDAR` |
+| `/curriculum` | 4 · Curriculum | `curriculum_scheme`, `curriculum_course` | `CURRICULUM` |
+| `/courses` | 4 · Courses | `course_catalog`, `course_category` | `CURRICULUM` |
+| `/students` | 5 · Students | `student`, `student_programme_enrolment` | `STUDENT`, `ADMISSION` |
+| `/registration` | 7 · Registration | `programme_term_offering`, `course_offering`, `class_section`, `student_term_registration` | `REGISTRATION`, `TEACHING` |
+| `/timetable` | 8 · Timetable | `time_slot`, `room` | `ACADEMIC_CALENDAR`, `INSTITUTION` |
+
+The permission prefix is the one the row level policy already uses, so the panel
+and the policy cannot disagree. Three tables deliberately carry a prefix that
+belongs to a different module: `student_programme_enrolment` is written under
+`ADMISSION.ALL.*`, `course_offering` under `TEACHING.ALL.*` and `room` under
+`INSTITUTION.ALL.*` (scoped through `building_id -> building.campus_id`).
+
+The write surface is five functions, added by
+`supabase/migrations/066_admin_editing.sql`:
+
+| Function | What it does |
+|---|---|
+| `public.admin_table_list()` | The tables the caller may write to. A caller who holds no write permission on a screen sees no panel at all. |
+| `public.admin_table_schema(text)` | The columns of one table, in the shape the shared `DynamicForm` renders. |
+| `public.admin_table_save(text, bigint, jsonb)` | Inserts or updates one row. |
+| `public.admin_table_delete(text, bigint)` | Deletes one row. |
+| `public.admin_lookup_options(text)` | The foreign key dropdowns. `SECURITY INVOKER`, so it only ever returns the rows the caller may see. |
+
+The three write functions are `SECURITY DEFINER`, so the row level policies do
+not run for them. Each one therefore makes the same decision the policy makes,
+in two parts: the row that exists now (`USING`) and the row as it is afterwards
+(`WITH CHECK`). The second part is what stops a scoped caller from moving a row
+out of its own scope - a department cannot hand its course to another
+department. A refusal raises, and the write and its audit row are rolled back
+together.
+
+Every change is audited by the table's own `sims_private.audit_row` trigger, so
+one change is one audit row. Migration 066 also adds the two triggers that were
+missing: `trg_time_slot_audit` (module `ACADEMIC_CALENDAR`) and
+`trg_room_audit` (module `TIMETABLE`).
 
 ## Sources
 
@@ -182,6 +228,7 @@ The register is kept whole: gaps that have since been closed are marked
 | Live table / function / policy / permission counts | Read-only queries against the live Supabase project `khqqfgqvwdxlqkncwtmh`. |
 | Index catalogue (572 public indexes; 146 on the 55 `STAFF_PROFILE.*` tables) | `public.schema_indexes('all')` and `public.schema_indexes('staff')` on the live project; the function is defined in `supabase/migrations/065_schema_indexes.sql`. |
 | The six new screens and their gates | `src/features/schema/module-catalog.ts`, `src/features/schema/schema-screen.tsx`, `src/app/(app)/reporting/page.tsx` and `src/lib/nav.ts`. |
+| The editable module screens and their tables | `src/features/admin/admin-table-editor.tsx`, the six `src/app/(app)/<screen>/page.tsx` files and the catalogue `sims_private.admin_table_def` in `supabase/migrations/066_admin_editing.sql`. |
 | `access_module`, `access_action`, `access_resource`, `permission` rows | Same. |
 | Nav groups, routes, visibility rules | `src/lib/nav.ts`. |
 | Route existence | `src/app/(app)/**/page.tsx` on disk. |

@@ -101,6 +101,36 @@ traced in [RTM.md](RTM.md). The index catalogue behind modules 18 and 38 is read
 through `public.schema_indexes(p_scope text)`, added by
 `supabase/migrations/065_schema_indexes.sql`.
 
+### The six editable module screens
+
+Six module screens used to show their rows and offer no way to change one: the
+academic calendar, curriculum, courses, students, registration and timetable.
+Each of them now carries a collapsible **Manage** panel:
+
+| Screen | Editable tables |
+|---|---|
+| `/calendar` | `academic_year`, `academic_term`, `semester`, `time_slot` |
+| `/curriculum` | `curriculum_scheme`, `curriculum_course` |
+| `/courses` | `course_catalog`, `course_category` |
+| `/students` | `student`, `student_programme_enrolment` |
+| `/registration` | `programme_term_offering`, `course_offering`, `class_section`, `student_term_registration` |
+| `/timetable` | `time_slot`, `room` |
+
+The panel is one component - `src/features/admin/admin-table-editor.tsx` - and
+the database owns it. `public.admin_table_list` returns only the tables the
+signed-in user holds a write permission for, `admin_table_schema` describes the
+columns, and `admin_table_save` / `admin_table_delete` do the write. All five
+functions come from `supabase/migrations/066_admin_editing.sql`.
+
+The write functions are `SECURITY DEFINER`, so the row level policies do not run
+for them; each one therefore makes the same decision the policy makes, checking
+the row as it exists now *and* the row as it is afterwards. A scoped caller
+therefore cannot move a row out of its own scope - a department cannot hand its
+course to another department. Every change is audited by the table's own
+trigger, so one change is one audit row.
+
+The panel adds no sidebar group and no route: the screens were already there.
+
 ---
 
 ## npm scripts and the tooling
@@ -113,7 +143,7 @@ through `public.schema_indexes(p_scope text)`, added by
 | `docs:roles` | `node tools/validate/role_matrix.mjs` | `tools/validate/role_matrix.mjs` | Yes - renders `docs/ROLE_PERMISSION_MATRIX.md` from the **live** project; `--check` compares without writing |
 | `docs:schema` | `node tools/validate/schema_doc.mjs` | `tools/validate/schema_doc.mjs` | Yes - renders `docs/SCHEMA.md` and `docs/SCHEMA_RECONCILIATION.md` from the **live** catalogue; `--check` compares without writing |
 | `migrate:catalogue` | `node tools/validate/catalogue.mjs && python tools/compare_catalogue.py` | both files present | Yes - dumps the **live** catalogue read-only and diffs it against the expected contract |
-| `migrate:build` | `python tools/translate.py && python tools/build_migrations.py` | both files present | Yes - rewrites `supabase/migrations/001`-`063` (63 files; `064` and `065` are hand-written and left alone) |
+| `migrate:build` | `python tools/translate.py && python tools/build_migrations.py` | both files present | Yes - rewrites `supabase/migrations/001`-`063` (63 files; `064`, `065` and `066` are hand-written and left alone) |
 | `migrate:apply` | `python tools/apply_migrations.py` | `tools/apply_migrations.py` | Yes - **dry run by default**; `--apply` is the only way to write |
 | `seed:apply` | `python tools/apply_demo_seed.py` | `tools/apply_demo_seed.py` | Yes - **dry run by default**; `--apply` is the only way to write |
 | `admin:create` | `node tools/create_admin.mjs` | `tools/create_admin.mjs` | Yes - **dry run by default**; `--apply` is the only way to write |
@@ -144,6 +174,17 @@ satisfy. The report is grouped by kind - `tables`, `columns`, `functions`,
 per-schema counts and the seeded `row_counts`. The contract's optional
 `objects` section carries a SHA-256 of every function, trigger and policy
 definition, so a changed body is a difference too.
+
+**The audit logs are left out of the row counts.** The append-only logs -
+`activity_audit`, `login_audit`, `fee_activity_audit` and the other four - are
+in the dump as tables, but their row count is not recorded. Their count is a
+function of what the application has done, not of the schema: the end-to-end
+suite alone adds three rows to `activity_audit` per run, so recording it would
+make `catalogue.mjs --check` fail after every test run and the failure would
+say nothing about the schema. The list lives in
+`tools/validate/pg_catalogue.mjs` and is used by all three dumpers, so the
+live dump, the PGlite rebuild and `tools/dump_catalogue.py` stay the same
+shape.
 
 `tools/validate/schema_doc.mjs` renders `docs/SCHEMA.md` from the live
 catalogue and `docs/SCHEMA_RECONCILIATION.md` from the comparison with
@@ -179,6 +220,10 @@ PostgreSQL (`--source rebuilt`).
 | `tests/e2e/smoke.spec.ts` | The signed-in smoke test: every application route is opened with a real SUPER_ADMIN session and must leave the `Loading…` state, render content and log no console error. Credentials come from `SIMS_TEST_EMAIL` / `SIMS_TEST_PASSWORD`; without them the suite is skipped, not failed. Reached through `test:e2e:smoke`. The suite opens four browsers at a time: Playwright's default of half the logical processors puts eight pages on a sixteen-core machine, and the shared Supabase pooler then queues them long enough for the database's two-minute statement timeout to cancel `my_context()`, so the page answers 500 and the suite fails on a healthy application. `PLAYWRIGHT_WORKERS` overrides the cap; CI runs one worker. |
 | `tests/e2e/global-setup.ts` | Signs in **once** for the whole Playwright run and writes the session to `playwright/.auth/sims.json`. Supabase throttles the password grant endpoint, so a suite that signs in per test runs into `Request rate limit reached`. |
 | `tests/e2e/signin.spec.ts` | The sign-in form itself: a valid password lands on the dashboard, a wrong one is refused. Runs anonymously. |
+| `supabase/migrations/066_admin_editing.sql` | The generic write surface. `sims_private.admin_table_def` is the catalogue of editable tables, each with its permission prefix and its scope column; `sims_private.admin_holds`, `admin_scope_value` and `admin_can` do the checking. The public side is `admin_table_list`, `admin_table_schema`, `admin_table_save`, `admin_table_delete` and `admin_lookup_options`. The migration also adds the two audit triggers that were missing: `trg_time_slot_audit` and `trg_room_audit`. |
+| `src/features/admin/admin-table-editor.tsx` | The **Manage** panel the six editable screens share. The form is generated from the column description the database hands out, and the rows are read through PostgREST, so the row level policies decide what is visible. |
+| `tests/db/admin-editing.test.ts` | The database test for migration 066: the catalogue, the permission check, the scope check and the refusal paths. Runs on embedded PostgreSQL. |
+| `tests/e2e/admin-editing.spec.ts` | The end-to-end test for the Manage panel: the six screens offer the expected tables, and a full add / duplicate-refused / edit / delete round trip on the academic calendar. |
 | `tools/work/run_seed.mjs`, `tools/work/run_seed_step.mjs` | Scratch runners for the seed. `tools/work/` is a scratch area, not a tool surface. |
 
 ### Consequences
@@ -190,7 +235,7 @@ PostgreSQL (`--source rebuilt`).
 - `tools/translate.py` is back (23:54:54) and `npm run migrate:build` runs the
   whole chain: the MySQL reference is translated, the builder cross-checks it
   against the live catalogue and regenerates the 63 generated migration files
-  (`001`-`063`; `064` and `065` are hand-written and left alone). The build
+  (`001`-`063`; `064`, `065` and `066` are hand-written and left alone). The build
   is deterministic - two consecutive runs produce byte-identical files.
 - `docs/RLS_POLICY_MAP.md` **was** generated from the live catalogue after the
   rebuild and is current.
@@ -277,8 +322,8 @@ Current results:
   *new* problem still fails the run; `--strict` fails on the known gap too.
 - `migrate:catalogue` reports **0 differences**: the live project agrees with
   the contract on the counts, the per-schema counts, the seeded row counts and
-  every object of all seven kinds (222 tables, 2140 columns, 421 functions,
-  594 policies, 140 triggers, 6227 grants, 199 sequences). The tool exits 0
+  every object of all seven kinds (222 tables, 2140 columns, 431 functions,
+  594 policies, 142 triggers, 6253 grants, 199 sequences). The tool exits 0
   with `OK - the live catalogue matches the expected catalogue`.
 - `docs:schema -- --check` and `docs:roles -- --check` both exit 0: the
   committed `docs/SCHEMA.md`, `docs/SCHEMA_RECONCILIATION.md` and
@@ -286,7 +331,7 @@ Current results:
   produce from the live project.
 - `migrate:build` regenerates the 63 generated migration files and is
   deterministic: two consecutive runs produce byte-identical files.
-- `migrate:apply` prints the plan for all 65 files and writes nothing.
+- `migrate:apply` prints the plan for all 66 files and writes nothing.
 - `seed:apply` prints the plan for the 58 statements of `tools/seed_demo.sql`
   and the row count of every one of the 51 tables it writes to, and writes
   nothing. The tool refuses to run a statement that would change more than the
@@ -321,8 +366,8 @@ schema:
 python tools/apply_migrations.py --apply --baseline-before 064_required_reference_seeds.sql
 ```
 
-All 65 files are now tracked. `python tools/apply_migrations.py` reports
-`65 migration file(s), 0 pending, 0 changed`.
+All 66 files are now tracked. `python tools/apply_migrations.py` reports
+`66 migration file(s), 0 pending, 0 changed`.
 
 ### The demo tenant
 
@@ -402,7 +447,7 @@ without a session:
 | Project | Tests | Session |
 |---|---|---|
 | `chromium` | `tests/e2e/auth.spec.ts` (route protection), `tests/e2e/signin.spec.ts` (the form) | none - except the sign-in test, which drives the form |
-| `chromium-signed-in` | `tests/e2e/smoke.spec.ts` (every route) | the storage state |
+| `chromium-signed-in` | `tests/e2e/smoke.spec.ts` (every route), `tests/e2e/admin-editing.spec.ts` (the Manage panel) | the storage state |
 
 Without `SIMS_TEST_EMAIL` / `SIMS_TEST_PASSWORD` the signed-in project is left
 out and the tests that need it skip themselves, so a checkout without a test
@@ -431,6 +476,7 @@ than about the browser.
 | Table, view, function, trigger and policy counts | The live database, read with `SELECT` only. |
 | The index catalogue (572 public indexes; 146 on the 55 `STAFF_PROFILE.*` tables) | `public.schema_indexes('all')` and `public.schema_indexes('staff')` on the live project. |
 | Permission codes and role grants | `public.permission`, `public.role_permission` on the live database. |
+| The editable tables and their permissions | The catalogue `sims_private.admin_table_def` on the live database, added by migration 066. |
 | Navigation | `src/lib/nav.ts` - the single source of truth. |
 | Route existence | `src/app/**/page.tsx` on disk. |
 | File provenance | The opencode session log; see [RECOVERY.md](RECOVERY.md). |

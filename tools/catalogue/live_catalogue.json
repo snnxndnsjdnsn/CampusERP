@@ -64492,6 +64492,36 @@
  "functions": [
   {
    "schema": "public",
+   "name": "admin_lookup_options",
+   "args": "p_table text",
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_lookup_options(p_table text)\n RETURNS TABLE(id bigint, label text)\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_lookup_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown lookup table' USING ERRCODE = '22023';\n    END IF;\n\n    RETURN QUERY EXECUTE format(\n        'SELECT %I::bigint, (%s)::text FROM public.%I t ORDER BY 2 LIMIT 1000',\n        d.pk_col, d.label_sql, p_table);\nEND $function$\n"
+  },
+  {
+   "schema": "public",
+   "name": "admin_table_delete",
+   "args": "p_table text, p_id bigint",
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_delete(p_table text, p_id bigint)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text;\n    v_exists integer;\n    v_code text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    v_code := CASE\n        WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE'\n        ELSE d.perm_prefix || '.ALL.DELETE'\n    END;\n\n    IF NOT sims_private.admin_can(p_table, 'DELETE', p_id, NULL) THEN\n        RAISE EXCEPTION 'Not authorised to delete % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n    END IF;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    EXECUTE format('SELECT 1 FROM public.%I WHERE %I = $1', p_table, v_pk) INTO v_exists USING p_id;\n    IF v_exists IS NULL THEN\n        RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n    END IF;\n\n    BEGIN\n        EXECUTE format('DELETE FROM public.%I WHERE %I = $1', p_table, v_pk) USING p_id;\n    EXCEPTION WHEN foreign_key_violation THEN\n        RAISE EXCEPTION 'This row is still in use and cannot be deleted' USING ERRCODE = '45000';\n    END;\n\n    -- Audited by the table's own `sims_private.audit_row` trigger - see `admin_table_save`.\nEND $function$\n"
+  },
+  {
+   "schema": "public",
+   "name": "admin_table_list",
+   "args": "",
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_list()\n RETURNS TABLE(tbl text, label text, module_code text)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT d.tbl, d.label, d.module_code\n      FROM sims_private.admin_table_def(NULL) d\n     WHERE sims_private.admin_holds(ARRAY[\n               CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.CREATE'  END,\n               CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.UPDATE'  END,\n               CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.DELETE'  END\n             ]::text[])\n     ORDER BY d.module_code, d.label;\n$function$\n"
+  },
+  {
+   "schema": "public",
+   "name": "admin_table_save",
+   "args": "p_table text, p_id bigint, p jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_save(p_table text, p_id bigint, p jsonb)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text;\n    v_exists integer;\n    v_after jsonb;\n    v_id bigint;\n    v_action text;\n    v_code text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    IF p IS NULL OR jsonb_typeof(p) <> 'object' THEN\n        RAISE EXCEPTION 'The details must be an object' USING ERRCODE = '22023';\n    END IF;\n\n    v_action := CASE WHEN p_id IS NULL THEN 'CREATE' ELSE 'UPDATE' END;\n    v_code := CASE\n        WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE'\n        ELSE d.perm_prefix || '.ALL.' || v_action\n    END;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    -- The write functions are SECURITY DEFINER, so the row level policies do not\n    -- run for them.  The function therefore has to make the same decision the\n    -- policy makes, in two parts:\n    --\n    --   USING      the row that exists now (an update) or the row that is about\n    --              to be written (an insert)\n    --   WITH CHECK the row as it is afterwards\n    --\n    -- The second part is what stops a scoped caller from moving a row out of\n    -- its own scope: without it a department could hand its course to another\n    -- department, which the policy's WITH CHECK clause forbids.\n\n    IF p_id IS NOT NULL THEN\n        EXECUTE format('SELECT 1 FROM public.%I WHERE %I = $1', p_table, v_pk) INTO v_exists USING p_id;\n        IF v_exists IS NULL THEN\n            RAISE EXCEPTION 'Unknown row' USING ERRCODE = '22023';\n        END IF;\n\n        IF NOT sims_private.admin_can(p_table, 'UPDATE', p_id, NULL) THEN\n            RAISE EXCEPTION 'Not authorised to update % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n        END IF;\n    ELSE\n        IF NOT sims_private.admin_can(p_table, 'CREATE', NULL, p) THEN\n            RAISE EXCEPTION 'Not authorised to create % (%)', lower(d.label), v_code USING ERRCODE = '42501';\n        END IF;\n    END IF;\n\n    -- The write itself is audited by the table's own `sims_private.audit_row` trigger,\n    -- so the function must not audit as well - that would record every change twice.\n    v_id := sims_private.write_row(p_table, v_pk, NULL, NULL, p_id, p);\n\n    -- WITH CHECK: the row as it is now.  A refusal here aborts the transaction,\n    -- so the write and its audit row are rolled back together.\n    EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE t.%I = $1', p_table, v_pk) INTO v_after USING v_id;\n    IF NOT sims_private.admin_can(p_table, v_action, NULL, v_after) THEN\n        RAISE EXCEPTION 'Not authorised to % % outside your scope (%)',\n            lower(v_action), lower(d.label), v_code USING ERRCODE = '42501';\n    END IF;\n\n    RETURN v_id;\nEND $function$\n"
+  },
+  {
+   "schema": "public",
+   "name": "admin_table_schema",
+   "args": "p_table text",
+   "definition": "CREATE OR REPLACE FUNCTION public.admin_table_schema(p_table text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_pk text;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RAISE EXCEPTION 'Unknown table' USING ERRCODE = '22023';\n    END IF;\n\n    IF NOT sims_private.admin_holds(ARRAY[\n           CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.CREATE' END,\n           CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.UPDATE' END,\n           CASE WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE' ELSE d.perm_prefix || '.ALL.DELETE' END\n         ]::text[]) THEN\n        RAISE EXCEPTION 'Not authorised (%)', d.label USING ERRCODE = '42501';\n    END IF;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    RETURN jsonb_build_object(\n        'table', d.tbl,\n        'label', d.label,\n        'module_code', d.module_code,\n        'pk', v_pk,\n        'columns', sims_private.form_columns(p_table, ARRAY[v_pk])\n    );\nEND $function$\n"
+  },
+  {
+   "schema": "public",
    "name": "admission_admit",
    "args": "p_application_id bigint, p_student jsonb, p_enrolment jsonb",
    "definition": "CREATE OR REPLACE FUNCTION public.admission_admit(p_application_id bigint, p_student jsonb, p_enrolment jsonb)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE v_app record; v_prog integer; v_app_row record; v_applicant record; v_student bigint; v_stu jsonb;\nBEGIN\n    v_prog := sims_private.admission_authorize(p_application_id, 'APPROVE');\n    IF NOT sims_private.can_programme(ARRAY['STUDENT.ALL.CREATE']::text[], v_prog) THEN\n        RAISE EXCEPTION 'Not authorised to create students in this programme' USING ERRCODE = '42501';\n    END IF;\n    SELECT * INTO v_app FROM admission_application WHERE application_id = p_application_id FOR UPDATE;\n    IF v_app.application_status = 'ADMITTED' AND v_app.admitted_student_id IS NOT NULL THEN RETURN v_app.admitted_student_id; END IF;  -- idempotent replay\n    IF v_app.application_status <> 'SELECTED' THEN\n        RAISE EXCEPTION 'Only a SELECTED application can be admitted (status is %)', v_app.application_status USING ERRCODE = '45000';\n    END IF;\n    IF p_student IS NULL OR NULLIF(btrim(p_student ->> 'student_number'), '') IS NULL THEN\n        RAISE EXCEPTION 'student_number is required' USING ERRCODE = '22023';\n    END IF;\n    SELECT * INTO v_applicant FROM admission_applicant WHERE admission_applicant_id = v_app.admission_applicant_id;\n\n    -- applicant details are defaults; explicit values in p_student win\n    v_stu := jsonb_strip_nulls(jsonb_build_object(\n        'first_name', v_applicant.first_name, 'middle_name', v_applicant.middle_name, 'last_name', v_applicant.last_name,\n        'date_of_birth', v_applicant.date_of_birth, 'gender_id', v_applicant.gender_id, 'primary_email', v_applicant.primary_email,\n        'primary_phone', v_applicant.primary_phone, 'nationality_country_id', v_applicant.nationality_country_id,\n        'social_category_id', v_applicant.social_category_id)) || p_student;\n\n    v_student := public.student_register(\n        v_stu,\n        jsonb_strip_nulls(jsonb_build_object('programme_id', v_app.programme_id, 'specialization_id', v_app.specialization_id,\n                                             'admission_category_id', v_app.admission_category_id)) || COALESCE(p_enrolment, '{}'::jsonb));\n\n    UPDATE admission_application SET application_status = 'ADMITTED', admitted_student_id = v_student WHERE application_id = p_application_id;\n    RETURN v_student;\nEND $function$\n"
@@ -66154,6 +66184,36 @@
   },
   {
    "schema": "sims_private",
+   "name": "admin_can",
+   "args": "p_table text, p_action text, p_row_id bigint, p_payload jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_can(p_table text, p_action text, p_row_id bigint, p_payload jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    d record;\n    v_code text;\n    v_scope bigint;\nBEGIN\n    SELECT * INTO d FROM sims_private.admin_table_def(p_table);\n    IF d.tbl IS NULL THEN\n        RETURN false;\n    END IF;\n\n    v_code := CASE\n        WHEN d.perm_mode = 'CONFIGURE' THEN d.perm_prefix || '.ALL.CONFIGURE'\n        ELSE d.perm_prefix || '.ALL.' || upper(p_action)\n    END;\n\n    v_scope := sims_private.admin_scope_value(d.tbl, d.scope_kind, d.scope_col, d.scope_ref, p_row_id, p_payload);\n\n    RETURN CASE d.scope_kind\n        WHEN 'global'     THEN sims_private.can_global(ARRAY[v_code]::text[])\n        WHEN 'campus'     THEN sims_private.can_campus(ARRAY[v_code]::text[], v_scope)\n        WHEN 'department' THEN sims_private.can_department(ARRAY[v_code]::text[], v_scope)\n        WHEN 'programme'  THEN sims_private.can_programme(ARRAY[v_code]::text[], v_scope)\n        WHEN 'student'    THEN sims_private.can_student(ARRAY[v_code]::text[], v_scope, true)\n        ELSE false\n    END;\nEND $function$\n"
+  },
+  {
+   "schema": "sims_private",
+   "name": "admin_holds",
+   "args": "p_codes text[]",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_holds(p_codes text[])\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT s.ga\n        OR COALESCE(cardinality(s.ai), 0) > 0\n        OR COALESCE(cardinality(s.ac), 0) > 0\n        OR COALESCE(cardinality(s.ad), 0) > 0\n        OR COALESCE(cardinality(s.ap), 0) > 0\n      FROM sims_private.eff_set_of(p_codes) s;\n$function$\n"
+  },
+  {
+   "schema": "sims_private",
+   "name": "admin_lookup_def",
+   "args": "p_table text",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_lookup_def(p_table text)\n RETURNS TABLE(tbl text, pk_col text, label_sql text)\n LANGUAGE sql\n IMMUTABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT v.tbl, v.pk_col, v.label_sql\n      FROM (VALUES\n        ('academic_year',              'academic_year_id',              'year_code'),\n        ('academic_term',              'academic_term_id',              'term_name'),\n        ('semester',                   'semester_id',                   'semester_name'),\n        ('campus',                     'campus_id',                     'campus_name'),\n        ('building',                   'building_id',                   'building_name'),\n        ('department',                 'department_id',                 'department_name'),\n        ('programme',                  'programme_id',                  'programme_name'),\n        ('programme_specialization',   'specialization_id',             'specialization_name'),\n        ('course_category',            'course_category_id',            'category_name'),\n        ('course_catalog',             'course_id',                     'course_title'),\n        ('curriculum_scheme',          'curriculum_scheme_id',          'scheme_name'),\n        ('curriculum_course',          'curriculum_course_id',          '(SELECT c.course_code || '' - '' || c.course_title FROM public.course_catalog c WHERE c.course_id = t.course_id)'),\n        ('programme_term_offering',    'programme_term_offering_id',    '(SELECT p.programme_name || '' - '' || a.term_name FROM public.programme p JOIN public.academic_term a ON a.academic_term_id = t.academic_term_id WHERE p.programme_id = t.programme_id)'),\n        ('student',                    'student_id',                    'display_name'),\n        ('admission_category',         'admission_category_id',         'category_name'),\n        ('student_programme_enrolment','enrolment_id',                  '(SELECT s.display_name FROM public.student s WHERE s.student_id = t.student_id)'),\n        ('room',                       'room_id',                       'room_name'),\n        ('gender',                     'gender_id',                     'gender_name'),\n        ('blood_group',                'blood_group_id',                'blood_group_code'),\n        ('country',                    'country_id',                    'country_name'),\n        ('religion',                   'religion_id',                   'religion_name'),\n        ('social_category',            'social_category_id',            'category_name'),\n        ('caste',                      'caste_id',                      'caste_name'),\n        ('sub_caste',                  'sub_caste_id',                  'sub_caste_name')\n      ) AS v(tbl, pk_col, label_sql)\n     WHERE p_table IS NULL OR v.tbl = p_table;\n$function$\n"
+  },
+  {
+   "schema": "sims_private",
+   "name": "admin_scope_value",
+   "args": "p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_scope_value(p_table text, p_scope_kind text, p_scope_col text, p_scope_ref text, p_row_id bigint, p_payload jsonb)\n RETURNS bigint\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_pk text;\n    v_scope bigint;\n    v_raw text;\n    v_ref_table text;\n    v_ref_column text;\nBEGIN\n    IF p_scope_kind IS NULL OR p_scope_kind = 'global' THEN\n        RETURN NULL;\n    END IF;\n\n    v_pk := sims_private.pk_column(p_table);\n\n    IF p_row_id IS NOT NULL THEN\n        EXECUTE format('SELECT %I::bigint FROM public.%I WHERE %I = $1', p_scope_col, p_table, v_pk)\n           INTO v_scope USING p_row_id;\n    ELSE\n        v_raw := btrim(COALESCE(p_payload ->> p_scope_col, ''));\n        IF v_raw ~ '^-?[0-9]+$' THEN\n            v_scope := v_raw::bigint;\n        ELSE\n            v_scope := NULL;\n        END IF;\n    END IF;\n\n    IF p_scope_ref IS NULL OR v_scope IS NULL THEN\n        RETURN v_scope;\n    END IF;\n\n    v_ref_table := split_part(p_scope_ref, '.', 1);\n    v_ref_column := split_part(p_scope_ref, '.', 2);\n\n    EXECUTE format('SELECT %I::bigint FROM public.%I WHERE %I = $1',\n                   v_ref_column, v_ref_table, sims_private.pk_column(v_ref_table))\n       INTO v_scope USING v_scope;\n\n    RETURN v_scope;\nEND $function$\n"
+  },
+  {
+   "schema": "sims_private",
+   "name": "admin_table_def",
+   "args": "p_table text",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.admin_table_def(p_table text)\n RETURNS TABLE(tbl text, label text, module_code text, perm_prefix text, perm_mode text, scope_kind text, scope_col text, scope_ref text)\n LANGUAGE sql\n IMMUTABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT v.tbl, v.label, v.module_code, v.perm_prefix, v.perm_mode, v.scope_kind, v.scope_col, v.scope_ref\n      FROM (VALUES\n        -- module 3 - academic calendar\n        ('academic_year',               'Academic years',          'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'CONFIGURE', 'global',     NULL,                        NULL),\n        ('academic_term',               'Academic terms',          'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'CONFIGURE', 'global',     NULL,                        NULL),\n        ('semester',                    'Semesters',               'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'CONFIGURE', 'global',     NULL,                        NULL),\n        ('time_slot',                   'Teaching time slots',     'ACADEMIC_CALENDAR', 'ACADEMIC_CALENDAR', 'ACTION',    'campus',     'campus_id',                 NULL),\n        -- module 4 - curriculum and courses\n        ('course_category',             'Course categories',       'CURRICULUM',        'CURRICULUM',        'CONFIGURE', 'global',     NULL,                        NULL),\n        ('curriculum_scheme',           'Curriculum schemes',      'CURRICULUM',        'CURRICULUM',        'ACTION',    'programme',  'programme_id',              NULL),\n        ('curriculum_course',           'Curriculum courses',      'CURRICULUM',        'CURRICULUM',        'ACTION',    'programme',  'curriculum_scheme_id',      'curriculum_scheme.programme_id'),\n        ('course_catalog',              'Courses',                 'CURRICULUM',        'CURRICULUM',        'ACTION',    'department', 'owning_department_id',     NULL),\n        -- module 5 - student register and enrolments\n        ('student',                     'Students',                'STUDENT',           'STUDENT',           'ACTION',    'student',    'student_id',                NULL),\n        ('student_programme_enrolment', 'Programme enrolments',    'STUDENT',           'ADMISSION',         'ACTION',    'student',    'student_id',                NULL),\n        -- module 7 - registration\n        ('programme_term_offering',     'Programme term offerings','REGISTRATION',      'REGISTRATION',      'ACTION',    'programme',  'programme_id',              NULL),\n        ('course_offering',             'Course offerings',        'REGISTRATION',      'TEACHING',          'ACTION',    'programme',  'programme_term_offering_id','programme_term_offering.programme_id'),\n        ('class_section',               'Class sections',          'REGISTRATION',      'REGISTRATION',      'ACTION',    'programme',  'programme_term_offering_id','programme_term_offering.programme_id'),\n        ('student_term_registration',   'Term registrations',      'REGISTRATION',      'REGISTRATION',      'ACTION',    'student',    'enrolment_id',              'student_programme_enrolment.student_id'),\n        -- module 8 - timetable\n        ('room',                        'Rooms',                   'TIMETABLE',         'INSTITUTION',       'ACTION',    'campus',     'building_id',               'building.campus_id')\n      ) AS v(tbl, label, module_code, perm_prefix, perm_mode, scope_kind, scope_col, scope_ref)\n     WHERE p_table IS NULL OR v.tbl = p_table;\n$function$\n"
+  },
+  {
+   "schema": "sims_private",
    "name": "admission_action_for",
    "args": "p_to text",
    "definition": "CREATE OR REPLACE FUNCTION sims_private.admission_action_for(p_to text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\nAS $function$\n    SELECT CASE p_to\n        WHEN 'SUBMITTED' THEN 'UPDATE' WHEN 'UNDER_REVIEW' THEN 'UPDATE' WHEN 'CANCELLED' THEN 'UPDATE'\n        WHEN 'ELIGIBLE' THEN 'VERIFY' WHEN 'INELIGIBLE' THEN 'VERIFY'\n        WHEN 'SELECTED' THEN 'APPROVE' WHEN 'WAITLISTED' THEN 'APPROVE' WHEN 'REJECTED' THEN 'APPROVE'\n    END\n$function$\n"
@@ -67578,6 +67638,12 @@
   },
   {
    "schema": "public",
+   "table": "room",
+   "name": "trg_room_audit",
+   "definition": "CREATE TRIGGER trg_room_audit AFTER INSERT OR DELETE OR UPDATE ON room FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('TIMETABLE', 'room_id')"
+  },
+  {
+   "schema": "public",
    "table": "semester",
    "name": "trg_semester_audit",
    "definition": "CREATE TRIGGER trg_semester_audit AFTER INSERT OR DELETE OR UPDATE ON semester FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'semester_id')"
@@ -67791,6 +67857,12 @@
    "table": "student_term_result",
    "name": "trg_student_term_result_workflow_guard",
    "definition": "CREATE TRIGGER trg_student_term_result_workflow_guard BEFORE INSERT OR UPDATE ON student_term_result FOR EACH ROW EXECUTE FUNCTION sims_guard_student_term_result()"
+  },
+  {
+   "schema": "public",
+   "table": "time_slot",
+   "name": "trg_time_slot_audit",
+   "definition": "CREATE TRIGGER trg_time_slot_audit AFTER INSERT OR DELETE OR UPDATE ON time_slot FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('ACADEMIC_CALENDAR', 'time_slot_id')"
   },
   {
    "schema": "public",
@@ -76304,6 +76376,146 @@
    "object": "activity_type_activity_type_id_seq",
    "grantee": "service_role",
    "privilege": "USAGE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_lookup_options(p_table text)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_lookup_options(p_table text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_lookup_options(p_table text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_lookup_options(p_table text)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_delete(p_table text, p_id bigint)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_list()",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_list()",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_list()",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_list()",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_save(p_table text, p_id bigint, p jsonb)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_schema(p_table text)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_schema(p_table text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_schema(p_table text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "admin_table_schema(p_table text)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
    "grantable": false
   },
   {
@@ -116229,6 +116441,48 @@
   },
   {
    "schema": "sims_private",
+   "object": "admin_lookup_def(p_table text)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "admin_lookup_def(p_table text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "admin_lookup_def(p_table text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "admin_table_def(p_table text)",
+   "grantee": "PUBLIC",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "admin_table_def(p_table text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "admin_table_def(p_table text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
    "object": "admission_action_for(p_to text)",
    "grantee": "postgres",
    "privilege": "EXECUTE",
@@ -118586,7 +118840,6 @@
   "public.access_action": 12,
   "public.access_module": 22,
   "public.access_resource": 40,
-  "public.activity_audit": 124,
   "public.activity_evidence_requirement": 0,
   "public.activity_type": 17,
   "public.admission_applicant": 2,
@@ -118599,7 +118852,7 @@
   "public.approval_status": 6,
   "public.assessment_component": 4,
   "public.assessment_event": 4,
-  "public.attendance_correction_request": 0,
+  "public.attendance_correction_request": 1,
   "public.attendance_status": 5,
   "public.award_category": 8,
   "public.awarding_body": 0,
@@ -118649,13 +118902,11 @@
   "public.employee_pan": 0,
   "public.employee_previous_employment": 0,
   "public.employee_qualification": 0,
-  "public.employee_sensitive_access_audit": 0,
   "public.employee_user_account": 1,
   "public.employment_source": 2,
   "public.enrolment_status_history": 0,
   "public.event_mode": 3,
   "public.evidence_document": 0,
-  "public.evidence_document_audit": 0,
   "public.evidence_document_tag": 0,
   "public.evidence_document_version": 0,
   "public.evidence_tag": 0,
@@ -118667,7 +118918,6 @@
   "public.extracurricular_category": 11,
   "public.faculty_course_assignment": 2,
   "public.faculty_internship": 0,
-  "public.fee_activity_audit": 0,
   "public.fee_adjustment": 0,
   "public.fee_assessment_benefit": 0,
   "public.fee_category": 9,
@@ -118707,7 +118957,6 @@
   "public.journal_type": 2,
   "public.late_fee_rule": 0,
   "public.late_fee_slab": 0,
-  "public.login_audit": 2,
   "public.membership_type": 8,
   "public.mentor_assignment": 0,
   "public.metric_type": 5,
@@ -118755,7 +119004,6 @@
   "public.student": 3,
   "public.student_activity": 2,
   "public.student_activity_evidence": 0,
-  "public.student_activity_evidence_audit": 0,
   "public.student_activity_evidence_requirement": 0,
   "public.student_activity_evidence_version": 0,
   "public.student_activity_team_member": 0,
@@ -118807,8 +119055,8 @@
  "counts": {
   "tables": 222,
   "views": 10,
-  "functions": 421,
-  "triggers": 140,
+  "functions": 431,
+  "triggers": 142,
   "policies": 594,
   "rls_tables": 216,
   "indexes": 365,
@@ -118816,6 +119064,6 @@
   "domains": 6,
   "enums": 0,
   "composites": 233,
-  "grants": 6227
+  "grants": 6253
  }
 }

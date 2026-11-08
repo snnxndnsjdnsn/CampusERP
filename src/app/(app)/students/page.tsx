@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { distinctValues, filterByQuery, labelFor } from '@/features/shared/filter';
 import { readTable } from '@/features/shared/reads';
 import { SearchForm } from '@/features/shared/search-form';
@@ -146,6 +147,12 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
       />
 
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
+
+      <AdminTableEditor
+        tables={['student', 'student_programme_enrolment']}
+        title="Manage the register"
+        description="Add, edit and remove student records and the programme enrolments that place them on a curriculum. Every change is written through the database and audited."
+      />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Students" value={formatNumber(studentsResult.data.length)} hint={`${activeStudents} active`} />

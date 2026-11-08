@@ -47,6 +47,21 @@ OWNED_SCHEMAS = ("public", "sims_private")
 TRACKING_SCHEMA = "sims_private"
 TRACKING_TABLE = "schema_migration"
 
+#: The append-only audit logs.  Their row count is a function of what the
+#: application has done, not of the schema, so it changes every time anything
+#: is written - the end-to-end suite alone adds three rows to `activity_audit`
+#: per run.  Recording their counts would make `catalogue.mjs --check` fail
+#: after every test run, and the failure would say nothing about the schema.
+#: The tables themselves stay in the dump; only their row count is left out.
+ACTIVITY_TABLES = frozenset({
+    "activity_audit",
+    "employee_sensitive_access_audit",
+    "evidence_document_audit",
+    "fee_activity_audit",
+    "login_audit",
+    "student_activity_evidence_audit",
+})
+
 
 def is_tracking_object(name: str) -> bool:
     """True for the tracker table and for everything that belongs to it."""
@@ -494,6 +509,10 @@ def dump_row_counts(cur):
     """, (list(OWNED_SCHEMAS),))
     counts = {}
     for ns, rel in tables:
+        # The append-only audit logs grow with use, not with the schema - see
+        # ACTIVITY_TABLES in tools/validate/pg_catalogue.mjs.
+        if rel in ACTIVITY_TABLES:
+            continue
         cur.execute(f'SELECT count(*) FROM "{ns}"."{rel}"')
         counts[f"{ns}.{rel}"] = cur.fetchone()[0]
     return counts

@@ -167,6 +167,25 @@ policy, needs `STAFF_PROFILE.ALL.READ`). The function is `SECURITY DEFINER`
 because `pg_indexes` is not readable by the `authenticated` role; the
 permission check inside it is the gate.
 
+## The editable screens
+
+Six of the groups above lead to a screen that can be **edited**, not only read:
+`calendar` (3), `curriculum` (4), `people` (5), `registration` (7) and
+`teaching` (8). Each of those screens carries a collapsible **Manage** panel
+that adds, edits and removes the rows behind it.
+
+The panel adds **no group and no route**. The sidebar is unchanged - the same
+27 groups and the same 50 routes. What changed is that a screen which used to
+be a read-only report now offers a write surface.
+
+The panel's contents are decided by the database, not by the sidebar.
+`public.admin_table_list()` returns only the tables the signed-in user holds a
+write permission for, so a caller who may read a module but not write it sees
+no panel at all, and a caller who may write sees only the tables their scope
+covers. The rows themselves are read through PostgREST, so the row level
+policies decide what is visible. The table-by-table breakdown is in
+[RTM.md](RTM.md) under "The editable module screens".
+
 ## Visibility rules
 
 Visibility is a **convenience**. It decides what is drawn; it never decides what

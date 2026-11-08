@@ -84,6 +84,21 @@ NAV = [
 
 PERM_RE = re.compile(r"'([A-Z][A-Z_]*)\.[A-Z_]+\.[A-Z_]+'")
 
+# The generic admin write surface (supabase/migrations/066_admin_editing.sql).
+#
+# `public.admin_table_save` and `public.admin_table_delete` check a permission
+# code that the catalogue `sims_private.admin_table_def` names per table, so
+# the code is not a literal in the function body and the scan above cannot see
+# it.  The catalogue is read instead: every table whose permission prefix
+# belongs to a module is guarded by these RPCs.
+ADMIN_RPCS = [
+    "admin_table_list",
+    "admin_table_schema",
+    "admin_table_save",
+    "admin_table_delete",
+    "admin_lookup_options",
+]
+
 
 def connect(args):
     conn = psycopg2.connect(
@@ -144,6 +159,15 @@ def collect(cur) -> dict:
                     where n.nspname = 'public' and c.relkind = 'v'""")
     data["views"] = {r[0]: r[1] for r in cur.fetchall()}
 
+    # The catalogue of the generic admin write surface.  It only exists once
+    # migration 066 has been applied, so the read is allowed to fail.
+    try:
+        cur.execute("select tbl, module_code, perm_prefix from sims_private.admin_table_def(NULL)")
+        data["admin_tables"] = cur.fetchall()
+    except Exception:
+        cur.connection.rollback()
+        data["admin_tables"] = []
+
     return data
 
 
@@ -173,6 +197,22 @@ def analyse(data: dict) -> dict:
         for m in found:
             fn_modules[m].add(fname)
             fn_by_module[m].append(fname)
+
+    # --- tier (c): the generic admin write surface ----------------------------
+    # The admin RPCs build their permission code from the catalogue, so the
+    # scan above cannot see it.  The catalogue says which permission prefix
+    # every editable table belongs to; the RPCs that guard those tables count
+    # as the module's guards.
+    admin_by_prefix: dict[str, list[str]] = collections.defaultdict(list)
+    for tbl, module_code, perm_prefix in data.get("admin_tables", []):
+        admin_by_prefix[perm_prefix].append(tbl)
+    for prefix, tables_of_prefix in admin_by_prefix.items():
+        if not tables_of_prefix:
+            continue
+        for rpc in ADMIN_RPCS:
+            if rpc in functions and rpc not in fn_by_module.get(prefix, []):
+                fn_modules[prefix].add(rpc)
+                fn_by_module[prefix].append(rpc)
 
     report = {"modules": {}, "problems": [], "totals": {}}
 

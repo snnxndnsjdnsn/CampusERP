@@ -81,6 +81,37 @@ SEED_FILES = {
     "014": "triggers_and_integrity",
 }
 
+# ---------------------------------------------------------------------------
+# the objects the hand written migrations own
+# ---------------------------------------------------------------------------
+# 065 creates `public.schema_indexes` and 066 creates the admin editing surface.
+# The catalogue is a dump of the live database, so it carries those objects as
+# well - and a build from the catalogue would copy them into the generated
+# files, where the hand written migration creates them a second time.  They are
+# therefore removed from the catalogue before the build reads it.
+#
+# Keep this list in step with the hand written migrations: every function and
+# every trigger they create belongs here, otherwise the migration set creates
+# the same object twice.
+HAND_WRITTEN_FUNCTIONS = {
+    ("public", "schema_indexes"),  # 065_schema_indexes.sql
+    ("sims_private", "admin_table_def"),  # 066_admin_editing.sql
+    ("sims_private", "admin_lookup_def"),
+    ("sims_private", "admin_holds"),
+    ("sims_private", "admin_scope_value"),
+    ("sims_private", "admin_can"),
+    ("public", "admin_table_list"),
+    ("public", "admin_table_schema"),
+    ("public", "admin_table_save"),
+    ("public", "admin_table_delete"),
+    ("public", "admin_lookup_options"),
+}
+
+HAND_WRITTEN_TRIGGERS = {
+    ("public", "trg_time_slot_audit"),  # 066_admin_editing.sql
+    ("public", "trg_room_audit"),
+}
+
 CONSOLIDATED_FILES = {
     "022": "admissions",
     "023": "employee_registration",
@@ -404,6 +435,36 @@ def load_catalogue(path: Path) -> dict:
             "Run `python tools/dump_catalogue.py --data` against the live project first."
         )
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def strip_hand_written(cat: dict) -> dict:
+    """Remove the objects the hand written migrations own from the catalogue.
+
+    The catalogue is a dump of the live database, so it carries the functions
+    and the triggers that 065 and 066 create.  A build that copied them into
+    the generated files would create every one of them twice when the set is
+    applied to a fresh database - once by the hand written migration and once
+    by the generated one.  The functions are dropped, the triggers are dropped
+    and the grants that belong to the dropped functions are dropped with them.
+    """
+    fn_names = {name for _schema, name in HAND_WRITTEN_FUNCTIONS}
+
+    cat["functions"] = [
+        f for f in cat["functions"]
+        if (f["schema"], f["name"]) not in HAND_WRITTEN_FUNCTIONS
+    ]
+    cat["triggers"] = [
+        t for t in cat["triggers"]
+        if (t["schema"], t["name"]) not in HAND_WRITTEN_TRIGGERS
+    ]
+    cat["grants"] = [
+        g for g in cat["grants"]
+        if not (
+            "(" in g["object"]
+            and g["object"].split("(", 1)[0] in fn_names
+        )
+    ]
+    return cat
 
 
 def table_map(cat: dict) -> dict[tuple[str, str], dict]:
@@ -1145,6 +1206,64 @@ def build_018(cat: dict) -> Path:
 
 
 # ---------------------------------------------------------------------------
+# the dry run
+# ---------------------------------------------------------------------------
+def check_only(cat: dict, seed: dict, ref: dict, groups: dict) -> int:
+    """Build the migration set into a temporary directory and report what would
+    change, without touching the real one.
+
+    The `--check` flag used to be accepted and then ignored - the build wrote
+    the generated files anyway.  That is not harmless: the catalogue carries the
+    objects that the hand written migrations own (`public.schema_indexes` from
+    065, the admin editing functions from 066), so a "dry run" copied them into
+    the generated files and a fresh database would then create them twice.
+
+    The build therefore runs against a temporary directory and the result is
+    compared with the files on disk.
+    """
+    import tempfile
+
+    real = MIGRATIONS
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        try:
+            globals()["MIGRATIONS"] = tmp_dir
+            import build_rls
+
+            build_rls.MIGRATIONS = tmp_dir
+            build_001(cat)
+            build_seed_files(cat, seed, ref)
+            build_015(cat)
+            build_016(cat)
+            build_017(cat, groups)
+            build_018(cat)
+            build_019(cat, groups)
+            build_020(cat)
+            build_021(cat, groups)
+            build_consolidated(cat, ref)
+        finally:
+            globals()["MIGRATIONS"] = real
+            build_rls.MIGRATIONS = real
+
+        changed: list[tuple[str, str]] = []
+        for generated in sorted(tmp_dir.glob("*.sql")):
+            current = real / generated.name
+            if not current.exists():
+                changed.append((generated.name, "missing on disk"))
+            elif current.read_bytes() != generated.read_bytes():
+                changed.append((generated.name, "different on disk"))
+
+    if not changed:
+        print(f"OK - the {len(list(real.glob('*.sql')))} migration files are up to date")
+        return 0
+
+    print("DIFF - the generated migration files are out of date")
+    for name, why in changed:
+        print(f"  {name}: {why}")
+    return 1
+
+
+# ---------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--catalogue", default=str(CATALOGUE))
@@ -1155,7 +1274,7 @@ def main() -> int:
                     help="do not write, only report what would change")
     args = ap.parse_args()
 
-    cat = load_catalogue(Path(args.catalogue))
+    cat = strip_hand_written(load_catalogue(Path(args.catalogue)))
     seed_path = Path(args.seed)
     seed = json.loads(seed_path.read_text(encoding="utf-8")) if seed_path.exists() else {}
 
@@ -1193,6 +1312,18 @@ def main() -> int:
             "or `node tools/validate/catalogue.mjs` and try again."
         )
 
+    # 064, 065 and 066 are hand written and must stay untouched
+    for hand_written in (
+        "064_required_reference_seeds.sql",
+        "065_schema_indexes.sql",
+        "066_admin_editing.sql",
+    ):
+        if not (MIGRATIONS / hand_written).exists():
+            raise SystemExit(f"{hand_written} is missing - refusing to continue")
+
+    if args.check:
+        return check_only(cat, seed, ref, groups)
+
     MIGRATIONS.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     written.append(build_001(cat))
@@ -1205,11 +1336,6 @@ def main() -> int:
     written.append(build_020(cat))
     written.append(build_021(cat, groups))
     written.extend(build_consolidated(cat, ref))
-
-    # 064 and 065 are hand written and must stay untouched
-    for hand_written in ("064_required_reference_seeds.sql", "065_schema_indexes.sql"):
-        if not (MIGRATIONS / hand_written).exists():
-            raise SystemExit(f"{hand_written} is missing - refusing to continue")
 
     print(f"wrote {len(written)} migration files to {MIGRATIONS}")
     counts = cat["counts"]

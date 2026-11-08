@@ -59,8 +59,8 @@ signed-in end-to-end suite additionally needs `SIMS_TEST_EMAIL` and
 |---|---|
 | `src/app` | the routes - 50 application pages plus the auth pages |
 | `src/lib/nav.ts` | the sidebar contract: 27 numbered module groups, plus the 15 staff sub-modules (schema modules 20–34) drawn under the staff group |
-| `src/features` | one folder per module, each with its client and data layer |
-| `supabase/migrations` | 65 migrations - `001`-`063` are generated, `064` and `065` are hand-written |
+| `src/features` | one folder per module, each with its client and data layer, plus `admin` for the Manage panel the six editable screens share |
+| `supabase/migrations` | 66 migrations - `001`-`063` are generated, `064`, `065` and `066` are hand-written |
 | `tools` | the migration, catalogue, seed and verification tooling |
 | `tests` | unit, database and Playwright suites |
 | `docs` | the full documentation set - start at `docs/README.md` |
@@ -83,6 +83,32 @@ number in the sidebar:
 The index catalogue behind modules 18 and 38 is read through
 `public.schema_indexes(p_scope text)`, added by
 `supabase/migrations/065_schema_indexes.sql`.
+
+## The editable module screens
+
+Six module screens used to show their rows and offer no way to change one. Each
+of them now carries a collapsible **Manage** panel:
+
+| Screen | Editable tables |
+|---|---|
+| `/calendar` | `academic_year`, `academic_term`, `semester`, `time_slot` |
+| `/curriculum` | `curriculum_scheme`, `curriculum_course` |
+| `/courses` | `course_catalog`, `course_category` |
+| `/students` | `student`, `student_programme_enrolment` |
+| `/registration` | `programme_term_offering`, `course_offering`, `class_section`, `student_term_registration` |
+| `/timetable` | `time_slot`, `room` |
+
+The panel is one component - `src/features/admin/admin-table-editor.tsx` - and
+the database owns it. `public.admin_table_list` returns only the tables the
+signed-in user holds a write permission for, `admin_table_schema` describes the
+columns, and `admin_table_save` / `admin_table_delete` do the write. All five
+functions come from `supabase/migrations/066_admin_editing.sql`.
+
+The write functions are `SECURITY DEFINER`, so the row level policies do not run
+for them; each one therefore makes the same decision the policy makes, checking
+the row as it exists now *and* the row as it is afterwards. A scoped caller
+therefore cannot move a row out of its own scope. Every change is audited by the
+table's own trigger, so one change is one audit row.
 
 ## Documentation
 

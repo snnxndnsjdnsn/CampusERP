@@ -3,6 +3,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import { DAY_LABELS, safeRpcRows, shortTime } from '@/features/academic/data';
 import { GenerateSessionsButton, OfferingPicker, SectionAssignments } from '@/features/timetable/timetable-client';
 import type {
@@ -88,6 +89,12 @@ export default async function TimetablePage({
       <PageHeader
         title="Timetable"
         description="The weekly teaching plan for each programme term offering."
+      />
+
+      <AdminTableEditor
+        tables={['time_slot', 'room']}
+        title="Manage the timetable"
+        description="Add, edit and remove the teaching time slots and the rooms the weekly grid is built from. Every change is written through the database and audited."
       />
 
       <Card>

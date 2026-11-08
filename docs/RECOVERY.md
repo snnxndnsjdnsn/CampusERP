@@ -89,16 +89,16 @@ everything schema-shaped. Verified read-only on 2026-11-07 and re-verified on
 | `public` tables | 213 |
 | `public` tables with RLS enabled | 213 (0 disabled) |
 | `public` views | 10 |
-| `public` functions | 275 (232 `SECURITY DEFINER`) |
+| `public` functions | 280 (236 `SECURITY DEFINER`) |
 | `sims_private` tables | 10 (9 application tables plus the applier's `schema_migration`) |
-| `sims_private` functions | 146 |
-| `public` triggers | 140 |
+| `sims_private` functions | 151 |
+| `public` triggers | 142 |
 | `public` policies | 594 |
 | `public` indexes | 572 |
 | `access_module` / `access_action` / `access_resource` | 22 / 12 / 40 |
 | `role` rows | 39 |
 | `role_permission` rows | 2,301 |
-| Migrations applied | 65 (`001`–`065`, no gaps) |
+| Migrations applied | 66 (`001`–`066`, no gaps) |
 
 The catalogue was regenerated from it into `tools/catalogue/live_catalogue.json`
 (3,438,534 bytes) and `tools/catalogue/live_seed_data.json` (324,594 bytes).
@@ -275,6 +275,9 @@ database on 2026-11-08.
 `supabase/migrations/065_schema_indexes.sql` is the second exception: it is
 hand-written rather than generated, and `tools/build_migrations.py` refuses to
 run if it is missing.
+`supabase/migrations/066_admin_editing.sql` is the third exception: it is
+hand-written as well. `tools/build_migrations.py` strips its objects from the
+catalogue before it builds, so a rebuild never creates one of them twice.
 
 Also regenerated rather than recovered: `tools/catalogue/*`, `tools/rls/table_module.json`,
 `tools/validate/pg_catalogue.mjs`, `tools/validate/apply.mjs`,
@@ -384,6 +387,12 @@ primitives, `src/lib/context.ts`, `src/lib/server-context.ts`, `src/lib/api.ts`,
 | 03:54:44 | `src/app/(app)/reporting/page.tsx` written - the screen behind module 37. |
 | 03:56:40 | `src/features/schema/module-catalog.ts`, `schema-screen.tsx` and `src/app/(app)/reporting/page.tsx` given the page-level gate: a caller who may not read the module behind a screen is told so instead of being served the screen. |
 | 04:09:04 | `playwright.config.ts` capped at four workers. Playwright's default of half the logical processors had the shared Supabase pooler queueing `my_context()` long enough for the database's two-minute statement timeout to cancel it, so the page answered 500 and the suite failed on a healthy application. |
+| 06:00-06:15 | The six read-only screens diagnosed and the generic write surface designed. The academic calendar, curriculum, courses, students, registration and timetable had no write RPC at all, and the generic reference editors - `sims_private.ref_tables()` and `sims_private.section_def()` - do not list their tables either. The cause was a missing write surface, not a permission. |
+| 06:15:59 | `supabase/migrations/066_admin_editing.sql` written and applied to the live project: the catalogue `sims_private.admin_table_def`, the helpers `admin_holds`, `admin_scope_value` and `admin_can`, the five public `admin_*` functions, and the two audit triggers that were missing - `trg_time_slot_audit` and `trg_room_audit`. |
+| 06:16-06:20 | `src/features/admin/admin-table-editor.tsx` written - the Manage panel the six screens share - and the six screen pages wired to it. `tools/build_migrations.py` taught to strip the hand-written objects from the catalogue, so a rebuild never creates one of them twice. |
+| 06:41:27 | The end-to-end round trip on the academic calendar exercised against the live project: add, a refused duplicate, edit and delete, each one audited exactly once. |
+| 06:45:28 | The last verification write of the round. |
+| 06:41 | The catalogue check taught to leave the append-only audit logs out of the row counts. Their count is a function of activity, not of the schema - the end-to-end suite alone adds three rows to `activity_audit` per run - so recording it made `catalogue.mjs --check` fail after every test run. The list lives in `tools/validate/pg_catalogue.mjs` and is used by all three dumpers. |
 
 The 00:30:12 row is the point at which the tooling stopped comparing the
 migration set against a **rebuild** and started comparing it against a
@@ -396,8 +405,9 @@ This record was last reconciled against the tree at 04:09:04, when the
 end-to-end suite's worker count was capped. The last write by the rebuild
 tooling was at 00:38:24; the only later change to the tree before that round
 was `.env.example` at 00:41:26. Everything after 23:56:38 is re-verified in
-section 8, and the round that added the six schema screens is recorded in
-section 9.
+section 8, the round that added the six schema screens is recorded in
+section 9, and the round that made the six module screens editable is
+recorded in section 10.
 
 ---
 
@@ -411,8 +421,8 @@ section 9.
   tables), and a test administrator was created. The project now carries
   `sims_private.schema_migration`, so the applier can tell what is applied:
   `python tools/apply_migrations.py` reported **64 migration file(s), 0 pending,
-  0 changed** at that point. It reports 65 now that
-  `065_schema_indexes.sql` exists; see section 9.
+  0 changed** at that point. It reports 66 now that
+  `066_admin_editing.sql` exists; see sections 9 and 10.
 
   The tracker did not exist when the applier was first run, so the files `001`
   to `063` were **baselined** - recorded as applied *without being executed*,
@@ -548,11 +558,11 @@ and student personas the visibility rules need.
   two-minute statement timeout to cancel `my_context()`. The page answers 500
   and the suite fails on a healthy application, so `playwright.config.ts` caps
   the workers at four.
-- `python tools/apply_migrations.py` reports `65 migration file(s), 0 pending,
-  0 changed`. `tools/build_migrations.py` writes `001`-`063` only and refuses to
-  run if `064_required_reference_seeds.sql` or `065_schema_indexes.sql` is
-  missing.
-- `tools/compare_catalogue.py` exits 0 with 421 functions and 6227 grants.
+- `python tools/apply_migrations.py` reported `65 migration file(s), 0 pending,
+  0 changed` at that point. `tools/build_migrations.py` writes `001`-`063` only
+  and refuses to run if `064_required_reference_seeds.sql` or
+  `065_schema_indexes.sql` is missing.
+- `tools/compare_catalogue.py` exited 0 with 421 functions and 6227 grants.
 
 ### 9.2 What is not verified
 
@@ -568,7 +578,110 @@ and student personas the visibility rules need.
 
 ---
 
-## 10. Rules that came out of this
+## 10. The round that made the six module screens editable
+
+On 2026-11-08 six module screens that had always been read-only gained a
+**Manage** panel: the academic calendar, curriculum, courses, students,
+registration and timetable. The round ran from about 06:00 to 06:45 local;
+section 7 lists the steps in order.
+
+The cause was not a permission. The screens showed their rows because the rows
+were readable, but nothing could change them: none of the six screens had a
+write RPC, and the generic reference editors - `sims_private.ref_tables()` and
+`sims_private.section_def()` - do not list their tables either. The proof was
+that impersonating the signed-in administrator's JWT and issuing
+`INSERT academic_year`, `UPDATE academic_term` and `INSERT time_slot` against
+PostgREST all succeeded.
+
+| Screen | Editable tables | Permission prefix |
+|---|---|---|
+| `/calendar` | `academic_year`, `academic_term`, `semester`, `time_slot` | `ACADEMIC_CALENDAR` |
+| `/curriculum` | `curriculum_scheme`, `curriculum_course` | `CURRICULUM` |
+| `/courses` | `course_catalog`, `course_category` | `CURRICULUM` |
+| `/students` | `student`, `student_programme_enrolment` | `STUDENT`, `ADMISSION` |
+| `/registration` | `programme_term_offering`, `course_offering`, `class_section`, `student_term_registration` | `REGISTRATION`, `TEACHING` |
+| `/timetable` | `time_slot`, `room` | `ACADEMIC_CALENDAR`, `INSTITUTION` |
+
+Three tables carry a prefix that belongs to a different module, and that is
+deliberate: `student_programme_enrolment` is written under `ADMISSION.ALL.*`,
+`course_offering` under `TEACHING.ALL.*` and `room` under `INSTITUTION.ALL.*`
+(scoped through `building_id -> building.campus_id`). The prefix is the one the
+row level policy already uses, so the panel and the policy cannot disagree.
+
+The round added `supabase/migrations/066_admin_editing.sql` - the catalogue
+`sims_private.admin_table_def`, the helpers `admin_holds`, `admin_scope_value`
+and `admin_can`, and the five public functions `admin_table_list`,
+`admin_table_schema`, `admin_table_save`, `admin_table_delete` and
+`admin_lookup_options`. It also added the two audit triggers that were missing:
+`trg_time_slot_audit` (module `ACADEMIC_CALENDAR`) and `trg_room_audit`
+(module `TIMETABLE`). Without them a change to a time slot or a room would have
+gone unrecorded.
+
+The write functions are `SECURITY DEFINER`, so the row level policies do not run
+for them. Each one therefore makes the same decision the policy makes, in two
+parts: the row that exists now (`USING`) and the row as it is afterwards
+(`WITH CHECK`). The second part is what stops a scoped caller from moving a row
+out of its own scope - a department cannot hand its course to another
+department. A refusal raises, and the write and its audit row are rolled back
+together.
+
+### 10.1 What is verified
+
+- The migration was applied to the live project at 06:15:59 local on 2026-11-08.
+  `python tools/apply_migrations.py` reports `66 migration file(s), 0 pending,
+  0 changed`.
+- The catalogue was re-dumped and the contract re-blessed: 431 functions, 142
+  triggers and 6253 grants. `tools/compare_catalogue.py` exits 0 with 0
+  differences.
+- The whole chain was exercised through PostgREST with a real signed-in
+  session. `admin_table_list` returns 15 tables to the administrator, 9 to the
+  faculty persona and 0 to the student. A create, update and delete round trip
+  succeeded for `academic_year`, `course_catalog`, `student`, `time_slot` and
+  `room`.
+- The refusals are the ones the policy would produce: 403 `Not authorised to
+  update courses (CURRICULUM.ALL.UPDATE)`, 403 `Not authorised to update
+  courses outside your scope (CURRICULUM.ALL.UPDATE)`, 400 `This row is still
+  in use and cannot be deleted` and 409 `That value is already recorded
+  (uq_student_term_registration)`. A refused write left no trace.
+- The audit trail holds exactly one row per change, with the uniform action
+  codes `INSERT`, `UPDATE` and `DELETE`. Audit ids 132-153 are historical
+  duplicates from the runs before the two missing triggers were added; the ids
+  from 154 on are clean.
+- `tests/db/admin-editing.test.ts` - 11 tests on embedded PostgreSQL - passes.
+- `tests/e2e/admin-editing.spec.ts` - 7 tests - passes: the six screens offer
+  the expected tables, and the academic calendar round trip adds a row, has a
+  duplicate refused, edits the row and deletes it. The whole Playwright suite is
+  90 tests.
+- `tools/build_migrations.py --check` reports `OK - the 66 migration files are
+  up to date`. The builder strips the hand-written objects from the catalogue
+  before it builds, so a rebuild never creates one of them twice.
+- `tools/validate/nav_rbac_connectivity.py` now counts the generic admin
+  surface as a third tier of enforcement, because the permission code it checks
+  comes from the catalogue and is not a literal in the function body.
+- The catalogue check is repeatable. The append-only audit logs -
+  `activity_audit` and five others - are left out of the dump's row counts,
+  because their count is a function of activity rather than of the schema.
+  `node tools/verify.mjs` now passes twice in a row, which it did not before:
+  the end-to-end suite writes three audit rows per run, and the catalogue
+  check ran before the suite.
+- One leftover test row was found in the live project and removed: the course
+  `FAC-1` from the round trip of an earlier verification run. It was deleted
+  through `admin_table_delete`, so the removal is audited like any other
+  change.
+
+### 10.2 What is not verified
+
+- The panel was exercised in a browser with the administrator's session only.
+  The faculty and student personas were checked through the database - the
+  table list and the refusals - but not through the browser, because the
+  Playwright suite signs in with one account.
+- The end-to-end round trip covers `academic_year` only. The other fourteen
+  editable tables are covered by the database test and by the live database
+  checks, not by a browser round trip.
+
+---
+
+## 11. Rules that came out of this
 
 1. **Never run `Remove-Item -Recurse -Force` on a path under `F:\sims`.** The
    original command used `-ErrorAction SilentlyContinue`, which suppressed the errors
@@ -584,7 +697,7 @@ and student personas the visibility rules need.
 
 ---
 
-## 11. Related documents
+## 12. Related documents
 
 - [README.md](README.md) - index of the documentation set.
 - [RTM.md](RTM.md) - module-by-module traceability, including the gaps.
