@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AdminTableEditor } from '@/features/admin/admin-table-editor';
+import { CalendarOfEvents } from '@/features/calendar/calendar-grid';
 import {
   loadAcademicTerms,
   loadAcademicYears,
@@ -27,9 +28,39 @@ type CalendarRow = {
   calendar_type: string;
   academic_year_id: number;
   title: string;
+  description: string | null;
   start_date: string | null;
   end_date: string | null;
   is_published: boolean;
+};
+type WeekRow = {
+  week_id: number;
+  calendar_id: number;
+  week_no: number;
+  month_label: string;
+  week_start_date: string;
+  week_end_date: string;
+  no_of_working_days: number;
+  events: string | null;
+};
+type WeekDayRow = {
+  week_day_id: number;
+  week_id: number;
+  day_index: number;
+  day_date: string;
+  day_category: string;
+  holiday_id: number | null;
+};
+type TermScheduleRow = {
+  term_schedule_id: number;
+  calendar_id: number;
+  course_label: string;
+  term_commencement_date: string | null;
+  end_of_term_date: string | null;
+  practical_exam_start: string | null;
+  practical_exam_end: string | null;
+  theory_exam_start: string | null;
+  theory_exam_end: string | null;
 };
 
 function first(value: string | string[] | undefined): string {
@@ -49,22 +80,40 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const q = first(sp.q);
   const status = first(sp.status).toUpperCase();
 
-  const [years, terms, semesters, slots, holidays, campuses, calendars] = await Promise.all([
-    loadAcademicYears(supabase),
-    loadAcademicTerms(supabase),
-    loadSemesters(supabase),
-    loadTimeSlots(supabase),
-    loadHolidays(supabase),
-    readTable<CampusRow>(supabase, 'campus', 'campus_id, campus_name', { order: { column: 'campus_name' } }),
-    readTable<CalendarRow>(
-      supabase,
-      'calendar',
-      'calendar_id, calendar_type, academic_year_id, title, start_date, end_date, is_published',
-      { order: { column: 'calendar_type' } },
-    ),
-  ]);
+  const [years, terms, semesters, slots, holidays, campuses, calendars, weeks, weekDays, termSchedules] =
+    await Promise.all([
+      loadAcademicYears(supabase),
+      loadAcademicTerms(supabase),
+      loadSemesters(supabase),
+      loadTimeSlots(supabase),
+      loadHolidays(supabase),
+      readTable<CampusRow>(supabase, 'campus', 'campus_id, campus_name', { order: { column: 'campus_name' } }),
+      readTable<CalendarRow>(
+        supabase,
+        'calendar',
+        'calendar_id, calendar_type, academic_year_id, title, description, start_date, end_date, is_published',
+        { order: { column: 'calendar_type' } },
+      ),
+      readTable<WeekRow>(
+        supabase,
+        'calendar_week',
+        'week_id, calendar_id, week_no, month_label, week_start_date, week_end_date, no_of_working_days, events',
+        { order: { column: 'week_no' } },
+      ),
+      readTable<WeekDayRow>(
+        supabase,
+        'calendar_week_day',
+        'week_day_id, week_id, day_index, day_date, day_category, holiday_id',
+        { order: { column: 'day_index' } },
+      ),
+      readTable<TermScheduleRow>(
+        supabase,
+        'calendar_term_schedule',
+        'term_schedule_id, calendar_id, course_label, term_commencement_date, end_of_term_date, practical_exam_start, practical_exam_end, theory_exam_start, theory_exam_end',
+      ),
+    ]);
 
-  const errors = [years, terms, semesters, slots, campuses, calendars]
+  const errors = [years, terms, semesters, slots, campuses, calendars, weeks, weekDays, termSchedules]
     .map((r) => r.error)
     .filter((e): e is string => Boolean(e));
 
@@ -178,6 +227,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
             )}
           </CardContent>
         </Card>
+
+        <CalendarOfEvents
+          calendars={calendars.data}
+          weeks={weeks.data}
+          days={weekDays.data}
+          holidays={holidays.data}
+          termSchedules={termSchedules.data}
+          yearLabel={yearLabel}
+        />
 
         <Card>
           <CardHeader>
