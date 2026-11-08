@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Input, Label } from '@/components/ui/input';
+import { Check } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DynamicForm,
@@ -24,6 +25,7 @@ import {
 import { errorMessage } from '@/features/shared/reads';
 import { formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
 
 export type RefTable = { tbl: string; label: string; module_code: string };
 
@@ -65,6 +67,7 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
+  const [tableFilter, setTableFilter] = useState('');
   const [editing, setEditing] = useState<{ id: number | null; values: FormValues; original: FormValues | null } | null>(
     null,
   );
@@ -182,7 +185,14 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
     );
   }
 
-  const grouped = tables.reduce<Record<string, RefTable[]>>((acc, t) => {
+  // The picker lists every table the caller may write to, grouped by module.  A
+  // search box narrows it down: thirty-five cards are a lot to scan by eye.
+  const query = tableFilter.trim().toLowerCase();
+  const matching = query
+    ? tables.filter((t) => t.label.toLowerCase().includes(query) || t.tbl.toLowerCase().includes(query))
+    : tables;
+
+  const grouped = matching.reduce<Record<string, RefTable[]>>((acc, t) => {
     const key = t.module_code || 'OTHER';
     (acc[key] ??= []).push(t);
     return acc;
@@ -191,29 +201,68 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle>Reference table</CardTitle>
-          <CardDescription>
-            Pick a table, then add, edit or delete its rows. Every change is written through the database and audited.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="max-w-md">
-            <Label htmlFor="ref-table" className="mb-1 block">
-              Table
-            </Label>
-            <Select id="ref-table" value={table} onChange={(e) => setTable(e.target.value)}>
-              {Object.entries(grouped).map(([module, list]) => (
-                <optgroup key={module} label={module}>
-                  {list.map((t) => (
-                    <option key={t.tbl} value={t.tbl}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </Select>
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle>Reference tables</CardTitle>
+            <CardDescription>
+              Pick a table, then add, edit or delete its rows. Every change is written through the database and audited.
+            </CardDescription>
           </div>
+          <div className="w-56 shrink-0">
+            <Label htmlFor="ref-table-filter" className="sr-only">
+              Find a table
+            </Label>
+            <Input
+              id="ref-table-filter"
+              type="search"
+              placeholder="Find a table"
+              value={tableFilter}
+              onChange={(e) => setTableFilter(e.target.value)}
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            {matching.length} of {tables.length} tables
+          </p>
+
+          {Object.entries(grouped).map(([module, list]) => (
+            <div key={module} className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{module}</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {list.map((t) => {
+                  const selected = t.tbl === table;
+                  return (
+                    <button
+                      key={t.tbl}
+                      type="button"
+                      onClick={() => setTable(t.tbl)}
+                      aria-pressed={selected}
+                      className={cn(
+                        'rounded-lg border p-3 text-left transition-colors',
+                        selected
+                          ? 'bg-muted font-medium text-primary ring-2 ring-primary'
+                          : 'bg-card hover:bg-muted',
+                      )}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="block truncate text-sm">{t.label}</span>
+                        {selected ? <Check className="h-4 w-4 shrink-0" aria-hidden /> : null}
+                      </span>
+                      <span className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">{t.tbl}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {matching.length === 0 ? (
+            <EmptyState
+              title="No table matches"
+              description="Clear the search box to see every reference table you may edit."
+            />
+          ) : null}
 
           {error ? <ErrorPanel message={error} /> : null}
           {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
