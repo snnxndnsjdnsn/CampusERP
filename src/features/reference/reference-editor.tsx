@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Label } from '@/components/ui/input';
 import { Check } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,6 +22,10 @@ import {
   type LookupMap,
   type LookupOption,
 } from '@/features/shared/dynamic-form';
+import { Alert, Notice } from '@/features/shared/feedback';
+import { RecordForm } from '@/features/shared/record-form';
+import { recordNoun, recordNounTitle } from '@/features/shared/record-noun';
+import { RowActions } from '@/features/shared/row-actions';
 import { errorMessage } from '@/features/shared/reads';
 import { formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import { createClient } from '@/lib/supabase/client';
@@ -153,7 +157,7 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
       });
       if (saveError) throw new Error(saveError.message);
       setEditing(null);
-      setNotice(editing.id === null ? 'Row added.' : 'Row updated.');
+      setNotice(`${recordNounTitle(schema.label)} ${editing.id === null ? 'added' : 'updated'}.`);
       await load(schema.table);
       router.refresh();
     } catch (e) {
@@ -171,7 +175,7 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
       setError(deleteError.message);
       return;
     }
-    setNotice('Row deleted.');
+    setNotice(`${recordNounTitle(schema.label)} deleted.`);
     await load(schema.table);
     router.refresh();
   }
@@ -197,6 +201,10 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
     (acc[key] ??= []).push(t);
     return acc;
   }, {});
+
+  // Every control that talks about one record of the selected table uses this
+  // name: "Add academic year", never "Add row".
+  const noun = schema ? recordNoun(schema.label) : 'row';
 
   return (
     <div className="space-y-4">
@@ -264,8 +272,8 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
             />
           ) : null}
 
-          {error ? <ErrorPanel message={error} /> : null}
-          {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+          {error ? <Alert message={error} /> : null}
+          {notice ? <Notice>{notice}</Notice> : null}
         </CardContent>
       </Card>
 
@@ -297,11 +305,32 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
                   setError(null);
                 }}
               >
-                Add row
+                Add {noun}
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Above the table: a form below it is a long scroll from the button. */}
+            {editing ? (
+              <RecordForm
+                title={`${editing.id === null ? 'New' : 'Edit'} ${noun}`}
+                isNew={editing.id === null}
+                saving={saving}
+                onCancel={() => setEditing(null)}
+                onSave={() => void save()}
+              >
+                <DynamicForm
+                  columns={schema.columns}
+                  values={editing.values}
+                  lookups={lookups}
+                  idPrefix={`ref-${editing.id ?? 'new'}`}
+                  onChange={(name, value) =>
+                    setEditing((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
+                  }
+                />
+              </RecordForm>
+            ) : null}
+
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : visibleRows.length === 0 ? (
@@ -309,7 +338,7 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
                 title="No rows to show"
                 description={
                   rows.length === 0
-                    ? 'This reference table is empty. Use “Add row” to create the first entry.'
+                    ? `This reference table is empty. Use “Add ${noun}” to create the first entry.`
                     : 'No row matches the current filter.'
                 }
               />
@@ -334,22 +363,14 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
                           <TableCell key={c.name}>{renderCell(c, row[c.name])}</TableCell>
                         ))}
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const values = valuesFromRow(schema.columns, row);
-                                setEditing({ id, values, original: values });
-                                setError(null);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => void remove(id)}>
-                              Delete
-                            </Button>
-                          </div>
+                          <RowActions
+                            onEdit={() => {
+                              const values = valuesFromRow(schema.columns, row);
+                              setEditing({ id, values, original: values });
+                              setError(null);
+                            }}
+                            onDelete={() => void remove(id)}
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -357,34 +378,6 @@ export function ReferenceEditor({ tables }: { tables: RefTable[] }) {
                 </TableBody>
               </Table>
             )}
-
-            {editing ? (
-              <div className="rounded-lg border border-border p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">{editing.id === null ? 'New row' : `Edit row ${editing.id}`}</h3>
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
-                    Cancel
-                  </Button>
-                </div>
-                <DynamicForm
-                  columns={schema.columns}
-                  values={editing.values}
-                  lookups={lookups}
-                  idPrefix={`ref-${editing.id ?? 'new'}`}
-                  onChange={(name, value) =>
-                    setEditing((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
-                  }
-                />
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setEditing(null)}>
-                    Cancel
-                  </Button>
-                  <Button disabled={saving} onClick={() => void save()}>
-                    {saving ? 'Saving…' : 'Save row'}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
           </CardContent>
         </Card>
       ) : null}

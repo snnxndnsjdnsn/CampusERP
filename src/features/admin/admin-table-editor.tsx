@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Label, Select } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -21,6 +21,10 @@ import {
   type LookupMap,
   type LookupOption,
 } from '@/features/shared/dynamic-form';
+import { Alert, Notice } from '@/features/shared/feedback';
+import { RecordForm } from '@/features/shared/record-form';
+import { recordNoun, recordNounTitle } from '@/features/shared/record-noun';
+import { RowActions } from '@/features/shared/row-actions';
 import { errorMessage } from '@/features/shared/reads';
 import { formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import { createClient } from '@/lib/supabase/client';
@@ -247,7 +251,7 @@ export function AdminTableEditor({
       });
       if (saveError) throw new Error(saveError.message);
       setEditing(null);
-      setNotice(editing.key === null ? 'Row added.' : 'Row updated.');
+      setNotice(`${recordNounTitle(schema.label)} ${editing.key === null ? 'added' : 'updated'}.`);
       await load(schema.table);
       router.refresh();
     } catch (e) {
@@ -268,13 +272,17 @@ export function AdminTableEditor({
       setError(deleteError.message);
       return;
     }
-    setNotice('Row deleted.');
+    setNotice(`${recordNounTitle(schema.label)} deleted.`);
     await load(schema.table);
     router.refresh();
   }
 
   // Nothing to offer: the caller holds no write permission on this screen.
   if (available.length === 0) return null;
+
+  // Every control that talks about one record of this table uses this name:
+  // "Add academic year", never "Add row".
+  const noun = schema ? recordNoun(schema.label) : 'row';
 
   return (
     <Card className="mb-6" data-testid="admin-editor">
@@ -292,11 +300,9 @@ export function AdminTableEditor({
 
       {open ? (
         <CardContent className="space-y-4">
-          {error ? <ErrorPanel message={error} /> : null}
+          {error ? <Alert message={error} /> : null}
           {notice ? (
-            <p className="text-sm text-emerald-700" data-testid="admin-editor-notice">
-              {notice}
-            </p>
+            <Notice testId="admin-editor-notice">{notice}</Notice>
           ) : null}
 
           {available.length > 1 ? (
@@ -321,8 +327,8 @@ export function AdminTableEditor({
               {/*
                 The toolbar stays on screen even when the table is empty or the
                 filter matches nothing: the filter is the only way back from an
-                empty result, and "Add row" is the only way to fill an empty
-                table.
+                empty result, and the Add button is the only way to fill an
+                empty table.
               */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
@@ -348,17 +354,43 @@ export function AdminTableEditor({
                       setError(null);
                     }}
                   >
-                    Add row
+                    Add {noun}
                   </Button>
                 </div>
               </div>
+
+              {/*
+                The form sits above the table: with a table underneath it, a
+                form at the bottom of the card is a long scroll away from the
+                button that opened it.
+              */}
+              {editing ? (
+                <RecordForm
+                  title={`${editing.key === null ? 'New' : 'Edit'} ${noun}`}
+                  isNew={editing.key === null}
+                  saving={saving}
+                  onCancel={() => setEditing(null)}
+                  onSave={() => void save()}
+                  testId="admin-editor-form"
+                >
+                  <DynamicForm
+                    columns={schema.columns}
+                    values={editing.values}
+                    lookups={lookups}
+                    idPrefix={`admin-${editing.key === null ? 'new' : 'row'}`}
+                    onChange={(name, value) =>
+                      setEditing((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
+                    }
+                  />
+                </RecordForm>
+              ) : null}
 
               {visibleRows.length === 0 ? (
                 <EmptyState
                   title="No rows to show"
                   description={
                     rows.length === 0
-                      ? 'This table is empty. Use “Add row” to create the first entry.'
+                      ? `This table is empty. Use “Add ${noun}” to create the first entry.`
                       : 'No row matches the current filter.'
                   }
                 />
@@ -384,22 +416,14 @@ export function AdminTableEditor({
                             <TableCell key={c.name}>{renderCell(c, row[c.name])}</TableCell>
                           ))}
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  const values = valuesFromRow(schema.columns, row);
-                                  setEditing({ key, values, original: values });
-                                  setError(null);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => void remove(key)}>
-                                Delete
-                              </Button>
-                            </div>
+                            <RowActions
+                              onEdit={() => {
+                                const values = valuesFromRow(schema.columns, row);
+                                setEditing({ key, values, original: values });
+                                setError(null);
+                              }}
+                              onDelete={() => void remove(key)}
+                            />
                           </TableCell>
                         </TableRow>
                       );
@@ -409,36 +433,6 @@ export function AdminTableEditor({
               )}
             </>
           )}
-
-          {editing && schema ? (
-            <div className="rounded-lg border border-border p-4" data-testid="admin-editor-form">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">
-                  {editing.key === null ? 'New row' : 'Edit row'}
-                </h3>
-                <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
-                  Cancel
-                </Button>
-              </div>
-              <DynamicForm
-                columns={schema.columns}
-                values={editing.values}
-                lookups={lookups}
-                idPrefix={`admin-${editing.key === null ? 'new' : 'row'}`}
-                onChange={(name, value) =>
-                  setEditing((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
-                }
-              />
-              <div className="mt-4 flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setEditing(null)}>
-                  Cancel
-                </Button>
-                <Button disabled={saving} onClick={() => void save()}>
-                  {saving ? 'Saving…' : 'Save row'}
-                </Button>
-              </div>
-            </div>
-          ) : null}
         </CardContent>
       ) : null}
     </Card>

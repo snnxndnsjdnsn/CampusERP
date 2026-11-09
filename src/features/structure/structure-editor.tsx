@@ -5,9 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState, ErrorPanel } from '@/components/ui/empty-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Label, Select } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Alert, Notice } from '@/features/shared/feedback';
+import { RecordForm } from '@/features/shared/record-form';
+import { recordNoun, recordNounTitle } from '@/features/shared/record-noun';
+import { RowActions } from '@/features/shared/row-actions';
 import {
   DynamicForm,
   buildPayload,
@@ -323,7 +327,7 @@ export function StructureEditor({
       });
       if (saveError) throw new Error(saveError.message);
       setSectionForm(null);
-      setNotice(sectionForm.id === null ? 'Row added.' : 'Row updated.');
+      setNotice(`${recordNounTitle(sectionSchema.label)} ${sectionForm.id === null ? 'added' : 'updated'}.`);
       await loadSectionRows(kind, section, parentId);
       router.refresh();
     } catch (e) {
@@ -346,7 +350,7 @@ export function StructureEditor({
       setError(deleteError.message);
       return;
     }
-    setNotice('Row deleted.');
+    setNotice(`${recordNounTitle(sectionSchema?.label ?? 'record')} deleted.`);
     await loadSectionRows(kind, section, parentId);
     router.refresh();
   }
@@ -362,6 +366,10 @@ export function StructureEditor({
 
   const universityLabel = (id: number) => universities.find((u) => u.id === id)?.label ?? `#${id}`;
 
+  // Every control that talks about one record of the open section uses this
+  // name: "Add address", never "Add row".
+  const sectionNoun = sectionSchema ? recordNoun(sectionSchema.label) : 'row';
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
@@ -373,8 +381,8 @@ export function StructureEditor({
         </Button>
       </div>
 
-      {error ? <ErrorPanel message={error} /> : null}
-      {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+      {error ? <Alert message={error} /> : null}
+      {notice ? <Notice>{notice}</Notice> : null}
 
       {tab === 'institution' ? (
         <Card>
@@ -388,63 +396,15 @@ export function StructureEditor({
             <Button onClick={startCreateInstitution}>New institution</Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {institutions.length === 0 ? (
-              <EmptyState
-                title="No institutions visible to you"
-                description="Institution records are scoped by the INSTITUTION module. Use “New institution” to register one."
-              />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Institution</TableHead>
-                    <TableHead>University</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {institutions.map((row) => (
-                    <TableRow key={row.institution_id}>
-                      <TableCell className="font-medium">{row.institution_code}</TableCell>
-                      <TableCell>
-                        <div>{row.institution_name}</div>
-                        {row.legal_name ? <div className="text-xs text-muted-foreground">{row.legal_name}</div> : null}
-                      </TableCell>
-                      <TableCell>{universityLabel(row.university_id)}</TableCell>
-                      <TableCell>
-                        <div>{row.email ?? '—'}</div>
-                        <div className="text-xs text-muted-foreground">{row.phone ?? '—'}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={row.is_active ? statusVariant('ACTIVE') : statusVariant('INACTIVE')}>
-                          {row.is_active ? 'ACTIVE' : 'INACTIVE'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => startEditInstitution(row)}>
-                          Edit
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
+            {/* Above the table: a form below it is a long scroll from the button. */}
             {instForm ? (
-              <div className="rounded-lg border border-border p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">
-                    {instForm.id === null ? 'New institution' : `Edit institution ${instForm.id}`}
-                  </h3>
-                  <Button size="sm" variant="ghost" onClick={() => setInstForm(null)}>
-                    Cancel
-                  </Button>
-                </div>
-
+              <RecordForm
+                title={instForm.id === null ? 'New institution' : 'Edit institution'}
+                isNew={instForm.id === null}
+                saving={savingInstitution}
+                onCancel={() => setInstForm(null)}
+                onSave={() => void saveInstitution()}
+              >
                 <div className="grid gap-3 sm:grid-cols-2">
                   {INSTITUTION_FIELDS.map((field) => {
                     const id = `inst-${field.name}`;
@@ -514,17 +474,53 @@ export function StructureEditor({
                     );
                   })}
                 </div>
-
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setInstForm(null)}>
-                    Cancel
-                  </Button>
-                  <Button disabled={savingInstitution} onClick={() => void saveInstitution()}>
-                    {savingInstitution ? 'Saving…' : 'Save institution'}
-                  </Button>
-                </div>
-              </div>
+              </RecordForm>
             ) : null}
+
+            {institutions.length === 0 ? (
+              <EmptyState
+                title="No institutions visible to you"
+                description="Institution records are scoped by the INSTITUTION module. Use “New institution” to register one."
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Institution</TableHead>
+                    <TableHead>University</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {institutions.map((row) => (
+                    <TableRow key={row.institution_id}>
+                      <TableCell className="font-medium">{row.institution_code}</TableCell>
+                      <TableCell>
+                        <div>{row.institution_name}</div>
+                        {row.legal_name ? <div className="text-xs text-muted-foreground">{row.legal_name}</div> : null}
+                      </TableCell>
+                      <TableCell>{universityLabel(row.university_id)}</TableCell>
+                      <TableCell>
+                        <div>{row.email ?? '—'}</div>
+                        <div className="text-xs text-muted-foreground">{row.phone ?? '—'}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={row.is_active ? statusVariant('ACTIVE') : statusVariant('INACTIVE')}>
+                          {row.is_active ? 'ACTIVE' : 'INACTIVE'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <RowActions onEdit={() => startEditInstitution(row)} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+
           </CardContent>
         </Card>
       ) : (
@@ -625,15 +621,36 @@ export function StructureEditor({
                       setError(null);
                     }}
                   >
-                    Add row
+                    Add {sectionNoun}
                   </Button>
                 ) : null}
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Above the table: a form below it is a long scroll from the button. */}
+                {sectionForm ? (
+                  <RecordForm
+                    title={`${sectionForm.id === null ? 'New' : 'Edit'} ${sectionNoun}`}
+                    isNew={sectionForm.id === null}
+                    saving={savingSection}
+                    onCancel={() => setSectionForm(null)}
+                    onSave={() => void saveSection()}
+                  >
+                    <DynamicForm
+                      columns={sectionSchema.columns}
+                      values={sectionForm.values}
+                      lookups={lookups}
+                      idPrefix={`sec-${sectionForm.id ?? 'new'}`}
+                      onChange={(name, value) =>
+                        setSectionForm((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
+                      }
+                    />
+                  </RecordForm>
+                ) : null}
+
                 {sectionRows.length === 0 ? (
                   <EmptyState
                     title="Nothing recorded in this section yet"
-                    description="Use “Add row” to create the first entry, if your permissions allow it."
+                    description={`Use “Add ${sectionNoun}” to create the first entry, if your permissions allow it.`}
                   />
                 ) : (
                   <Table>
@@ -656,26 +673,16 @@ export function StructureEditor({
                               <TableCell key={c.name}>{renderCell(c, row[c.name])}</TableCell>
                             ))}
                             <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                {permissions.update ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const values = valuesFromRow(sectionSchema.columns, row);
-                                      setSectionForm({ id, values, original: values });
-                                      setError(null);
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                ) : null}
-                                {permissions.delete ? (
-                                  <Button size="sm" variant="destructive" onClick={() => void removeSectionRow(id)}>
-                                    Delete
-                                  </Button>
-                                ) : null}
-                              </div>
+                              <RowActions
+                                canEdit={permissions.update}
+                                canDelete={permissions.delete}
+                                onEdit={() => {
+                                  const values = valuesFromRow(sectionSchema.columns, row);
+                                  setSectionForm({ id, values, original: values });
+                                  setError(null);
+                                }}
+                                onDelete={() => void removeSectionRow(id)}
+                              />
                             </TableCell>
                           </TableRow>
                         );
@@ -684,35 +691,6 @@ export function StructureEditor({
                   </Table>
                 )}
 
-                {sectionForm ? (
-                  <div className="rounded-lg border border-border p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">
-                        {sectionForm.id === null ? 'New row' : `Edit row ${sectionForm.id}`}
-                      </h3>
-                      <Button size="sm" variant="ghost" onClick={() => setSectionForm(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                    <DynamicForm
-                      columns={sectionSchema.columns}
-                      values={sectionForm.values}
-                      lookups={lookups}
-                      idPrefix={`sec-${sectionForm.id ?? 'new'}`}
-                      onChange={(name, value) =>
-                        setSectionForm((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
-                      }
-                    />
-                    <div className="mt-4 flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setSectionForm(null)}>
-                        Cancel
-                      </Button>
-                      <Button disabled={savingSection} onClick={() => void saveSection()}>
-                        {savingSection ? 'Saving…' : 'Save row'}
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
               </CardContent>
             </Card>
           ) : null}

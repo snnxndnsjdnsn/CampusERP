@@ -268,8 +268,10 @@ async function openManagePanel(page: Page): Promise<Locator> {
  * own caption instead.
  */
 async function offeredTables(editor: Locator): Promise<string[]> {
-  // The toolbar only appears once the table's shape has loaded.
-  await expect(editor.getByRole('button', { name: 'Add row' })).toBeVisible();
+  // The toolbar only appears once the table's shape has loaded. The Add
+  // button is named after the table it adds to - "Add academic year" - so it
+  // is matched by its first word.
+  await expect(editor.getByRole('button', { name: 'Add ' })).toBeVisible();
 
   const picker = editor.locator('#admin-table');
   if ((await picker.count()) > 0) {
@@ -338,7 +340,7 @@ test.describe('admin editing', () => {
     await editor.locator('#admin-table').selectOption('academic_year');
 
     // --- add -------------------------------------------------------------------------------
-    await editor.getByRole('button', { name: 'Add row' }).click();
+    await editor.getByRole('button', { name: 'Add academic year' }).click();
 
     const form = editor.getByTestId('admin-editor-form');
     await expect(form).toBeVisible();
@@ -347,15 +349,15 @@ test.describe('admin editing', () => {
     await form.getByLabel('start date').fill('2027-06-01');
     await form.getByLabel('end date').fill('2028-05-31');
 
-    await form.getByRole('button', { name: 'Save row' }).click();
-    await expect(editor.getByTestId('admin-editor-notice')).toHaveText('Row added.');
+    await form.getByRole('button', { name: 'Save changes' }).click();
+    await expect(editor.getByTestId('admin-editor-notice')).toHaveText('Academic year added.');
 
     // --- the database refuses a duplicate ----------------------------------------------------
-    await editor.getByRole('button', { name: 'Add row' }).click();
+    await editor.getByRole('button', { name: 'Add academic year' }).click();
     await form.getByLabel('year code').fill(code);
     await form.getByLabel('start date').fill('2027-06-01');
     await form.getByLabel('end date').fill('2028-05-31');
-    await form.getByRole('button', { name: 'Save row' }).click();
+    await form.getByRole('button', { name: 'Save changes' }).click();
 
     await expect(editor.getByRole('alert')).toContainText('already recorded');
 
@@ -372,16 +374,18 @@ test.describe('admin editing', () => {
     await expect(form).toBeVisible();
 
     await form.getByLabel('year code').fill(edited);
-    await form.getByRole('button', { name: 'Save row' }).click();
-    await expect(editor.getByTestId('admin-editor-notice')).toHaveText('Row updated.');
+    await form.getByRole('button', { name: 'Save changes' }).click();
+    await expect(editor.getByTestId('admin-editor-notice')).toHaveText('Academic year updated.');
 
     // --- delete -----------------------------------------------------------------------------
     table = await filterTo(editor, edited);
     row = table.locator('tbody tr').filter({ hasText: edited });
     await expect(row).toHaveCount(1);
 
+    // Deleting asks first: the row only goes when the second click confirms it.
     await row.getByRole('button', { name: 'Delete' }).click();
-    await expect(editor.getByTestId('admin-editor-notice')).toHaveText('Row deleted.');
+    await row.getByRole('button', { name: 'Confirm delete' }).click();
+    await expect(editor.getByTestId('admin-editor-notice')).toHaveText('Academic year deleted.');
 
     table = await filterTo(editor, edited);
     await expect(table.locator('tbody tr').filter({ hasText: edited })).toHaveCount(0);
