@@ -4,8 +4,6 @@ import { AdminTableEditor } from '@/features/admin/admin-table-editor';
 import {
   StructureEditor,
   type InstitutionRow,
-  type ParentOption,
-  type ParentOptions,
   type UniversityOption,
 } from '@/features/structure/structure-editor';
 import { PropertyHierarchy } from '@/features/structure/property-hierarchy';
@@ -19,9 +17,6 @@ type UniversityRow = { university_id: number; university_name: string };
 type CampusRow = { campus_id: number };
 type DepartmentRow = { department_id: number };
 type ProgrammeRow = { programme_id: number };
-type StudentRow = { student_id: number; student_number: string; display_name: string };
-type EmployeeRow = { employee_id: number; employee_number: string; display_name: string };
-type ActivityRow = { staff_activity_id: number; activity_title: string; employee_id: number };
 type LandRow = { land_id: number; land_name: string; survey_number: string };
 type BuildingRow = { building_id: number; building_code: string; building_name: string; land_id: number | null; total_floors: number | null };
 type FloorRow = { floor_id: number; building_id: number; floor_number: number; floor_name: string | null };
@@ -32,12 +27,13 @@ type RoomRow = { room_id: number; building_id: number; room_code: string };
  *
  * The institution register is written through `institution_create` /
  * `institution_update`; the child records of a student, an employee or a staff
- * activity are written through the generic `section_*` family.
+ * activity are written through the generic `admin_table_*` family on the screen
+ * that owns them.
  */
 export default async function StructurePage() {
   const { supabase } = await requireContext();
 
-  const [institutions, universities, campuses, departments, programmes, students, employees, activities, lands, buildings, floors, rooms] =
+  const [institutions, universities, campuses, departments, programmes, lands, buildings, floors, rooms] =
     await Promise.all([
       readTable<InstitutionRow>(
         supabase,
@@ -54,18 +50,6 @@ export default async function StructurePage() {
       readTable<CampusRow>(supabase, 'campus', 'campus_id'),
       readTable<DepartmentRow>(supabase, 'department', 'department_id'),
       readTable<ProgrammeRow>(supabase, 'programme', 'programme_id'),
-      readTable<StudentRow>(supabase, 'student', 'student_id, student_number, display_name', {
-        order: { column: 'display_name' },
-        limit: 500,
-      }),
-      readTable<EmployeeRow>(supabase, 'employee', 'employee_id, employee_number, display_name', {
-        order: { column: 'display_name' },
-        limit: 500,
-      }),
-      readTable<ActivityRow>(supabase, 'staff_activity', 'staff_activity_id, activity_title, employee_id', {
-        order: { column: 'staff_activity_id', ascending: false },
-        limit: 500,
-      }),
       readTable<LandRow>(supabase, 'land', 'land_id, land_name, survey_number', {
         order: { column: 'land_name' },
       }),
@@ -81,7 +65,7 @@ export default async function StructurePage() {
       readTable<RoomRow>(supabase, 'room', 'room_id, building_id, room_code'),
     ]);
 
-  const errors = [institutions, universities, campuses, departments, programmes, students, employees, activities]
+  const errors = [institutions, universities, campuses, departments, programmes]
     .map((r) => r.error)
     .filter((e): e is string => Boolean(e));
 
@@ -90,29 +74,11 @@ export default async function StructurePage() {
     label: String(u.university_name),
   }));
 
-  const parents: ParentOptions = {
-    student: students.data.map<ParentOption>((s) => ({
-      id: Number(s.student_id),
-      label: String(s.display_name),
-      sub: String(s.student_number),
-    })),
-    employee: employees.data.map<ParentOption>((e) => ({
-      id: Number(e.employee_id),
-      label: String(e.display_name),
-      sub: String(e.employee_number),
-    })),
-    activity: activities.data.map<ParentOption>((a) => ({
-      id: Number(a.staff_activity_id),
-      label: String(a.activity_title),
-      sub: `Employee #${a.employee_id}`,
-    })),
-  };
-
   return (
     <>
       <PageHeader
         title="Institution structure"
-        description="Maintain the institution register and the child records that hang off a student, an employee or a staff research activity."
+        description="Maintain the institution register and the property hierarchy behind it."
       />
 
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
@@ -144,7 +110,6 @@ export default async function StructurePage() {
       <StructureEditor
         institutions={institutions.data}
         universities={universityOptions}
-        parents={parents}
       />
     </>
   );
