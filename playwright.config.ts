@@ -43,8 +43,10 @@ const WORKERS = Number(process.env.PLAYWRIGHT_WORKERS ?? 4);
  * lands on the page they asked for after signing in.
  *
  * It also covers the signed-in application: `smoke.spec.ts` opens every route
- * with a real session and `admin-editing.spec.ts` drives the Manage panel of
- * the six module screens that gained an editing surface. That session is
+ * with a real session, `admin-editing.spec.ts` drives the Manage panel of
+ * the six module screens that gained an editing surface, and
+ * `calendar-export.spec.ts` downloads the calendar of events as Word and as
+ * PDF. That session is
  * created **once** in the global setup and handed to the tests as a storage
  * state, because Supabase throttles the password grant endpoint and a suite
  * that signs in per test runs into `Request rate limit reached`.
@@ -67,14 +69,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       // The signed-in suites run in their own project so that the anonymous
       // tests keep starting without a session.
-      testIgnore: signedIn ? '**/{smoke,admin-editing}.spec.ts' : undefined,
+      testIgnore: signedIn ? '**/{smoke,admin-editing,calendar-export}.spec.ts' : undefined,
     },
     ...(signedIn
       ? [
           {
             name: 'chromium-signed-in',
             use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
-            testMatch: '**/{smoke,admin-editing}.spec.ts',
+            testMatch: '**/{smoke,admin-editing,calendar-export}.spec.ts',
           },
         ]
       : []),

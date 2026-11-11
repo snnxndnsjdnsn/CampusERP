@@ -4,6 +4,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/format';
+import { CalendarDownload } from './calendar-download';
+import { WEEKDAYS } from './calendar-export';
 
 export type GridCalendar = {
   calendar_id: number;
@@ -55,9 +57,11 @@ export type GridTermSchedule = {
   theory_exam_end: string | null;
 };
 
-const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
-
-/** The colour of a day cell, mirroring the printed calendar of events. */
+/** The colour of a day cell, mirroring the printed calendar of events.
+ *
+ * The Word and PDF downloads carry the same colours as hex fills - see
+ * `dayFill` in `calendar-export.ts`, which switches on these same categories.
+ */
 function dayCellClass(category: string): string {
   switch (category) {
     case 'HOLIDAY':
@@ -334,17 +338,34 @@ export function CalendarOfEvents({
   const holidayById = new Map(holidays.map((h) => [h.holiday_id, h]));
   const academic = calendars.filter((c) => c.calendar_type === 'ACADEMIC');
   const term = calendars.filter((c) => c.calendar_type === 'TERM');
+  // The download buttons are a client component, so they get the year labels
+  // as a plain record - a function prop cannot cross the server boundary.
+  const yearLabels: Record<number, string> = Object.fromEntries(
+    calendars.map((calendar) => [calendar.academic_year_id, yearLabel(calendar.academic_year_id)]),
+  );
 
   if (academic.length === 0 && term.length === 0) return null;
 
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Calendar of events</CardTitle>
-        <CardDescription>
-          Weeks as rows, weekdays as columns, every day coloured by what it is. Edited through the Manage panel
-          above.
-        </CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <CardTitle>Calendar of events</CardTitle>
+            <CardDescription>
+              Weeks as rows, weekdays as columns, every day coloured by what it is. Edited through the Manage
+              panel above.
+            </CardDescription>
+          </div>
+          <CalendarDownload
+            calendars={calendars}
+            weeks={weeks}
+            days={days}
+            holidays={holidays}
+            termSchedules={termSchedules}
+            yearLabels={yearLabels}
+          />
+        </div>
       </CardHeader>
       <CardContent className="space-y-8">
         {academic.map((calendar) => (

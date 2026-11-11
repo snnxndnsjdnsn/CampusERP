@@ -246,6 +246,7 @@ PostgreSQL (`--source rebuilt`).
 | `src/features/admin/admin-table-editor.tsx` | The **Manage** panel the 28 editable screens share. It takes either a list of `tables` or a list of `modules`; the module form is what the screens use. The form is generated from the column description the database hands out, and the rows are read through PostgREST, so the row level policies decide what is visible. |
 | `tests/db/admin-editing.test.ts` | The database test for migrations 066 and 067: the catalogue, the permission check, the scope check, the composite key, the employee and institution scope kinds, the audit path of every table and the refusal paths. 18 tests on embedded PostgreSQL. |
 | `tests/e2e/admin-editing.spec.ts` | The end-to-end test for the Manage panel: all 28 screens offer the tables of their modules, and a full add / duplicate-refused / edit / delete round trip on the academic calendar, plus the Employees screen reaching the employee master. |
+| `tests/e2e/calendar-export.spec.ts` | The end-to-end test for the calendar of events downloads: **Download Word** and **Download PDF** each produce a dated file whose magic bytes are checked (`PK` for the zipped `.docx`, `%PDF-` for the PDF). Runs signed in and skips itself without the credentials. |
 | `tools/work/run_seed.mjs`, `tools/work/run_seed_step.mjs` | Scratch runners for the seed. `tools/work/` is a scratch area, not a tool surface. |
 
 ### Consequences
@@ -469,7 +470,7 @@ without a session:
 | Project | Tests | Session |
 |---|---|---|
 | `chromium` | `tests/e2e/auth.spec.ts` (route protection), `tests/e2e/signin.spec.ts` (the form) | none - except the sign-in test, which drives the form |
-| `chromium-signed-in` | `tests/e2e/smoke.spec.ts` (every route), `tests/e2e/admin-editing.spec.ts` (the Manage panel) | the storage state |
+| `chromium-signed-in` | `tests/e2e/smoke.spec.ts` (every route), `tests/e2e/admin-editing.spec.ts` (the Manage panel), `tests/e2e/calendar-export.spec.ts` (the calendar downloads) | the storage state |
 
 Without `SIMS_TEST_EMAIL` / `SIMS_TEST_PASSWORD` the signed-in project is left
 out and the tests that need it skip themselves, so a checkout without a test
