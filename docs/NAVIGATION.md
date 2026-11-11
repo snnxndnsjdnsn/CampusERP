@@ -110,9 +110,9 @@ explicit `?group=` in the address bar overrides the section's default.
 
 A group may carry `children?: NavItem[]`. They are rendered indented under the
 group's own items, with a smaller icon, in both the desktop sidebar and the
-mobile bar. Children are gated exactly like group items — all fifteen carry
-`module: 'STAFF_PROFILE'`, so they appear and disappear together with their
-parent screen.
+mobile drawer. Children are gated exactly like
+group items — all fifteen carry `module: 'STAFF_PROFILE'`, so they appear and
+disappear together with their parent screen.
 
 The active state is **deepest-match-wins** (`activeItem()` in
 `src/components/app-shell.tsx`): the longest matching href is the current one.
@@ -291,7 +291,32 @@ flat equivalent — it flattens items **and** children — and is used where a l
 rather than groups is wanted.
 
 `src/app/(app)/layout.tsx` calls `visibleNavGroups(ctx)` and passes the result to
-the shell; `src/components/app-shell.tsx` renders it.
+the shell; `src/components/app-shell.tsx` renders it (below).
+
+## The shell: full sidebar, palette, drawer
+
+The sidebar draws `NAV_GROUPS` straight through: every group header, every
+link, every staff sub-module, visible at once — nothing is collapsed away.
+Two things sit on top of that, and both leave `NAV_GROUPS` untouched.
+
+### The command palette
+
+`Ctrl-K` (`Cmd-K` on a Mac), or the **Search or jump to…** box in the header,
+opens `src/components/command-palette.tsx`: one input over every route the
+caller may see, filtered by a page's own name or its group, driven with the
+arrow keys and Enter, closed with Escape. The last row always offers
+`/search?q=…` — the full-text search of pages and records, which is the old
+header box's job. The palette is the fast path when you already know where
+you are going, so you don't have to scroll the full list to reach a link near
+the bottom.
+
+### The drawer
+
+On a phone the header's menu button opens the same full list in a drawer
+(`aria-label="Navigation"`); following a link inside it closes it, as do
+Escape and the backdrop. The old horizontal bar that listed every link in one
+scrolled row is gone — in a narrow drawer the same links stack vertically and
+read one at a time.
 
 ## Breadcrumbs and `NAV_PARENTS`
 
@@ -323,7 +348,7 @@ The unit test is the guard that keeps the sidebar honest. It has nine assertions
 | 1 | every nav href resolves to an existing app route | No dead links | For each `NAV_ITEMS` href, `routeExists()` walks the address under `src/app/(app)` and must land on a `page.tsx`. A literal folder that has no page of its own is followed, and a `[param]` folder is accepted when no literal one exists — so `/staff-profile/publication` resolves to `staff-profile/[section]/page.tsx`. The failure message lists every broken href. |
 | 2 | every nav module is seeded as an `access_module` row | The sidebar's gate exists in the database | Parses every `supabase/migrations/*.sql` for `INSERT INTO access_module (...) VALUES (...);`, reads the `module_code` column by position (the schema qualifier and the column list are optional, tuples are split on top-level commas only), and requires every code used by the nav to be present. |
 | 3 | every seeded `access_module` is used by navigation or explicitly allowlisted | No orphaned access codes | The reverse direction. The allowlist is exactly `TEACHING`, `COMMUNICATION`. `TEACHING` has no screen of its own (its screens live inside the registration and attendance flows), and `COMMUNICATION` is the intentionally ungated announcement feed. |
-| 4 | every nav href has a sidebar icon | No blank icons | `ICONS` in `src/components/app-shell.tsx` must have an entry for every href. `ICONS` has 51 entries, covering all 50 nav hrefs plus `/results/grades`. |
+| 4 | every nav href has a sidebar icon | No blank icons | `ICONS` (in `src/components/nav-icons.ts`, re-exported by `app-shell.tsx`) must have an entry for every href. `ICONS` has 51 entries, covering all 50 nav hrefs plus `/results/grades`. |
 | 5 | `NAV_GROUPS` stay in the canonical database module order | The sidebar keeps following the schema | The group id list is compared against a hard-coded array of the 27 ids in order. Adding, removing or reordering a group fails the test. |
 | 6 | the staff group carries every research sub-module, 20 to 34 | The module numbering is complete | The `staff` group's `children` must be exactly the 15 addresses in `STAFF_SECTIONS`, their labels must start with the module numbers `20`…`34` in order, and every child must be gated by `STAFF_PROFILE`. |
 | 7 | every staff sub-module address is a known section | No dead sub-module | Each child address must map to a section in `STAFF_SECTIONS`, so a typo cannot reach the sidebar. |
