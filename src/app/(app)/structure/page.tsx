@@ -7,6 +7,7 @@ import {
   type UniversityOption,
 } from '@/features/structure/structure-editor';
 import { PropertyHierarchy } from '@/features/structure/property-hierarchy';
+import { StructureCascade } from '@/features/structure/structure-cascade';
 import { readTable } from '@/features/shared/reads';
 import { formatNumber } from '@/lib/format';
 import { requireContext } from '@/lib/server-context';
@@ -82,6 +83,13 @@ export default async function StructurePage() {
       />
 
       {errors.length > 0 ? <ErrorPanel message={errors.join(' · ')} /> : null}
+
+      {/*
+        The guided way in: pick an institution and it offers the campuses,
+        then the departments, then the programmes - or the land, buildings,
+        floors and rooms - with the parent already chosen at every step.
+      */}
+      <StructureCascade universities={universityOptions} />
 
       <AdminTableEditor
         modules={['INSTITUTION']}

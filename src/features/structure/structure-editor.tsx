@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, statusVariant } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Label, Select } from '@/components/ui/input';
@@ -68,24 +67,6 @@ export function StructureEditor({
   } | null>(null);
   const [savingInstitution, setSavingInstitution] = useState(false);
 
-  function startCreateInstitution() {
-    setError(null);
-    setInstForm({
-      id: null,
-      values: {
-        university_id: '',
-        institution_code: '',
-        institution_name: '',
-        legal_name: '',
-        website_url: '',
-        email: '',
-        phone: '',
-        is_active: 'true',
-      },
-      original: null,
-    });
-  }
-
   function startEditInstitution(row: InstitutionRow) {
     setError(null);
     const values: Record<string, string> = {
@@ -101,36 +82,32 @@ export function StructureEditor({
     setInstForm({ id: row.institution_id, values, original: values });
   }
 
+  /**
+   * The register maintains what the builder creates: an institution's own
+   * details and whether it is active. Creation lives in the builder above so
+   * that saving one offers the campuses underneath it straight away.
+   */
   async function saveInstitution() {
-    if (!instForm) return;
+    if (!instForm || instForm.id === null) return;
     setSavingInstitution(true);
     setError(null);
     try {
       const payload: Record<string, unknown> = {};
       for (const field of INSTITUTION_FIELDS) {
-        if (instForm.id !== null && field.name === 'university_id') continue;
+        // An institution belongs to its university for good.
+        if (field.name === 'university_id') continue;
         const raw = (instForm.values[field.name] ?? '').trim();
-        if (instForm.original) {
-          const before = instForm.original[field.name] ?? '';
-          if (raw === before) continue;
-          payload[field.name] = field.name === 'university_id' ? Number(raw) : raw;
-        } else if (raw !== '') {
-          payload[field.name] = field.name === 'university_id' ? Number(raw) : raw;
-        }
+        const before = instForm.original?.[field.name] ?? '';
+        if (raw === before) continue;
+        payload[field.name] = raw;
       }
 
-      if (instForm.id === null) {
-        const { error: createError } = await supabase.rpc('institution_create', { p: payload });
-        if (createError) throw new Error(createError.message);
-        setNotice('Institution created.');
-      } else {
-        const { error: updateError } = await supabase.rpc('institution_update', {
-          p_id: instForm.id,
-          p: payload,
-        });
-        if (updateError) throw new Error(updateError.message);
-        setNotice('Institution updated.');
-      }
+      const { error: updateError } = await supabase.rpc('institution_update', {
+        p_id: instForm.id,
+        p: payload,
+      });
+      if (updateError) throw new Error(updateError.message);
+      setNotice('Institution updated.');
       setInstForm(null);
       router.refresh();
     } catch (e) {
@@ -152,17 +129,17 @@ export function StructureEditor({
           <div>
             <CardTitle>Institution register</CardTitle>
             <CardDescription>
-              {institutions.length} institution{institutions.length === 1 ? '' : 's'} visible to you.
+              {institutions.length} institution{institutions.length === 1 ? '' : 's'} visible to you. Review
+              them here; create one in the structure builder above.
             </CardDescription>
           </div>
-          <Button onClick={startCreateInstitution}>New institution</Button>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Above the table: a form below it is a long scroll from the button. */}
           {instForm ? (
             <RecordForm
-              title={instForm.id === null ? 'New institution' : 'Edit institution'}
-              isNew={instForm.id === null}
+              title="Edit institution"
+              isNew={false}
               saving={savingInstitution}
               onCancel={() => setInstForm(null)}
               onSave={() => void saveInstitution()}
