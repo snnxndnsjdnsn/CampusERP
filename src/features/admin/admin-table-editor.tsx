@@ -66,9 +66,38 @@ export type AdminSchema = {
 /** How many rows the panel shows at once. */
 const ROW_LIMIT = 500;
 
-function renderCell(column: FormColumn, raw: unknown) {
-  if (raw === null || raw === undefined || raw === '') return '—';
+/**
+ * The readable form of a foreign key: the row it points at, not its number.
+ *
+ * A cell that says `12` for the institution a campus belongs to is an
+ * invitation to open another screen and look the number up. The catalogue
+ * already publishes a label for every referenced table through
+ * `admin_lookup_options` - the same list the dropdowns use - so a cell shows
+ * that, and falls back to the number only when the label is missing.
+ */
+function lookupLabel(column: FormColumn, raw: unknown, lookups: LookupMap): string | null {
+  if (!column.ref_table) return null;
+  const options = lookups[column.ref_table];
+  if (!options) return null;
+  const hit = options.find((option) => String(option.id) === String(raw));
+  return hit ? hit.label : null;
+}
+
+/**
+ * The heading of one column.
+ *
+ * A column that carries a foreign key is headed by what it points at -
+ * "institution", not "institution id" - because the cell below it now reads
+ * the referenced row's name rather than the number.
+ */
+function headerLabel(column: FormColumn): string {
+  return column.name.replace(/_/g, ' ').replace(column.ref_table ? / id$/ : /$/, '');
+}
+
+function renderCell(column: FormColumn, raw: unknown, lookups: LookupMap) {  if (raw === null || raw === undefined || raw === '') return '—';
   if (isBoolean(column.type)) return raw === true || raw === 'true' ? 'Yes' : 'No';
+  const label = lookupLabel(column, raw, lookups);
+  if (label) return label;
   if (isNumeric(column.type)) return formatNumber(Number(raw));
   if (isDate(column.type)) return formatDate(String(raw));
   if (isTimestamp(column.type)) return formatDateTime(String(raw));
@@ -216,13 +245,18 @@ export function AdminTableEditor({
 
   const visibleRows = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) =>
-      Object.values(row).some(
-        (value) => value !== null && value !== undefined && String(value).toLowerCase().includes(q),
-      ),
-    );
-  }, [rows, filter]);
+    if (!q || !schema) return rows;
+    // The filter matches what is on screen, which for a foreign key is its
+    // label rather than the number stored in the column - searching for an
+    // institution's name has to find the campuses that belong to it.
+    return rows.filter((row) => {
+      const values = schema.columns.map((column) => {
+        const raw = row[column.name];
+        return lookupLabel(column, raw, lookups) ?? (raw === null || raw === undefined ? '' : String(raw));
+      });
+      return values.some((value) => value.toLowerCase().includes(q));
+    });
+  }, [rows, schema, lookups, filter]);
 
   /**
    * The key of a row.  A table with a single primary key uses the value of
@@ -400,7 +434,7 @@ export function AdminTableEditor({
                     <TableRow>
                       <TableHead>{schema.pk_cols.join(' / ')}</TableHead>
                       {schema.columns.map((c) => (
-                        <TableHead key={c.name}>{c.name.replace(/_/g, ' ')}</TableHead>
+                        <TableHead key={c.name}>{headerLabel(c)}</TableHead>
                       ))}
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -413,7 +447,7 @@ export function AdminTableEditor({
                         <TableRow key={keyText}>
                           <TableCell className="font-medium tabular-nums">{keyText}</TableCell>
                           {schema.columns.map((c) => (
-                            <TableCell key={c.name}>{renderCell(c, row[c.name])}</TableCell>
+                            <TableCell key={c.name}>{renderCell(c, row[c.name], lookups)}</TableCell>
                           ))}
                           <TableCell className="text-right">
                             <RowActions

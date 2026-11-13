@@ -5,6 +5,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { rpcCall, signedDocumentUrl, useRpcAction } from '@/features/shared/client-rpc';
+import { FileUploadField, type PickedFile } from '@/features/shared/file-upload-field';
 import { formatDate, formatNumber, humanise } from '@/lib/format';
 import {
   INDEXING_TYPE_CODES,
@@ -25,11 +26,6 @@ import {
 const VERIFY_DECISIONS = ['VERIFIED', 'NEEDS_CORRECTION', 'REJECTED'];
 const APPROVE_DECISIONS = ['APPROVED', 'REJECTED'];
 const INDEXING_STATUSES = ['CLAIMED', 'VERIFIED', 'DISCONTINUED', 'NOT_INDEXED'];
-const MIME_TYPES = [
-  { value: 'application/pdf', label: 'PDF document' },
-  { value: 'image/jpeg', label: 'JPEG image' },
-  { value: 'image/png', label: 'PNG image' },
-];
 
 export function ActivityPanel({
   detail,
@@ -518,10 +514,7 @@ function Evidence({
   const [issueDate, setIssueDate] = useState('');
   const [authority, setAuthority] = useState('');
   const [certificateNumber, setCertificateNumber] = useState('');
-  const [storageKey, setStorageKey] = useState(`employee/${detail.employee_id}/`);
-  const [fileName, setFileName] = useState('');
-  const [mime, setMime] = useState('application/pdf');
-  const [size, setSize] = useState('');
+  const [file, setFile] = useState<PickedFile | null>(null);
   const [checksum, setChecksum] = useState('');
   const [replaceId, setReplaceId] = useState('');
   const [replaceReason, setReplaceReason] = useState('');
@@ -547,6 +540,7 @@ function Evidence({
 
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!file) return;
     const result = await run<number>('staff_evidence_add', {
       p_activity_id: detail.staff_activity_id,
       p_document_type_id: Number(documentTypeId),
@@ -555,10 +549,10 @@ function Evidence({
       p_issue_date: issueDate || null,
       p_issuing_authority: authority.trim() || null,
       p_certificate_number: certificateNumber.trim() || null,
-      p_storage_key: storageKey.trim(),
-      p_file_name: fileName.trim(),
-      p_mime: mime,
-      p_size: Number(size),
+      p_storage_key: file.storageKey,
+      p_file_name: file.fileName,
+      p_mime: file.mimeType,
+      p_size: file.size,
       p_checksum: checksum.trim() || null,
     });
     if (result.ok) {
@@ -566,8 +560,7 @@ function Evidence({
       setIssueDate('');
       setAuthority('');
       setCertificateNumber('');
-      setFileName('');
-      setSize('');
+      setFile(null);
       setChecksum('');
       onChanged();
     }
@@ -575,21 +568,20 @@ function Evidence({
 
   async function replace(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!replaceId) return;
+    if (!replaceId || !file) return;
     const result = await run<number>('staff_evidence_replace', {
       p_evidence_id: Number(replaceId),
       p_reason: replaceReason.trim(),
-      p_storage_key: storageKey.trim(),
-      p_file_name: fileName.trim(),
-      p_mime: mime,
-      p_size: Number(size),
+      p_storage_key: file.storageKey,
+      p_file_name: file.fileName,
+      p_mime: file.mimeType,
+      p_size: file.size,
       p_checksum: checksum.trim() || null,
     });
     if (result.ok) {
       setReplaceId('');
       setReplaceReason('');
-      setFileName('');
-      setSize('');
+      setFile(null);
       setChecksum('');
       onChanged();
     }
@@ -702,19 +694,12 @@ function Evidence({
             </div>
           </div>
           <EvidenceFileFields
-            storageKey={storageKey}
-            setStorageKey={setStorageKey}
-            fileName={fileName}
-            setFileName={setFileName}
-            mime={mime}
-            setMime={setMime}
-            size={size}
-            setSize={setSize}
+            setFile={setFile}
             checksum={checksum}
             setChecksum={setChecksum}
             employeeId={detail.employee_id}
           />
-          <Button type="submit" size="sm" disabled={busy}>
+          <Button type="submit" size="sm" disabled={busy || !file}>
             Add evidence
           </Button>
         </form>
@@ -749,19 +734,12 @@ function Evidence({
             </div>
           </div>
           <EvidenceFileFields
-            storageKey={storageKey}
-            setStorageKey={setStorageKey}
-            fileName={fileName}
-            setFileName={setFileName}
-            mime={mime}
-            setMime={setMime}
-            size={size}
-            setSize={setSize}
+            setFile={setFile}
             checksum={checksum}
             setChecksum={setChecksum}
             employeeId={detail.employee_id}
           />
-          <Button type="submit" size="sm" disabled={busy}>
+          <Button type="submit" size="sm" disabled={busy || !file}>
             Replace file
           </Button>
         </form>
@@ -800,98 +778,34 @@ function Evidence({
 }
 
 function EvidenceFileFields({
-  storageKey,
-  setStorageKey,
-  fileName,
-  setFileName,
-  mime,
-  setMime,
-  size,
-  setSize,
+  setFile,
   checksum,
   setChecksum,
   employeeId,
 }: {
-  storageKey: string;
-  setStorageKey: (v: string) => void;
-  fileName: string;
-  setFileName: (v: string) => void;
-  mime: string;
-  setMime: (v: string) => void;
-  size: string;
-  setSize: (v: string) => void;
+  setFile: (f: PickedFile | null) => void;
   checksum: string;
   setChecksum: (v: string) => void;
   employeeId: number;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3 md:grid-cols-2">
+      <FileUploadField
+        id="evidence-file"
+        label="Evidence file"
+        prefix={`employee/${employeeId}`}
+        onUploaded={setFile}
+      />
       <div>
-        <label htmlFor="evidence-key" className="mb-1 block text-sm font-medium leading-none">
-          Storage key <span className="text-destructive">*</span>
+        <label htmlFor="evidence-checksum" className="mb-1 block text-sm font-medium leading-none">
+          SHA-256 checksum
         </label>
         <Input
-          id="evidence-key"
-          required
-          value={storageKey}
-          onChange={(e) => setStorageKey(e.target.value)}
-          placeholder={`employee/${employeeId}/certificate.pdf`}
+          id="evidence-checksum"
+          maxLength={64}
+          value={checksum}
+          onChange={(e) => setChecksum(e.target.value)}
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          The file must already be uploaded to the <span className="font-mono">sims-documents</span> bucket under{' '}
-          <span className="font-mono">employee/{employeeId}/</span>.
-        </p>
-      </div>
-      <div className="grid gap-3 md:grid-cols-4">
-        <div>
-          <label htmlFor="evidence-file" className="mb-1 block text-sm font-medium leading-none">
-            File name <span className="text-destructive">*</span>
-          </label>
-          <Input
-            id="evidence-file"
-            required
-            maxLength={255}
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-            placeholder="certificate.pdf"
-          />
-        </div>
-        <div>
-          <label htmlFor="evidence-mime" className="mb-1 block text-sm font-medium leading-none">
-            File type <span className="text-destructive">*</span>
-          </label>
-          <Select id="evidence-mime" value={mime} onChange={(e) => setMime(e.target.value)}>
-            {MIME_TYPES.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <label htmlFor="evidence-size" className="mb-1 block text-sm font-medium leading-none">
-            Size in bytes <span className="text-destructive">*</span>
-          </label>
-          <Input
-            id="evidence-size"
-            type="number"
-            min={1}
-            required
-            value={size}
-            onChange={(e) => setSize(e.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="evidence-checksum" className="mb-1 block text-sm font-medium leading-none">
-            SHA-256 checksum
-          </label>
-          <Input
-            id="evidence-checksum"
-            maxLength={64}
-            value={checksum}
-            onChange={(e) => setChecksum(e.target.value)}
-          />
-        </div>
       </div>
     </div>
   );

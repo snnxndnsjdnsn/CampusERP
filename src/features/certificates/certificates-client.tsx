@@ -8,6 +8,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatDateTime, humanise } from '@/lib/format';
 import { rpcCall, signedDocumentUrl, useRpcAction } from '@/features/shared/client-rpc';
+import { FileUploadField, type PickedFile } from '@/features/shared/file-upload-field';
 
 /* ------------------------------------------------------------------ types */
 
@@ -133,20 +134,19 @@ function IssueControl({ request }: { request: CertificateRequest }) {
   const { busy, error, notice, run } = useRpcAction();
   const [open, setOpen] = useState(false);
   const [number, setNumber] = useState('');
-  const [storageKey, setStorageKey] = useState('');
-  const [fileName, setFileName] = useState('');
-  const [size, setSize] = useState('');
+  const [file, setFile] = useState<PickedFile | null>(null);
   const [checksum, setChecksum] = useState('');
 
   async function issue() {
+    if (!file) return;
     await run<void>(
       'cert_request_issue',
       {
         p_id: request.certificate_request_id,
         p_certificate_number: number.trim(),
-        p_storage_key: storageKey.trim(),
-        p_file_name: fileName.trim(),
-        p_size: Number(size),
+        p_storage_key: file.storageKey,
+        p_file_name: file.fileName,
+        p_size: file.size,
         p_checksum: checksum.trim() || null,
       },
       { success: 'The certificate has been issued.' },
@@ -165,18 +165,12 @@ function IssueControl({ request }: { request: CertificateRequest }) {
               <Label htmlFor={`cert-number-${request.certificate_request_id}`}>Certificate number</Label>
               <Input id={`cert-number-${request.certificate_request_id}`} value={number} onChange={(e) => setNumber(e.target.value)} maxLength={50} />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor={`cert-size-${request.certificate_request_id}`}>File size (bytes)</Label>
-              <Input id={`cert-size-${request.certificate_request_id}`} type="number" value={size} onChange={(e) => setSize(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`cert-key-${request.certificate_request_id}`}>Storage key</Label>
-            <Input id={`cert-key-${request.certificate_request_id}`} value={storageKey} onChange={(e) => setStorageKey(e.target.value)} placeholder={`student/${request.student_id}/certificate.pdf`} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`cert-file-${request.certificate_request_id}`}>File name</Label>
-            <Input id={`cert-file-${request.certificate_request_id}`} value={fileName} onChange={(e) => setFileName(e.target.value)} placeholder="certificate.pdf" />
+            <FileUploadField
+              id={`cert-file-${request.certificate_request_id}`}
+              label="Certificate file"
+              prefix={`student/${request.student_id}`}
+              onUploaded={setFile}
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor={`cert-checksum-${request.certificate_request_id}`}>SHA-256 checksum (optional)</Label>
@@ -185,7 +179,7 @@ function IssueControl({ request }: { request: CertificateRequest }) {
           {error ? <ErrorPanel message={error} /> : null}
           {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
           <div className="flex gap-2">
-            <Button size="sm" onClick={issue} disabled={busy || !number.trim() || !storageKey.trim() || !fileName.trim() || !size}>
+            <Button size="sm" onClick={issue} disabled={busy || !number.trim() || !file}>
               Issue
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>

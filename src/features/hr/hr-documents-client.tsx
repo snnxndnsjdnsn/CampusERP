@@ -8,6 +8,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatDate, formatDateTime, humanise } from '@/lib/format';
 import { deleteStoredFile, rpcCall, signedDocumentUrl, useRpcAction } from '@/features/shared/client-rpc';
+import { FileUploadField, type PickedFile } from '@/features/shared/file-upload-field';
 
 /* ------------------------------------------------------------------ types */
 
@@ -48,12 +49,6 @@ export type AccessRule = {
   active: boolean;
 };
 
-const MIME_TYPES = [
-  { value: 'application/pdf', label: 'PDF document' },
-  { value: 'image/jpeg', label: 'JPEG image' },
-  { value: 'image/png', label: 'PNG image' },
-];
-
 /* --------------------------------------------------------------- register */
 
 export function EmployeeDocumentRegisterForm({
@@ -69,16 +64,14 @@ export function EmployeeDocumentRegisterForm({
   const [categoryId, setCategoryId] = useState('');
   const [typeId, setTypeId] = useState('');
   const [title, setTitle] = useState('');
-  const [storageKey, setStorageKey] = useState(`employee/${employeeId}/`);
-  const [fileName, setFileName] = useState('');
-  const [mimeType, setMimeType] = useState('application/pdf');
-  const [size, setSize] = useState('');
+  const [file, setFile] = useState<PickedFile | null>(null);
   const [checksum, setChecksum] = useState('');
   const [documentNumber, setDocumentNumber] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
 
   async function submit() {
+    if (!file) return;
     await run<number>(
       'employee_document_register',
       {
@@ -86,10 +79,10 @@ export function EmployeeDocumentRegisterForm({
         p_category_id: Number(categoryId),
         p_document_type_id: Number(typeId),
         p_title: title.trim(),
-        p_storage_key: storageKey.trim(),
-        p_file_name: fileName.trim(),
-        p_mime_type: mimeType,
-        p_size: Number(size),
+        p_storage_key: file.storageKey,
+        p_file_name: file.fileName,
+        p_mime_type: file.mimeType,
+        p_size: file.size,
         p_checksum: checksum.trim() || null,
         p_document_number: documentNumber.trim() || null,
         p_issue_date: issueDate || null,
@@ -98,20 +91,18 @@ export function EmployeeDocumentRegisterForm({
       { success: 'The document has been registered.' },
     );
     setTitle('');
-    setFileName('');
-    setSize('');
+    setFile(null);
     setChecksum('');
     setDocumentNumber('');
     setIssueDate('');
     setExpiryDate('');
   }
 
-  const ready =
-    categoryId !== '' && typeId !== '' && title.trim() !== '' && storageKey.trim() !== '' && fileName.trim() !== '' && Number(size) > 0;
+  const ready = categoryId !== '' && typeId !== '' && title.trim() !== '' && file !== null;
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="emp-doc-category">Category</Label>
           <Select id="emp-doc-category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -136,16 +127,6 @@ export function EmployeeDocumentRegisterForm({
             ))}
           </Select>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="emp-doc-mime">File type</Label>
-          <Select id="emp-doc-mime" value={mimeType} onChange={(e) => setMimeType(e.target.value)}>
-            {MIME_TYPES.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </Select>
-        </div>
       </div>
 
       <div className="space-y-1">
@@ -153,36 +134,18 @@ export function EmployeeDocumentRegisterForm({
         <Input id="emp-doc-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={250} />
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="emp-doc-key">Storage key</Label>
-        <Input
-          id="emp-doc-key"
-          value={storageKey}
-          onChange={(e) => setStorageKey(e.target.value)}
-          placeholder={`employee/${employeeId}/appointment-letter.pdf`}
-        />
-        <p className="text-xs text-muted-foreground">
-          The file must already be uploaded to the <span className="font-mono">sims-documents</span> bucket under{' '}
-          <span className="font-mono">employee/{employeeId}/</span>.
-        </p>
-      </div>
+      <FileUploadField
+        id="emp-doc-file"
+        label="Document file"
+        prefix={`employee/${employeeId}`}
+        onUploaded={setFile}
+      />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="space-y-1">
-          <Label htmlFor="emp-doc-file">File name</Label>
-          <Input id="emp-doc-file" value={fileName} onChange={(e) => setFileName(e.target.value)} maxLength={255} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="emp-doc-size">Size in bytes</Label>
-          <Input id="emp-doc-size" type="number" min={1} value={size} onChange={(e) => setSize(e.target.value)} />
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="emp-doc-checksum">SHA-256 checksum (optional)</Label>
           <Input id="emp-doc-checksum" value={checksum} onChange={(e) => setChecksum(e.target.value)} maxLength={64} />
         </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <Label htmlFor="emp-doc-number">Document number</Label>
           <Input id="emp-doc-number" value={documentNumber} onChange={(e) => setDocumentNumber(e.target.value)} maxLength={100} />
