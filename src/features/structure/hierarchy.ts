@@ -23,6 +23,15 @@
  *
  * Only the tables of the INSTITUTION module are here, so the builder offers
  * exactly the tables this screen's Manage panel already offers.
+ *
+ * The hierarchy is walked as one of two flows rather than as one long list.
+ * Both start at the institution and its campuses; the educational flow then
+ * descends through departments, programmes and specialisations, and the civil
+ * flow through land, buildings, floors and rooms. `STRUCTURE_BRANCHES` holds
+ * each flow's own edges and copy, while `STRUCTURE_STEPS` is their union -
+ * enough for `stepFor` and `inheritForeignKeys`, which resolve a foreign key
+ * from wherever the path happens to stand and do not care which flow put it
+ * there. Only `childrenOf` is asked which flow it is drawing for.
  */
 
 /** One parent -> child edge of the hierarchy. */
@@ -57,25 +66,89 @@ export const ROOT_TABLE = 'institution';
 /** The label of the root, which is not in the admin catalogue at all. */
 export const ROOT_LABEL = 'Institutions';
 
-export const STRUCTURE_STEPS: StructureStep[] = [
-  { table: 'campus', parent: 'institution', fk: 'institution_id' },
-  { table: 'department', parent: 'campus', fk: 'campus_id' },
-  { table: 'land', parent: 'campus', fk: 'campus_id' },
-  { table: 'building', parent: 'campus', fk: 'campus_id' },
-  { table: 'programme', parent: 'department', fk: 'department_id' },
-  { table: 'programme_specialization', parent: 'programme', fk: 'programme_id' },
-  { table: 'floor', parent: 'building', fk: 'building_id' },
-  { table: 'room', parent: 'building', fk: 'building_id' },
+/**
+ * Which of the two flows the builder is walking.
+ *
+ * The two are separate because they are separate jobs: setting up the academic
+ * side of an institution and surveying its estate are done by different people
+ * at different times, and offering a registrar a "Add floor" button while they
+ * are laying out departments is noise. The database does not care - each write
+ * is authorised on its own - so this chooses only which buttons are drawn.
+ */
+export type StructureBranch = 'educational' | 'civil';
+
+/** One flow: its own edges, and the words the card uses to describe it. */
+export type StructureBranchDefinition = {
+  id: StructureBranch;
+  /** The tab's label. */
+  label: string;
+  /** The card's description while this flow is selected. */
+  description: string;
+  /** What the root picker says is reachable from here. */
+  hint: string;
+  /** The edges of this flow, in the order they descend. */
+  steps: StructureStep[];
+};
+
+export const STRUCTURE_BRANCHES: StructureBranchDefinition[] = [
+  {
+    id: 'educational',
+    label: 'Educational',
+    description:
+      'Follow the academic hierarchy down: an institution, then its campuses, departments, programmes ' +
+      'and specialisations. Each record offers its own children as soon as it is saved.',
+    hint: 'Pick one to add campuses, departments, programmes and specialisations under it.',
+    steps: [
+      { table: 'campus', parent: 'institution', fk: 'institution_id' },
+      { table: 'department', parent: 'campus', fk: 'campus_id' },
+      { table: 'programme', parent: 'department', fk: 'department_id' },
+      { table: 'programme_specialization', parent: 'programme', fk: 'programme_id' },
+    ],
+  },
+  {
+    id: 'civil',
+    label: 'Civil & property',
+    description:
+      'Follow the property hierarchy down: an institution, then its campuses, land parcels, buildings, ' +
+      'floors and rooms. Each record offers its own children as soon as it is saved.',
+    hint: 'Pick one to add campuses, land, buildings, floors and rooms under it.',
+    steps: [
+      { table: 'campus', parent: 'institution', fk: 'institution_id' },
+      { table: 'land', parent: 'campus', fk: 'campus_id' },
+      { table: 'building', parent: 'campus', fk: 'campus_id' },
+      { table: 'floor', parent: 'building', fk: 'building_id' },
+      { table: 'room', parent: 'building', fk: 'building_id' },
+    ],
+  },
 ];
+
+/** The flow shown until the user picks another. */
+export const DEFAULT_BRANCH: StructureBranch = 'educational';
+
+/** The definition of `branch`, which is always one of the two above. */
+export function branchOf(branch: StructureBranch): StructureBranchDefinition {
+  return STRUCTURE_BRANCHES.find((entry) => entry.id === branch) ?? STRUCTURE_BRANCHES[0]!;
+}
+
+/**
+ * Every edge of both flows, for the lookups that do not draw buttons.
+ *
+ * `stepFor` and `inheritForeignKeys` work from the path rather than from a
+ * flow: a room inherits its building from wherever the walk came through, and
+ * that answer does not change when the tab is switched.
+ */
+export const STRUCTURE_STEPS: StructureStep[] = STRUCTURE_BRANCHES.flatMap((entry) => entry.steps);
 
 export const STRUCTURE_OPTIONAL: Record<string, OptionalParent[]> = {
   building: [{ fk: 'land_id', from: 'land' }],
   room: [{ fk: 'floor_id', from: 'floor' }],
 };
 
-/** The tables that can be created directly under `table`, in display order. */
-export function childrenOf(table: string): string[] {
-  return STRUCTURE_STEPS.filter((step) => step.parent === table).map((step) => step.table);
+/** The tables that can be created directly under `table` in `branch`. */
+export function childrenOf(table: string, branch: StructureBranch): string[] {
+  return branchOf(branch)
+    .steps.filter((step) => step.parent === table)
+    .map((step) => step.table);
 }
 
 /**
@@ -108,6 +181,30 @@ export type PathNode = {
   label: string;
   row: Record<string, unknown>;
 };
+
+/** Every table the builder may stand on in `branch`, including the root. */
+export function tablesIn(branch: StructureBranch): Set<string> {
+  return new Set([ROOT_TABLE, ...branchOf(branch).steps.map((step) => step.table)]);
+}
+
+/**
+ * The part of `path` that still belongs to `branch`.
+ *
+ * Switching flows can leave the walk standing inside a record the new flow
+ * never visits - a department in the middle of the property flow. Rather than
+ * draw a level with no children and no way down, the path is cut back to the
+ * last record both flows share, which for these two is the campus. The cut
+ * only ever removes nodes; the institution and campus a user chose are kept.
+ */
+export function trimPathToBranch(path: readonly PathNode[], branch: StructureBranch): PathNode[] {
+  const allowed = tablesIn(branch);
+  const kept: PathNode[] = [];
+  for (const node of path) {
+    if (!allowed.has(node.table)) break;
+    kept.push(node);
+  }
+  return kept;
+}
 
 /**
  * The foreign keys of `table` that the current path already decides, and

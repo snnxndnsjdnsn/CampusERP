@@ -20,18 +20,24 @@ import { RecordForm } from '@/features/shared/record-form';
 import { recordNoun, recordNounTitle } from '@/features/shared/record-noun';
 import { errorMessage } from '@/features/shared/reads';
 import { formatNumber } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import type { AdminSchema } from '@/features/admin/admin-table-editor';
 import { createClient } from '@/lib/supabase/client';
 import {
+  DEFAULT_BRANCH,
   ROOT_LABEL,
   ROOT_TABLE,
+  STRUCTURE_BRANCHES,
+  branchOf,
   childrenOf,
   firstPk,
   inheritForeignKeys,
   rowDetail,
   rowLabel,
   stepFor,
+  trimPathToBranch,
   type PathNode,
+  type StructureBranch,
 } from './hierarchy';
 
 type Row = Record<string, unknown>;
@@ -132,6 +138,14 @@ export function StructureCascade({
   const supabase = useMemo(() => createClient(), []);
 
   const [path, setPath] = useState<PathNode[]>([]);
+  /**
+   * Which of the two flows the card is drawing.
+   *
+   * It picks the buttons and the copy, never the permission: every write is
+   * still authorised by the database, so choosing the wrong tab can at worst
+   * offer a button that is then refused.
+   */
+  const [branch, setBranch] = useState<StructureBranch>(DEFAULT_BRANCH);
   const [level, setLevel] = useState<Level | null>(null);
   const [schemas, setSchemas] = useState<Record<string, AdminSchema>>({
     [ROOT_TABLE]: INSTITUTION_SCHEMA,
@@ -209,7 +223,7 @@ export function StructureCascade({
   const loadLevel = useCallback(
     async (currentPath: PathNode[]) => {
       const at = currentPath[currentPath.length - 1] ?? null;
-      const tables = at ? childrenOf(at.table) : [ROOT_TABLE];
+      const tables = at ? childrenOf(at.table, branch) : [ROOT_TABLE];
 
       // Two loads can be in flight at once - a fast click through the
       // breadcrumb, or a save that re-reads while the effect is already
@@ -282,7 +296,7 @@ export function StructureCascade({
         if (token === loadTokenRef.current) setLoading(false);
       }
     },
-    [loadLabels, loadSchema, supabase],
+    [branch, loadLabels, loadSchema, supabase],
   );
 
   // Which of this screen's tables may the caller write to? The card is only
@@ -389,7 +403,7 @@ export function StructureCascade({
       // The new row's label is not in the labels read before it existed.
       delete labelsRef.current[table];
 
-      const kids = childrenOf(table);
+      const kids = childrenOf(table, branch);
 
       if (kids.length === 0) {
         // A leaf - a room, a specialisation - has nowhere to go next, so the
@@ -458,6 +472,35 @@ export function StructureCascade({
     if (row) drillInto(row);
   }
 
+  /**
+   * Change which flow is being drawn.
+   *
+   * The two flows share only the institution and its campuses, so a walk that
+   * has descended into a department cannot simply keep going on the property
+   * tab: the path is cut back to the last record both flows have. Anything the
+   * outgoing flow had open - a half-filled form, a pending "Next step" - belongs
+   * to that flow and is dropped with it, rather than being offered somewhere it
+   * makes no sense.
+   */
+  function switchBranch(next: StructureBranch) {
+    if (next === branch) return;
+    const trimmed = trimPathToBranch(path, next);
+    setBranch(next);
+    setAdding(null);
+    setNextSteps([]);
+    setNotice(null);
+    setError(null);
+    if (trimmed.length !== path.length) {
+      const back = trimmed[trimmed.length - 1];
+      setNotice(
+        back
+          ? `Switched to ${branchOf(next).label.toLowerCase()} — back at ${back.label}.`
+          : `Switched to ${branchOf(next).label.toLowerCase()} — back at the institution list.`,
+      );
+    }
+    setPath(trimmed);
+  }
+
   if (allowed === null) return null;
   if (!allowed) return null;
 
@@ -474,17 +517,40 @@ export function StructureCascade({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Structure builder</CardTitle>
-            <CardDescription>
-              Follow the hierarchy down: an institution, then its campuses, departments and programmes -
-              or its land, buildings, floors and rooms. Each record offers its own children as soon as it is
-              saved.
-            </CardDescription>
+            <CardDescription>{branchOf(branch).description}</CardDescription>
           </div>
           {path.length > 0 ? (
             <Button variant="outline" size="sm" onClick={() => goTo(0)}>
               Start again
             </Button>
           ) : null}
+        </div>
+
+        {/*
+          The two flows are separate jobs - laying out the academic side and
+          surveying the estate - so they are picked here rather than mixed into
+          one list of Add buttons. Each tab keeps its own copy and its own set
+          of children; nothing about permission changes with the tab.
+        */}
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Structure flows">
+          {STRUCTURE_BRANCHES.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              aria-selected={entry.id === branch}
+              data-testid={`cascade-branch-${entry.id}`}
+              onClick={() => switchBranch(entry.id)}
+              className={cn(
+                'rounded-md border px-2.5 py-1 text-xs font-medium',
+                entry.id === branch
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background hover:bg-muted',
+              )}
+            >
+              {entry.label}
+            </button>
+          ))}
         </div>
       </CardHeader>
 
@@ -622,8 +688,8 @@ export function StructureCascade({
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                {level.rows.length} institution{level.rows.length === 1 ? '' : 's'} registered. Pick one to
-                add campuses, departments, programmes, land, buildings, floors and rooms under it.
+                {level.rows.length} institution{level.rows.length === 1 ? '' : 's'} registered.{' '}
+                {branchOf(branch).hint}
               </p>
             )}
           </div>
@@ -656,7 +722,7 @@ export function StructureCascade({
                   const keyText = level.pkCols.map((column) => String(row[column] ?? '')).join(' / ');
                   const primary = rowLabel(row, level.pkCols, row.__label as string | undefined);
                   const detail = rowDetail(row, primary);
-                  const hasChildren = childrenOf(level.table).length > 0;
+                  const hasChildren = childrenOf(level.table, branch).length > 0;
 
                   return (
                     <li key={keyText} className="flex items-center justify-between gap-3 px-3 py-2">
