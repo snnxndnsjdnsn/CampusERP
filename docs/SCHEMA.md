@@ -12,19 +12,19 @@ Source of truth: the live Supabase project `khqqfgqvwdxlqkncwtmh` (PostgreSQL 17
 | Tables | 234 |
 | Tables with row level security | 228 |
 | Views | 10 |
-| Functions | 433 |
+| Functions | 441 |
 | Triggers | 214 |
-| Policies | 642 |
+| Policies | 643 |
 | Indexes | 375 |
 | Sequences | 211 |
 | Domains | 6 |
 | Enums | 0 |
 | Composite types | 245 |
-| Grants | 6556 |
+| Grants | 6576 |
 
 ## Schema `public`
 
-225 tables, 10 views, 280 functions, 214 triggers, 642 policies, 369 indexes.
+225 tables, 10 views, 284 functions, 214 triggers, 643 policies, 369 indexes.
 
 ### Tables (225)
 
@@ -5693,7 +5693,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `v_student_activity_profile` | v | `SELECT sa.student_activity_id, sa.student_id, s.student_number, s.display_name AS student_name, sat.type_code AS activity_type_code, sat.type_name AS activity_type_name, sat.activity_group, sa.activity_title, sa.event_name, ay.year_code AS academic_year, i.institution_name, c.campus_name, d.department_name, p.programme_name, pl.level_name AS participation_level, em.mode_name AS event_mode, sa.start_date, sa.end_date, sa.achievement_type, sa.position_rank, sa.award_name, sa.cash_prize_amount, vs.status_name AS verification_status, aps.status_name AS approval_status, sa.created_at, sa.updated_at, sa.deleted_at FROM student_activity sa JOIN student s ON s.student_id = sa.student_id::bigint JOIN student_activity_type sat ON sat.student_activity_type_id = sa.student_activity_type_id::integer LEFT JOIN academic_year ay ON ay.academic_year_id = sa.academic_year_id::integer JOIN institution i ON i.institution_id = sa.institution_id::integer LEFT JOIN campus c ON c.campus_id = sa.campus_id::integer LEFT JOIN department d ON d.department_id = sa.department_id::integer LEFT JOIN programme p ON p.programme_id = sa.programme_id::integer LEFT JOIN participation_level pl ON pl.participation_level_id = sa.participation_level_id::smallint LEFT JOIN event_mode em ON em.event_mode_id = sa.event_mode_id::smallint JOIN verification_status vs ON vs.verification_status_id = sa.verification_status_id::smallint JOIN approval_status aps ON aps.approval_status_id = sa.approval_status_id::smallint;` |
 | `v_student_fee_balance` | v | `SELECT sfa.student_account_id, sfa.student_id, sfa.account_number, COALESCE(sum(sfa2.net_payable_amount), 0.00) AS total_assessed, COALESCE(sum(sfa2.amount_paid), 0.00) AS total_paid, COALESCE(sum(sfa2.balance_amount), 0.00) AS total_outstanding, sfa.credit_balance FROM student_financial_account sfa LEFT JOIN student_fee_assessment sfa2 ON sfa2.student_account_id::bigint = sfa.student_account_id AND (sfa2.assessment_status <> ALL (ARRAY['CANCELLED'::text, 'WAIVED'::text])) GROUP BY sfa.student_account_id, sfa.student_id, sfa.account_number, sfa.credit_balance;` |
 
-### Functions (280)
+### Functions (284)
 
 | Function | Arguments |
 |---|---|
@@ -5735,6 +5735,8 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `public.auth_failure_record` | `p_username text, p_reason text` |
 | `public.auth_login_record` | - |
 | `public.auth_logout_record` | - |
+| `public.building_document_download_info` | `p_id bigint` |
+| `public.building_document_register` | `p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text` |
 | `public.cert_request_cancel` | `p_id bigint` |
 | `public.cert_request_create` | `p_type_id integer, p_purpose text, p_student_id bigint` |
 | `public.cert_request_decide` | `p_id bigint, p_approve boolean, p_remarks text` |
@@ -5838,6 +5840,8 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `public.iam_user_list` | `p_search text, p_status text, p_limit integer, p_offset integer` |
 | `public.institution_create` | `p jsonb` |
 | `public.institution_update` | `p_id integer, p jsonb` |
+| `public.land_document_download_info` | `p_id bigint` |
+| `public.land_document_register` | `p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text` |
 | `public.login_audit_list` | `p_search text, p_success boolean, p_from timestamp with time zone, p_to timestamp with time zone, p_limit integer, p_offset integer` |
 | `public.mentoring_assign` | `p_student_number text, p_employee_number text, p_start date` |
 | `public.mentoring_assignment_info` | `p_assignment_id bigint` |
@@ -6197,7 +6201,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `trg_user_role_assignment_scope_bu` | `user_role_assignment` | `CREATE TRIGGER trg_user_role_assignment_scope_bu BEFORE UPDATE ON user_role_assignment FOR EACH ROW EXECUTE FUNCTION sims_user_role_assignment_scope()` |
 | `trg_verification_status_audit` | `verification_status` | `CREATE TRIGGER trg_verification_status_audit AFTER INSERT OR DELETE OR UPDATE ON verification_status FOR EACH ROW EXECUTE FUNCTION sims_private.audit_row('STAFF_PROFILE', 'verification_status_id')` |
 
-### Policies (642)
+### Policies (643)
 
 | Table | Policy | Command | Roles |
 |---|---|---|---|
@@ -6539,6 +6543,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 | `feedback_questionnaire_item` | `feedback_questionnaire_item_update` | UPDATE | authenticated |
 | `feedback_response` | `feedback_response_select` | SELECT | authenticated |
 | `feedback_response_item` | `feedback_response_item_select` | SELECT | authenticated |
+| `file_object` | `file_object_property_document_select` | SELECT | authenticated |
 | `file_object` | `file_object_select` | SELECT | authenticated |
 | `financial_ledger_account` | `financial_ledger_account_select` | SELECT | authenticated |
 | `floor` | `floor_delete` | DELETE | authenticated |
@@ -6846,7 +6851,7 @@ Row level security: **enabled**. Columns: **5**. Indexes: **2**.
 
 ## Schema `sims_private`
 
-9 tables, 0 views, 153 functions, 0 triggers, 0 policies, 6 indexes.
+9 tables, 0 views, 157 functions, 0 triggers, 0 policies, 6 indexes.
 
 ### Tables (9)
 
@@ -6999,7 +7004,7 @@ Row level security: **disabled**. Columns: **14**. Indexes: **3**.
 
 _none_
 
-### Functions (153)
+### Functions (157)
 
 | Function | Arguments |
 |---|---|
@@ -7036,7 +7041,9 @@ _none_
 | `sims_private.can_see_applicant` | `p_applicant_id bigint` |
 | `sims_private.can_student` | `p_codes text[], p_id bigint, p_write boolean` |
 | `sims_private.can_use_announcement_path` | `p_name text, p_write boolean` |
+| `sims_private.can_use_building_doc_path` | `p_name text, p_write boolean` |
 | `sims_private.can_use_employee_doc_path` | `p_name text, p_write boolean` |
+| `sims_private.can_use_land_doc_path` | `p_name text, p_write boolean` |
 | `sims_private.can_use_student_doc_path` | `p_name text, p_write boolean` |
 | `sims_private.can_user` | `p_codes text[], p_id bigint, p_write boolean` |
 | `sims_private.check_employee_upload` | `p_employee bigint, p_key text, p_file_name text, p_mime text, p_size bigint, p_checksum text` |
@@ -7049,7 +7056,9 @@ _none_
 | `sims_private.current_user_id` | - |
 | `sims_private.describe_columns` | `p_table text, p_exclude text[]` |
 | `sims_private.doc_announcement_id` | `p_name text` |
+| `sims_private.doc_building_id` | `p_name text` |
 | `sims_private.doc_employee_id` | `p_name text` |
+| `sims_private.doc_land_id` | `p_name text` |
 | `sims_private.doc_student_id` | `p_name text` |
 | `sims_private.eff` | `p_codes text[]` |
 | `sims_private.eff_set_of` | `p_codes text[]` |

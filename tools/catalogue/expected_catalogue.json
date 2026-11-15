@@ -13,23 +13,23 @@
  "counts": {
   "tables": 234,
   "views": 10,
-  "functions": 433,
+  "functions": 441,
   "triggers": 214,
-  "policies": 642,
+  "policies": 643,
   "rls_tables": 228,
   "indexes": 375,
   "sequences": 211,
   "domains": 6,
   "enums": 0,
   "composites": 245,
-  "grants": 6556
+  "grants": 6576
  },
  "public": {
   "tables": 225,
   "views": 10,
-  "functions": 280,
+  "functions": 284,
   "triggers": 214,
-  "policies": 642,
+  "policies": 643,
   "rls_tables": 225,
   "indexes": 369,
   "sequences": 202,
@@ -40,7 +40,7 @@
  "sims_private": {
   "tables": 9,
   "views": 0,
-  "functions": 153,
+  "functions": 157,
   "triggers": 0,
   "policies": 0,
   "rls_tables": 3,
@@ -26249,6 +26249,12 @@
    "public.auth_logout_record()": {
     "definition_sha256": "01296610a550fc26f4b701c96d9590bc65e8abc8e62f915c399d18bd0045e5a8"
    },
+   "public.building_document_download_info(p_id bigint)": {
+    "definition_sha256": "a12359385e00c4665f02c01be7f2056bf63604b8333278950c5b599e1899497e"
+   },
+   "public.building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)": {
+    "definition_sha256": "0f767d7166d8bff6f9e0d7fdb318eb6278947210f730f9b3c3d8c14999eea721"
+   },
    "public.cert_request_cancel(p_id bigint)": {
     "definition_sha256": "66f0f799e48b30b0a7ec0020e3f0a8e5dc0162c5a39de539064add9e4c352740"
    },
@@ -26557,6 +26563,12 @@
    },
    "public.institution_update(p_id integer, p jsonb)": {
     "definition_sha256": "ed89076bbc5f737371608b5cba4fcaaa1e087a8748ca09f52fedcfc3d0f845fa"
+   },
+   "public.land_document_download_info(p_id bigint)": {
+    "definition_sha256": "41b35150929f6df4292c08f2733118b0dbff76e0449d133b5a7bd8db341045ea"
+   },
+   "public.land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)": {
+    "definition_sha256": "5250c270a9757aecb7c31945ef8be830cc94509fa04361726d37ec1789bd6914"
    },
    "public.login_audit_list(p_search text, p_success boolean, p_from timestamp with time zone, p_to timestamp with time zone, p_limit integer, p_offset integer)": {
     "definition_sha256": "f735d16eac96c046421890acd5f3f0cc1b9441a1ac36a5bdc300378a284e5526"
@@ -27074,8 +27086,14 @@
    "sims_private.can_use_announcement_path(p_name text, p_write boolean)": {
     "definition_sha256": "1709d011a81847ba9a27af34ff09b887d8f32c1f008fa8307800f83c35e6fd9d"
    },
+   "sims_private.can_use_building_doc_path(p_name text, p_write boolean)": {
+    "definition_sha256": "5758efb76a739c5371f9c8417fc2d0d26afe013cfe2fc142f48e40178b36f42e"
+   },
    "sims_private.can_use_employee_doc_path(p_name text, p_write boolean)": {
     "definition_sha256": "6ca2c000b61f673ddf52efdae71fbb1d58bc6fd074f846fb6c7048d06f4b8c50"
+   },
+   "sims_private.can_use_land_doc_path(p_name text, p_write boolean)": {
+    "definition_sha256": "48ad49995004e0d5c109e415d096fc02e8f6c326c492097c91c60c41fe722455"
    },
    "sims_private.can_use_student_doc_path(p_name text, p_write boolean)": {
     "definition_sha256": "a8822d7ce449aa1a836eb799007bdfd4f50343ced36aa82cd56ba439b38a5528"
@@ -27113,8 +27131,14 @@
    "sims_private.doc_announcement_id(p_name text)": {
     "definition_sha256": "a22b50d4fb46213b13ddec88a40e6313fd836db95751b5aed5f8848176da7f59"
    },
+   "sims_private.doc_building_id(p_name text)": {
+    "definition_sha256": "e1b8a37d34ecc34a4cd6ce101534d7de0cc818f2dc3f2092d038c21a6a0fc742"
+   },
    "sims_private.doc_employee_id(p_name text)": {
     "definition_sha256": "391bbc7f0e34b346c0d7aad6728c2afd65589f87500ab53175e1fc1fab302e4b"
+   },
+   "sims_private.doc_land_id(p_name text)": {
+    "definition_sha256": "57315b672c43176e31b525f481b468c6b8f47c88fd36765be46f9e77df9dfaac"
    },
    "sims_private.doc_student_id(p_name text)": {
     "definition_sha256": "66468bb4751f3d0a6a782252a74d3c1f113f272a3ce4aacd7093bc235afdbe07"
@@ -30476,6 +30500,15 @@
      "authenticated"
     ],
     "using_sha256": "5403e3a21991a01f501e44eee70b84889b538e03d1eaa7023e6134ff510b4e64",
+    "with_check_sha256": ""
+   },
+   "public.file_object.file_object_property_document_select": {
+    "command": "SELECT",
+    "permissive": true,
+    "roles": [
+     "authenticated"
+    ],
+    "using_sha256": "9d54b1d4f428f46be2192a72d7fc1af61f359e461ab28292b9920313ea4ef58a",
     "with_check_sha256": ""
    },
    "public.file_object.file_object_select": {
@@ -36060,6 +36093,24 @@
     "grantable": false
    },
    "public.building_document_building_document_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.building_document_download_info(p_id bigint).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.building_document_download_info(p_id bigint).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.building_document_download_info(p_id bigint).service_role.EXECUTE": {
+    "grantable": false
+   },
+   "public.building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text).service_role.EXECUTE": {
     "grantable": false
    },
    "public.calendar.authenticated.DELETE": {
@@ -44585,6 +44636,15 @@
    "public.land_document.service_role.UPDATE": {
     "grantable": false
    },
+   "public.land_document_download_info(p_id bigint).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.land_document_download_info(p_id bigint).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.land_document_download_info(p_id bigint).service_role.EXECUTE": {
+    "grantable": false
+   },
    "public.land_document_land_document_id_seq.postgres.SELECT": {
     "grantable": false
    },
@@ -44601,6 +44661,15 @@
     "grantable": false
    },
    "public.land_document_land_document_id_seq.service_role.USAGE": {
+    "grantable": false
+   },
+   "public.land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "public.land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "public.land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text).service_role.EXECUTE": {
     "grantable": false
    },
    "public.land_land_id_seq.postgres.SELECT": {
@@ -52697,10 +52766,22 @@
    "sims_private.can_use_announcement_path(p_name text, p_write boolean).postgres.EXECUTE": {
     "grantable": false
    },
+   "sims_private.can_use_building_doc_path(p_name text, p_write boolean).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.can_use_building_doc_path(p_name text, p_write boolean).postgres.EXECUTE": {
+    "grantable": false
+   },
    "sims_private.can_use_employee_doc_path(p_name text, p_write boolean).authenticated.EXECUTE": {
     "grantable": false
    },
    "sims_private.can_use_employee_doc_path(p_name text, p_write boolean).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.can_use_land_doc_path(p_name text, p_write boolean).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.can_use_land_doc_path(p_name text, p_write boolean).postgres.EXECUTE": {
     "grantable": false
    },
    "sims_private.can_use_student_doc_path(p_name text, p_write boolean).authenticated.EXECUTE": {
@@ -52778,10 +52859,22 @@
    "sims_private.doc_announcement_id(p_name text).postgres.EXECUTE": {
     "grantable": false
    },
+   "sims_private.doc_building_id(p_name text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.doc_building_id(p_name text).postgres.EXECUTE": {
+    "grantable": false
+   },
    "sims_private.doc_employee_id(p_name text).authenticated.EXECUTE": {
     "grantable": false
    },
    "sims_private.doc_employee_id(p_name text).postgres.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.doc_land_id(p_name text).authenticated.EXECUTE": {
+    "grantable": false
+   },
+   "sims_private.doc_land_id(p_name text).postgres.EXECUTE": {
     "grantable": false
    },
    "sims_private.doc_student_id(p_name text).authenticated.EXECUTE": {

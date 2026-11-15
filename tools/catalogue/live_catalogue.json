@@ -67888,6 +67888,18 @@
   },
   {
    "schema": "public",
+   "name": "building_document_download_info",
+   "args": "p_id bigint",
+   "definition": "CREATE OR REPLACE FUNCTION public.building_document_download_info(p_id bigint)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE d record; f record;\nBEGIN\n    SELECT d0.building_document_id, d0.building_id, b.campus_id INTO d\n    FROM building_document d0 JOIN building b ON b.building_id = d0.building_id\n    WHERE d0.building_document_id = p_id;\n    IF d.building_document_id IS NULL OR NOT sims_private.can_campus(ARRAY['INSTITUTION.ALL.READ'::text], d.campus_id) THEN\n        RAISE EXCEPTION 'Not authorised (INSTITUTION.ALL.READ) or unknown document' USING ERRCODE = '42501';\n    END IF;\n    SELECT x.storage_key, x.original_file_name, x.mime_type INTO f\n    FROM file_object x JOIN building_document d0 ON d0.file_object_id = x.file_object_id\n    WHERE d0.building_document_id = p_id AND x.deleted_at IS NULL;\n    IF f.storage_key IS NULL THEN RAISE EXCEPTION 'This document has no file attached' USING ERRCODE = '22023'; END IF;\n    INSERT INTO activity_audit (user_id, module_code, action_code, entity_name, entity_id, details)\n    VALUES (sims_private.current_user_id(), 'INSTITUTION', 'DOWNLOAD', 'building_document', p_id::text, jsonb_build_object('building_id', d.building_id));\n    RETURN jsonb_build_object('storage_key', f.storage_key, 'file_name', f.original_file_name, 'mime_type', f.mime_type);\nEND $function$\n"
+  },
+  {
+   "schema": "public",
+   "name": "building_document_register",
+   "args": "p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text",
+   "definition": "CREATE OR REPLACE FUNCTION public.building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text DEFAULT NULL::text)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE v_file bigint; v_ext text; v_meta jsonb; v_campus bigint; v_held record;\nBEGIN\n    SELECT campus_id INTO v_campus FROM building WHERE building_id = p_building_id;\n    IF v_campus IS NULL THEN RAISE EXCEPTION 'Unknown building' USING ERRCODE = '22023'; END IF;\n    IF NOT sims_private.can_campus(ARRAY['INSTITUTION.ALL.CREATE'::text], v_campus) THEN RAISE EXCEPTION 'Not authorised (INSTITUTION.ALL.CREATE)' USING ERRCODE = '42501'; END IF;\n    IF sims_private.doc_building_id(p_storage_key) IS DISTINCT FROM p_building_id THEN RAISE EXCEPTION 'The file is not stored under this building' USING ERRCODE = '22023'; END IF;\n    IF p_file_name IS NULL OR btrim(p_file_name) = '' OR length(p_file_name) > 255 THEN RAISE EXCEPTION 'The file name is required (at most 255 characters)' USING ERRCODE = '22023'; END IF;\n    IF p_mime_type NOT IN ('application/pdf', 'image/jpeg', 'image/png') THEN RAISE EXCEPTION 'Only PDF, JPEG and PNG files are accepted' USING ERRCODE = '22023'; END IF;\n    v_ext := lower(substring(p_file_name FROM '\\.([A-Za-z0-9]{1,10})$'));\n    IF v_ext IS NULL OR NOT ((p_mime_type = 'application/pdf' AND v_ext = 'pdf') OR (p_mime_type = 'image/jpeg' AND v_ext IN ('jpg', 'jpeg')) OR (p_mime_type = 'image/png' AND v_ext = 'png')) THEN\n        RAISE EXCEPTION 'The file name does not match its type' USING ERRCODE = '22023';\n    END IF;\n    IF p_size IS NULL OR p_size <= 0 OR p_size > 10485760 THEN RAISE EXCEPTION 'The file must be between 1 byte and 10 MB' USING ERRCODE = '22023'; END IF;\n    IF p_checksum IS NOT NULL AND p_checksum !~ '^[0-9A-Fa-f]{64}$' THEN RAISE EXCEPTION 'Invalid checksum' USING ERRCODE = '22023'; END IF;\n    SELECT metadata INTO v_meta FROM storage.objects WHERE bucket_id = 'sims-documents' AND name = p_storage_key;\n    IF NOT FOUND THEN RAISE EXCEPTION 'The file has not been uploaded' USING ERRCODE = '22023'; END IF;\n    IF v_meta ? 'size' AND (v_meta ->> 'size')::bigint <> p_size THEN RAISE EXCEPTION 'The uploaded file size does not match' USING ERRCODE = '22023'; END IF;\n    SELECT file_object_id, file_size_bytes, mime_type, original_file_name, deleted_at INTO v_held\n    FROM file_object WHERE storage_key = p_storage_key;\n    IF FOUND THEN\n        IF v_held.deleted_at IS NOT NULL\n           OR v_held.file_size_bytes <> p_size OR v_held.mime_type <> p_mime_type\n           OR v_held.original_file_name <> btrim(p_file_name)\n           OR EXISTS (SELECT 1 FROM land_document WHERE file_object_id = v_held.file_object_id)\n           OR EXISTS (SELECT 1 FROM building_document WHERE file_object_id = v_held.file_object_id) THEN\n            RAISE EXCEPTION 'That file is already registered' USING ERRCODE = '23505';\n        END IF;\n        RETURN v_held.file_object_id;\n    END IF;\n    INSERT INTO file_object (storage_provider, storage_key, original_file_name, mime_type, file_size_bytes, checksum_sha256, stored_file_name, file_extension, confidentiality_level, uploaded_by_user_id)\n    VALUES ('supabase-storage', p_storage_key, btrim(p_file_name), p_mime_type, p_size, lower(p_checksum), split_part(p_storage_key, '/', 3), v_ext, 'INTERNAL', sims_private.current_user_id()) RETURNING file_object_id INTO v_file;\n    RETURN v_file;\nEND $function$\n"
+  },
+  {
+   "schema": "public",
    "name": "cert_request_cancel",
    "args": "p_id bigint",
    "definition": "CREATE OR REPLACE FUNCTION public.cert_request_cancel(p_id bigint)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE r record;\nBEGIN\n    SELECT certificate_request_id, student_id, request_status INTO r FROM certificate_request WHERE certificate_request_id = p_id FOR UPDATE;\n    IF r.certificate_request_id IS NULL OR NOT (sims_private.is_me_student(r.student_id) OR sims_private.can_student(ARRAY['DOCUMENT.ALL.UPDATE']::text[], r.student_id, true)) THEN\n        RAISE EXCEPTION 'Not authorised or unknown request' USING ERRCODE = '42501';\n    END IF;\n    IF r.request_status = 'CANCELLED' THEN RETURN; END IF;\n    IF r.request_status <> 'SUBMITTED' THEN RAISE EXCEPTION 'Only a submitted request can be cancelled (status %)', r.request_status USING ERRCODE = '45000'; END IF;\n    UPDATE certificate_request SET request_status = 'CANCELLED' WHERE certificate_request_id = p_id;\n    INSERT INTO activity_audit (user_id, module_code, action_code, entity_name, entity_id, details) VALUES (sims_private.current_user_id(), 'DOCUMENT', 'CERT_CANCELLED', 'certificate_request', p_id::text, '{}'::jsonb);\nEND $function$\n"
@@ -68503,6 +68515,18 @@
    "name": "institution_update",
    "args": "p_id integer, p jsonb",
    "definition": "CREATE OR REPLACE FUNCTION public.institution_update(p_id integer, p jsonb)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE v_constraint text;\nBEGIN\n    IF NOT sims_private.can_institution(ARRAY['INSTITUTION.ALL.UPDATE']::text[], p_id)\n       OR NOT EXISTS (SELECT 1 FROM institution WHERE institution_id = p_id) THEN\n        RAISE EXCEPTION 'Not authorised to update this institution, or it does not exist' USING ERRCODE = '42501';\n    END IF;\n    IF p IS NULL OR jsonb_typeof(p) <> 'object' THEN RAISE EXCEPTION 'payload must be an object' USING ERRCODE = '22023'; END IF;\n    PERFORM sims_private.check_institution_fields(p);\n    IF (p ? 'institution_code' AND NULLIF(btrim(p ->> 'institution_code'), '') IS NULL)\n       OR (p ? 'institution_name' AND NULLIF(btrim(p ->> 'institution_name'), '') IS NULL) THEN\n        RAISE EXCEPTION 'institution_code and institution_name cannot be blank' USING ERRCODE = '22023';\n    END IF;\n    BEGIN\n        UPDATE institution SET\n            institution_code = CASE WHEN p ? 'institution_code' THEN btrim(p ->> 'institution_code') ELSE institution_code END,\n            institution_name = CASE WHEN p ? 'institution_name' THEN btrim(p ->> 'institution_name') ELSE institution_name END,\n            legal_name = CASE WHEN p ? 'legal_name' THEN NULLIF(btrim(p ->> 'legal_name'), '') ELSE legal_name END,\n            website_url = CASE WHEN p ? 'website_url' THEN NULLIF(btrim(p ->> 'website_url'), '') ELSE website_url END,\n            email = CASE WHEN p ? 'email' THEN NULLIF(btrim(p ->> 'email'), '') ELSE email END,\n            phone = CASE WHEN p ? 'phone' THEN NULLIF(btrim(p ->> 'phone'), '') ELSE phone END,\n            is_active = CASE WHEN p ? 'is_active' THEN (p ->> 'is_active')::boolean ELSE is_active END\n        WHERE institution_id = p_id;\n    EXCEPTION WHEN unique_violation THEN\n        GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;\n        IF v_constraint = 'institution_institution_code_key' THEN\n            RAISE EXCEPTION 'Institution code is already in use' USING ERRCODE = '23505';\n        END IF;\n        RAISE;\n    END;\nEND $function$\n"
+  },
+  {
+   "schema": "public",
+   "name": "land_document_download_info",
+   "args": "p_id bigint",
+   "definition": "CREATE OR REPLACE FUNCTION public.land_document_download_info(p_id bigint)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE d record; f record;\nBEGIN\n    SELECT d0.land_document_id, d0.land_id, l.campus_id INTO d\n    FROM land_document d0 JOIN land l ON l.land_id = d0.land_id\n    WHERE d0.land_document_id = p_id;\n    IF d.land_document_id IS NULL OR NOT sims_private.can_campus(ARRAY['INSTITUTION.ALL.READ'::text], d.campus_id) THEN\n        RAISE EXCEPTION 'Not authorised (INSTITUTION.ALL.READ) or unknown document' USING ERRCODE = '42501';\n    END IF;\n    SELECT x.storage_key, x.original_file_name, x.mime_type INTO f\n    FROM file_object x JOIN land_document d0 ON d0.file_object_id = x.file_object_id\n    WHERE d0.land_document_id = p_id AND x.deleted_at IS NULL;\n    IF f.storage_key IS NULL THEN RAISE EXCEPTION 'This document has no file attached' USING ERRCODE = '22023'; END IF;\n    INSERT INTO activity_audit (user_id, module_code, action_code, entity_name, entity_id, details)\n    VALUES (sims_private.current_user_id(), 'INSTITUTION', 'DOWNLOAD', 'land_document', p_id::text, jsonb_build_object('land_id', d.land_id));\n    RETURN jsonb_build_object('storage_key', f.storage_key, 'file_name', f.original_file_name, 'mime_type', f.mime_type);\nEND $function$\n"
+  },
+  {
+   "schema": "public",
+   "name": "land_document_register",
+   "args": "p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text",
+   "definition": "CREATE OR REPLACE FUNCTION public.land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text DEFAULT NULL::text)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE v_file bigint; v_ext text; v_meta jsonb; v_campus bigint; v_held record;\nBEGIN\n    SELECT campus_id INTO v_campus FROM land WHERE land_id = p_land_id;\n    IF v_campus IS NULL THEN RAISE EXCEPTION 'Unknown land' USING ERRCODE = '22023'; END IF;\n    IF NOT sims_private.can_campus(ARRAY['INSTITUTION.ALL.CREATE'::text], v_campus) THEN RAISE EXCEPTION 'Not authorised (INSTITUTION.ALL.CREATE)' USING ERRCODE = '42501'; END IF;\n    IF sims_private.doc_land_id(p_storage_key) IS DISTINCT FROM p_land_id THEN RAISE EXCEPTION 'The file is not stored under this land' USING ERRCODE = '22023'; END IF;\n    IF p_file_name IS NULL OR btrim(p_file_name) = '' OR length(p_file_name) > 255 THEN RAISE EXCEPTION 'The file name is required (at most 255 characters)' USING ERRCODE = '22023'; END IF;\n    IF p_mime_type NOT IN ('application/pdf', 'image/jpeg', 'image/png') THEN RAISE EXCEPTION 'Only PDF, JPEG and PNG files are accepted' USING ERRCODE = '22023'; END IF;\n    v_ext := lower(substring(p_file_name FROM '\\.([A-Za-z0-9]{1,10})$'));\n    IF v_ext IS NULL OR NOT ((p_mime_type = 'application/pdf' AND v_ext = 'pdf') OR (p_mime_type = 'image/jpeg' AND v_ext IN ('jpg', 'jpeg')) OR (p_mime_type = 'image/png' AND v_ext = 'png')) THEN\n        RAISE EXCEPTION 'The file name does not match its type' USING ERRCODE = '22023';\n    END IF;\n    IF p_size IS NULL OR p_size <= 0 OR p_size > 10485760 THEN RAISE EXCEPTION 'The file must be between 1 byte and 10 MB' USING ERRCODE = '22023'; END IF;\n    IF p_checksum IS NOT NULL AND p_checksum !~ '^[0-9A-Fa-f]{64}$' THEN RAISE EXCEPTION 'Invalid checksum' USING ERRCODE = '22023'; END IF;\n    SELECT metadata INTO v_meta FROM storage.objects WHERE bucket_id = 'sims-documents' AND name = p_storage_key;\n    IF NOT FOUND THEN RAISE EXCEPTION 'The file has not been uploaded' USING ERRCODE = '22023'; END IF;\n    IF v_meta ? 'size' AND (v_meta ->> 'size')::bigint <> p_size THEN RAISE EXCEPTION 'The uploaded file size does not match' USING ERRCODE = '22023'; END IF;\n    SELECT file_object_id, file_size_bytes, mime_type, original_file_name, deleted_at INTO v_held\n    FROM file_object WHERE storage_key = p_storage_key;\n    IF FOUND THEN\n        IF v_held.deleted_at IS NOT NULL\n           OR v_held.file_size_bytes <> p_size OR v_held.mime_type <> p_mime_type\n           OR v_held.original_file_name <> btrim(p_file_name)\n           OR EXISTS (SELECT 1 FROM land_document WHERE file_object_id = v_held.file_object_id)\n           OR EXISTS (SELECT 1 FROM building_document WHERE file_object_id = v_held.file_object_id) THEN\n            RAISE EXCEPTION 'That file is already registered' USING ERRCODE = '23505';\n        END IF;\n        RETURN v_held.file_object_id;\n    END IF;\n    INSERT INTO file_object (storage_provider, storage_key, original_file_name, mime_type, file_size_bytes, checksum_sha256, stored_file_name, file_extension, confidentiality_level, uploaded_by_user_id)\n    VALUES ('supabase-storage', p_storage_key, btrim(p_file_name), p_mime_type, p_size, lower(p_checksum), split_part(p_storage_key, '/', 3), v_ext, 'INTERNAL', sims_private.current_user_id()) RETURNING file_object_id INTO v_file;\n    RETURN v_file;\nEND $function$\n"
   },
   {
    "schema": "public",
@@ -69538,9 +69562,21 @@
   },
   {
    "schema": "sims_private",
+   "name": "can_use_building_doc_path",
+   "args": "p_name text, p_write boolean",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.can_use_building_doc_path(p_name text, p_write boolean)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT COALESCE(\n      sims_private.can_campus(\n        CASE WHEN p_write THEN ARRAY['INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.DELETE']::text[]\n             ELSE ARRAY['INSTITUTION.ALL.READ']::text[] END,\n        b.campus_id),\n      false)\n    FROM public.building b\n    WHERE b.building_id = sims_private.doc_building_id(p_name)\n$function$\n"
+  },
+  {
+   "schema": "sims_private",
    "name": "can_use_employee_doc_path",
    "args": "p_name text, p_write boolean",
    "definition": "CREATE OR REPLACE FUNCTION sims_private.can_use_employee_doc_path(p_name text, p_write boolean)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT COALESCE(sims_private.doc_employee_id(p_name) = sims_private.current_employee_id()\n                    OR sims_private.can_employee(ARRAY[CASE WHEN p_write THEN 'STAFF_PROFILE.STAFF_EVIDENCE.CREATE' ELSE 'STAFF_PROFILE.STAFF_EVIDENCE.READ' END]::text[], sims_private.doc_employee_id(p_name), p_write), false)\n$function$\n"
+  },
+  {
+   "schema": "sims_private",
+   "name": "can_use_land_doc_path",
+   "args": "p_name text, p_write boolean",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.can_use_land_doc_path(p_name text, p_write boolean)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n    SELECT COALESCE(\n      sims_private.can_campus(\n        CASE WHEN p_write THEN ARRAY['INSTITUTION.ALL.CREATE', 'INSTITUTION.ALL.DELETE']::text[]\n             ELSE ARRAY['INSTITUTION.ALL.READ']::text[] END,\n        l.campus_id),\n      false)\n    FROM public.land l\n    WHERE l.land_id = sims_private.doc_land_id(p_name)\n$function$\n"
   },
   {
    "schema": "sims_private",
@@ -69616,9 +69652,21 @@
   },
   {
    "schema": "sims_private",
+   "name": "doc_building_id",
+   "args": "p_name text",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.doc_building_id(p_name text)\n RETURNS bigint\n LANGUAGE sql\n IMMUTABLE\nAS $function$ SELECT CASE WHEN length(p_name) <= 400 AND p_name ~ '^building/[0-9]{1,15}/[^/]+$' THEN split_part(p_name, '/', 2)::bigint END $function$\n"
+  },
+  {
+   "schema": "sims_private",
    "name": "doc_employee_id",
    "args": "p_name text",
    "definition": "CREATE OR REPLACE FUNCTION sims_private.doc_employee_id(p_name text)\n RETURNS bigint\n LANGUAGE sql\n IMMUTABLE\nAS $function$\n    SELECT CASE WHEN length(p_name) <= 400 AND p_name ~ '^employee/[0-9]{1,15}/[^/]+$' THEN split_part(p_name, '/', 2)::bigint END\n$function$\n"
+  },
+  {
+   "schema": "sims_private",
+   "name": "doc_land_id",
+   "args": "p_name text",
+   "definition": "CREATE OR REPLACE FUNCTION sims_private.doc_land_id(p_name text)\n RETURNS bigint\n LANGUAGE sql\n IMMUTABLE\nAS $function$ SELECT CASE WHEN length(p_name) <= 400 AND p_name ~ '^land/[0-9]{1,15}/[^/]+$' THEN split_part(p_name, '/', 2)::bigint END $function$\n"
   },
   {
    "schema": "sims_private",
@@ -75595,6 +75643,18 @@
    "command": "SELECT",
    "permissive": true,
    "using": "sims_private.can_student(ARRAY['FEEDBACK.ALL.READ'::text], sims_private.nx_student_programme_enrolment_enrolment_id_student_id(sims_private.nx_student_term_registration_term_registration_id_7e00744235(sims_private.nx_feedback_response_feedback_response_id_term_re_148ea414c7((feedback_response_id)::bigint))), false)",
+   "with_check": null,
+   "roles": [
+    "authenticated"
+   ]
+  },
+  {
+   "schema": "public",
+   "table": "file_object",
+   "name": "file_object_property_document_select",
+   "command": "SELECT",
+   "permissive": true,
+   "using": "((EXISTS ( SELECT 1\n   FROM (land_document d\n     JOIN land l ON ((l.land_id = d.land_id)))\n  WHERE ((d.file_object_id = file_object.file_object_id) AND sims_private.can_campus(ARRAY['INSTITUTION.ALL.READ'::text], (l.campus_id)::bigint)))) OR (EXISTS ( SELECT 1\n   FROM (building_document d\n     JOIN building b ON ((b.building_id = (d.building_id)::integer)))\n  WHERE ((d.file_object_id = file_object.file_object_id) AND sims_private.can_campus(ARRAY['INSTITUTION.ALL.READ'::text], (b.campus_id)::bigint)))))",
    "with_check": null,
    "roles": [
     "authenticated"
@@ -84390,6 +84450,48 @@
   },
   {
    "schema": "public",
+   "object": "building_document_download_info(p_id bigint)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "building_document_download_info(p_id bigint)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "building_document_download_info(p_id bigint)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "building_document_register(p_building_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
    "object": "calendar",
    "grantee": "authenticated",
    "privilege": "DELETE",
@@ -104277,6 +104379,27 @@
   },
   {
    "schema": "public",
+   "object": "land_document_download_info(p_id bigint)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "land_document_download_info(p_id bigint)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "land_document_download_info(p_id bigint)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
    "object": "land_document_land_document_id_seq",
    "grantee": "postgres",
    "privilege": "SELECT",
@@ -104315,6 +104438,27 @@
    "object": "land_document_land_document_id_seq",
    "grantee": "service_role",
    "privilege": "USAGE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "public",
+   "object": "land_document_register(p_land_id bigint, p_storage_key text, p_file_name text, p_mime_type text, p_size bigint, p_checksum text)",
+   "grantee": "service_role",
+   "privilege": "EXECUTE",
    "grantable": false
   },
   {
@@ -123205,6 +123349,20 @@
   },
   {
    "schema": "sims_private",
+   "object": "can_use_building_doc_path(p_name text, p_write boolean)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "can_use_building_doc_path(p_name text, p_write boolean)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
    "object": "can_use_employee_doc_path(p_name text, p_write boolean)",
    "grantee": "authenticated",
    "privilege": "EXECUTE",
@@ -123213,6 +123371,20 @@
   {
    "schema": "sims_private",
    "object": "can_use_employee_doc_path(p_name text, p_write boolean)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "can_use_land_doc_path(p_name text, p_write boolean)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "can_use_land_doc_path(p_name text, p_write boolean)",
    "grantee": "postgres",
    "privilege": "EXECUTE",
    "grantable": false
@@ -123394,6 +123566,20 @@
   },
   {
    "schema": "sims_private",
+   "object": "doc_building_id(p_name text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "doc_building_id(p_name text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
    "object": "doc_employee_id(p_name text)",
    "grantee": "authenticated",
    "privilege": "EXECUTE",
@@ -123402,6 +123588,20 @@
   {
    "schema": "sims_private",
    "object": "doc_employee_id(p_name text)",
+   "grantee": "postgres",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "doc_land_id(p_name text)",
+   "grantee": "authenticated",
+   "privilege": "EXECUTE",
+   "grantable": false
+  },
+  {
+   "schema": "sims_private",
+   "object": "doc_land_id(p_name text)",
    "grantee": "postgres",
    "privilege": "EXECUTE",
    "grantable": false
@@ -125252,7 +125452,7 @@
   "public.feedback_response_item": 30,
   "public.file_object": 16,
   "public.financial_ledger_account": 6,
-  "public.floor": 3,
+  "public.floor": 4,
   "public.floor_facility": 10,
   "public.funded_research_project": 1,
   "public.funding_agency": 2,
@@ -125267,7 +125467,7 @@
   "public.indexing_agency": 10,
   "public.industry_sector": 5,
   "public.installment_plan": 4,
-  "public.institution": 1,
+  "public.institution": 2,
   "public.journal": 3,
   "public.journal_metric": 3,
   "public.journal_publication": 1,
@@ -125376,15 +125576,15 @@
  "counts": {
   "tables": 234,
   "views": 10,
-  "functions": 433,
+  "functions": 441,
   "triggers": 214,
-  "policies": 642,
+  "policies": 643,
   "rls_tables": 228,
   "indexes": 375,
   "sequences": 211,
   "domains": 6,
   "enums": 0,
   "composites": 245,
-  "grants": 6556
+  "grants": 6576
  }
 }

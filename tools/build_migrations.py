@@ -109,6 +109,14 @@ HAND_WRITTEN_FUNCTIONS = {
     ("public", "admin_lookup_options"),
     ("sims_private", "admin_pk_cols"),  # 067_admin_editing_expansion.sql
     ("sims_private", "admin_key_where"),
+    ("sims_private", "doc_land_id"),  # 071_land_document_uploads.sql
+    ("sims_private", "doc_building_id"),
+    ("sims_private", "can_use_land_doc_path"),
+    ("sims_private", "can_use_building_doc_path"),
+    ("public", "land_document_register"),
+    ("public", "land_document_download_info"),
+    ("public", "building_document_register"),
+    ("public", "building_document_download_info"),
 }
 
 HAND_WRITTEN_TRIGGERS = {

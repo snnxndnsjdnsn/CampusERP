@@ -89,11 +89,11 @@ describe('row level security', () => {
     `);
     const c = rows[0]!;
 
-    // Observed against the live catalogue dump as well: public: 225, policies: 642.
+    // Observed against the live catalogue dump as well: public: 225, policies: 643.
     expect(c.tables).toBe(225);
     expect(c.with_rls).toBe(c.tables);
     expect(c.with_policy).toBe(c.tables);
-    expect(c.policies).toBe(642);
+    expect(c.policies).toBe(643);
     expect(c.anon_policies).toBe(0);
 
     // No public table may be left without RLS, and none may be left without a policy.

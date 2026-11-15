@@ -21,7 +21,9 @@ import {
   type LookupMap,
   type LookupOption,
 } from '@/features/shared/dynamic-form';
+import { rpcCall, signedDocumentUrl } from '@/features/shared/client-rpc';
 import { Alert, Notice } from '@/features/shared/feedback';
+import { FileUploadField, type PickedFile } from '@/features/shared/file-upload-field';
 import { RecordForm } from '@/features/shared/record-form';
 import { recordNoun, recordNounTitle } from '@/features/shared/record-noun';
 import { RowActions } from '@/features/shared/row-actions';
@@ -106,6 +108,43 @@ function renderCell(column: FormColumn, raw: unknown, lookups: LookupMap) {  if 
 }
 
 /**
+ * The tables whose document file is picked from the computer.
+ *
+ * A `file_object_id` column normally offers a dropdown of every file the
+ * caller can see - a choice among rows some other form created, which is no
+ * way to attach the file this record is about. For these two tables the file
+ * is the record's own: the picker uploads it under `land/<id>` or
+ * `building/<id>` (the prefix the storage policy gates on), `save` registers
+ * it with the table's own RPC and puts the returned id in the payload, and
+ * the cell and the form can open what is already attached.
+ */
+type DocumentUpload = {
+  /** the column naming what the document belongs to: `land_id` / `building_id` */
+  parent: string;
+  /** the folder a picked blob is filed under: `land` / `building` */
+  folder: string;
+  /** the RPC that verifies a picked blob and creates its `file_object` row */
+  register: string;
+  /** the RPC that says where an attached file lives */
+  download: string;
+};
+
+const DOCUMENT_UPLOADS: Record<string, DocumentUpload> = {
+  land_document: {
+    parent: 'land_id',
+    folder: 'land',
+    register: 'land_document_register',
+    download: 'land_document_download_info',
+  },
+  building_document: {
+    parent: 'building_id',
+    folder: 'building',
+    register: 'building_document_register',
+    download: 'building_document_download_info',
+  },
+};
+
+/**
  * A collapsible "Manage" panel for one screen.
  *
  * The panel offers the tables behind the screen.  There are two ways to say
@@ -151,6 +190,12 @@ export function AdminTableEditor({
     values: FormValues;
     original: FormValues | null;
   } | null>(null);
+  // The file picked for the record being edited (see DOCUMENT_UPLOADS). It is
+  // registered by `save`, never by the picker itself, so a form that is
+  // abandoned leaves an orphan blob instead of a half-attached document - and
+  // it belongs to this editing session only: leaving the table, opening
+  // another row or saving all drop it.
+  const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
 
   // The props are arrays, so they are compared by value - otherwise a parent
   // that builds the array inline would restart the effect on every render.
@@ -217,6 +262,7 @@ export function AdminTableEditor({
   useEffect(() => {
     void (async () => {
       setEditing(null);
+      setPickedFile(null);
       setFilter('');
       setNotice(null);
       await load(table);
@@ -278,6 +324,29 @@ export function AdminTableEditor({
     setError(null);
     try {
       const payload = buildPayload(schema.columns, editing.values, editing.original);
+
+      // A picked file is registered before the row that names it: the
+      // register RPC verifies the blob (type, size, that it is really in the
+      // bucket under this parent's prefix) and makes the `file_object` row -
+      // which has no insert policy of its own - then the row itself is saved
+      // as always, through `admin_table_save`, with the returned id.
+      const upload = DOCUMENT_UPLOADS[schema.table];
+      if (upload && pickedFile) {
+        const parentId = Number(editing.values[upload.parent]);
+        if (!Number.isFinite(parentId) || parentId <= 0) {
+          throw new Error(`Choose the ${upload.folder} first: the file is stored under it.`);
+        }
+        const registered = await rpcCall<number>(upload.register, {
+          [`p_${upload.parent}`]: parentId,
+          p_storage_key: pickedFile.storageKey,
+          p_file_name: pickedFile.fileName,
+          p_mime_type: pickedFile.mimeType,
+          p_size: pickedFile.size,
+        });
+        if (!registered.ok) throw new Error(registered.error);
+        payload.file_object_id = Number(registered.data);
+      }
+
       const { error: saveError } = await supabase.rpc('admin_table_save', {
         p_table: schema.table,
         p_key: editing.key,
@@ -285,6 +354,7 @@ export function AdminTableEditor({
       });
       if (saveError) throw new Error(saveError.message);
       setEditing(null);
+      setPickedFile(null);
       setNotice(`${recordNounTitle(schema.label)} ${editing.key === null ? 'added' : 'updated'}.`);
       await load(schema.table);
       router.refresh();
@@ -293,6 +363,32 @@ export function AdminTableEditor({
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * Open the file attached to a document row.
+   *
+   * The download RPC checks the caller may read this document and says where
+   * its file lives; the signed URL is minted by the storage service, which
+   * checks the read branch of the path helper on its own.
+   */
+  async function openDocument(rowId: unknown) {
+    if (!schema || rowId === null || rowId === undefined) return;
+    const upload = DOCUMENT_UPLOADS[schema.table];
+    if (!upload) return;
+    setError(null);
+    const res = await rpcCall<Record<string, unknown>>(upload.download, { p_id: Number(rowId) });
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    const key = String(res.data.storage_key ?? '');
+    const url = key ? await signedDocumentUrl(key) : null;
+    if (!url) {
+      setError('The document file could not be opened.');
+      return;
+    }
+    window.open(url, '_blank', 'noopener');
   }
 
   async function remove(key: unknown) {
@@ -317,6 +413,17 @@ export function AdminTableEditor({
   // Every control that talks about one record of this table uses this name:
   // "Add academic year", never "Add row".
   const noun = schema ? recordNoun(schema.label) : 'row';
+
+  // The document picker of this table, when it has one (see DOCUMENT_UPLOADS).
+  const upload = schema ? DOCUMENT_UPLOADS[schema.table] : undefined;
+
+  // The name of the file attached to the row being edited, as the table cell
+  // shows it - the label from the same lookup, not the number behind it.
+  const attachedFile =
+    upload && editing?.original?.file_object_id
+      ? (lookups.file_object?.find((o) => String(o.id) === String(editing.original?.file_object_id))?.label ??
+        'the attached file')
+      : null;
 
   return (
     <Card className="mb-6" data-testid="admin-editor">
@@ -385,6 +492,7 @@ export function AdminTableEditor({
                   <Button
                     onClick={() => {
                       setEditing({ key: null, values: valuesFromRow(schema.columns, null), original: null });
+                      setPickedFile(null);
                       setError(null);
                     }}
                   >
@@ -403,19 +511,65 @@ export function AdminTableEditor({
                   title={`${editing.key === null ? 'New' : 'Edit'} ${noun}`}
                   isNew={editing.key === null}
                   saving={saving}
-                  onCancel={() => setEditing(null)}
+                  onCancel={() => {
+                    setEditing(null);
+                    setPickedFile(null);
+                  }}
                   onSave={() => void save()}
                   testId="admin-editor-form"
                 >
                   <DynamicForm
-                    columns={schema.columns}
+                    // A document table's file column is not a dropdown of
+                    // other forms' files: the picker below replaces it, and
+                    // `save` fills the column in from the register RPC.
+                    columns={schema.columns.filter((c) => !(upload && c.name === 'file_object_id'))}
                     values={editing.values}
                     lookups={lookups}
                     idPrefix={`admin-${editing.key === null ? 'new' : 'row'}`}
-                    onChange={(name, value) =>
-                      setEditing((prev) => (prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev))
-                    }
+                    onChange={(name, value) => {
+                      // The blob lives under `<folder>/<parent id>/`, so it
+                      // is only the current parent's file: changing the
+                      // parent drops the pick rather than filing it wrong.
+                      if (upload && name === upload.parent) setPickedFile(null);
+                      setEditing((prev) =>
+                        prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev,
+                      );
+                    }}
                   />
+
+                  {/*
+                    The document picker. It only appears once the row has a
+                    parent, because the storage policy gates the upload on the
+                    folder `land/<id>` / `building/<id>`, and a file picked
+                    for one parent would be stored under the wrong one.
+                  */}
+                  {upload && editing.values[upload.parent] ? (
+                    <div className="mt-4 space-y-2">
+                      <FileUploadField
+                        id="admin-doc-file"
+                        label="Document file"
+                        prefix={`${upload.folder}/${editing.values[upload.parent]}`}
+                        onUploaded={setPickedFile}
+                      />
+                      {pickedFile ? (
+                        <p className="text-sm text-muted-foreground">
+                          Picked <span className="font-mono">{pickedFile.fileName}</span> — it is filed when you save.
+                        </p>
+                      ) : attachedFile ? (
+                        <p className="text-sm text-muted-foreground">
+                          On file: <span className="font-mono">{attachedFile}</span>{' '}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void openDocument(editing.key)}
+                            type="button"
+                          >
+                            Open
+                          </Button>
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </RecordForm>
               ) : null}
 
@@ -447,13 +601,36 @@ export function AdminTableEditor({
                         <TableRow key={keyText}>
                           <TableCell className="font-medium tabular-nums">{keyText}</TableCell>
                           {schema.columns.map((c) => (
-                            <TableCell key={c.name}>{renderCell(c, row[c.name], lookups)}</TableCell>
+                            <TableCell key={c.name}>
+                              {/*
+                                A file a document points at opens from its
+                                cell: the label says which file, the button
+                                asks the table's own download RPC where it
+                                lives and opens the signed URL.
+                              */}
+                              {c.name === 'file_object_id' && row[c.name] && upload ? (
+                                <span className="inline-flex items-center gap-2">
+                                  {renderCell(c, row[c.name], lookups)}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void openDocument(keyOf(row))}
+                                    type="button"
+                                  >
+                                    Open
+                                  </Button>
+                                </span>
+                              ) : (
+                                renderCell(c, row[c.name], lookups)
+                              )}
+                            </TableCell>
                           ))}
                           <TableCell className="text-right">
                             <RowActions
                               onEdit={() => {
                                 const values = valuesFromRow(schema.columns, row);
                                 setEditing({ key, values, original: values });
+                                setPickedFile(null);
                                 setError(null);
                               }}
                               onDelete={() => void remove(key)}

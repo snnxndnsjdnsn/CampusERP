@@ -12,11 +12,13 @@ yet.
 `HAND_WRITTEN_TRIGGERS` lists for the functions and triggers it renders.  The
 tables, on the other hand, are shared with `tools/build_rls.py`, which must
 leave their policies out of 018 for the same reason: 068 creates the tables and
-their policies together, long after 018 has run.
+their policies together, long after 018 has run.  A policy on a table the
+generated set *does* create, but which reads a table it does not, is excluded
+by name through `HAND_WRITTEN_POLICIES`.
 
 Keep this list in step with the hand written migrations: every table they
-create, and every column they add to a table that the generated set creates,
-belongs here.
+create, every column they add to a table that the generated set creates, and
+every policy they own, belongs here.
 """
 from __future__ import annotations
 
@@ -52,6 +54,18 @@ HAND_WRITTEN_CONSTRAINTS = frozenset({
     "fk_room_floor",
 })
 
+# Policies on tables the generated set creates, but which read tables it does
+# not create until much later - so rendering them into 018 would fail on a
+# fresh database.
+#
+# 071_property_document_uploads.sql: the metadata of a file that a land or
+# building document points at is visible to whoever may read that document
+# row. It reads `land_document` / `building_document`, which do not exist
+# until 068.
+HAND_WRITTEN_POLICIES = frozenset({
+    "file_object_property_document_select",
+})
+
 
 def strip_hand_written_tables(cat: dict) -> dict:
     """Remove the hand written tables and everything that hangs off them.
@@ -73,7 +87,10 @@ def strip_hand_written_tables(cat: dict) -> dict:
                 c for c in t.get("constraints", [])
                 if c.get("name") not in HAND_WRITTEN_CONSTRAINTS
             ]
-    cat["policies"] = [p for p in cat["policies"] if p.get("table") not in tables]
+    cat["policies"] = [
+        p for p in cat["policies"]
+        if p.get("table") not in tables and p.get("name") not in HAND_WRITTEN_POLICIES
+    ]
     cat["indexes"] = [i for i in cat["indexes"] if i.get("table") not in tables]
     sequences = [
         s for s in cat.get("sequences", [])
